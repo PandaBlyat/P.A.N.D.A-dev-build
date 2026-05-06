@@ -48,7 +48,7 @@ import { showXpToast } from './components/XpToast';
 import { showGamificationToast } from './components/AchievementToast';
 import { installBeginnerTooltipBridge } from './components/BeginnerTooltip';
 import { mountBeginnerTooltipController } from './lib/beginner-tooltips';
-import { initializeCollabIdentity, resumeStoredCollabSession } from './lib/collab-session';
+import { flushCollabCheckpoint, initializeCollabIdentity, joinCollabSessionById, resumeStoredCollabSession } from './lib/collab-session';
 import { showCollabInviteToast } from './components/CollabInviteToast';
 
 type IdleCallbackHandle = number;
@@ -158,7 +158,8 @@ const publisherId = getPublisherId();
 const storedUsername = getStoredUsername();
 if (storedUsername) {
   initializeCollabIdentity({ publisherId, username: storedUsername }, showCollabInviteToast);
-  void resumeStoredCollabSession();
+  const collabParam = new URLSearchParams(window.location.search).get('collab');
+  void (collabParam ? joinCollabSessionById(collabParam) : resumeStoredCollabSession());
 }
 
 function setCurrentProfile(profile: UserProfile | null): void {
@@ -179,7 +180,8 @@ function buildSyncedStreakPayload(profile: UserProfile, loginResult: ReturnType<
 function handleProfileRegistered(profile: UserProfile): void {
   setCurrentProfile(profile);
   initializeCollabIdentity({ publisherId: profile.publisher_id, username: profile.username }, showCollabInviteToast);
-  void resumeStoredCollabSession();
+  const collabParam = new URLSearchParams(window.location.search).get('collab');
+  void (collabParam ? joinCollabSessionById(collabParam) : resumeStoredCollabSession());
 
   const loginResult = recordDailyLogin();
   if (!loginResult.isNew) return;
@@ -303,6 +305,7 @@ function scheduleAutosave(): void {
 window.addEventListener('beforeunload', () => {
   flushAllDebounced();
   store.commitPendingTextEdits();
+  void flushCollabCheckpoint();
   flushAutosave();
 });
 

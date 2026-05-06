@@ -1,6 +1,6 @@
 import type { Conversation } from '../lib/types';
 import type { CollabParticipant } from '../lib/collab-protocol';
-import { inviteCollabUser, subscribeCollabLobby } from '../lib/collab-session';
+import { inviteCollabUser, joinCollabSessionById, startHostCollabSession, subscribeCollabLobby } from '../lib/collab-session';
 import { createIcon } from './icons';
 import { createUiText } from '../lib/ui-language';
 import { store } from '../lib/state';
@@ -34,6 +34,59 @@ export function openCollabSessionModal(conversation: Conversation): void {
   const subtitle = document.createElement('p');
   subtitle.className = 'collab-session-subtitle';
   subtitle.textContent = conversation.label;
+
+  const shareBox = document.createElement('div');
+  shareBox.className = 'collab-share-box';
+  const shareLabel = document.createElement('span');
+  shareLabel.textContent = ui('Session link', 'Session link');
+  const shareInput = document.createElement('input');
+  shareInput.type = 'text';
+  shareInput.readOnly = true;
+  shareInput.placeholder = ui('Start session to create link', 'Start session to create link');
+  const startBtn = document.createElement('button');
+  startBtn.type = 'button';
+  startBtn.className = 'secondary-btn';
+  startBtn.append(createIcon('users'), document.createTextNode(ui('Start', 'Start')));
+  startBtn.onclick = async () => {
+    startBtn.disabled = true;
+    try {
+      const session = await startHostCollabSession(conversation);
+      const url = new URL(window.location.href);
+      url.searchParams.set('collab', session.id);
+      shareInput.value = url.toString();
+      await navigator.clipboard?.writeText(shareInput.value).catch(() => undefined);
+      startBtn.textContent = ui('Copied', 'Copied');
+    } catch (error) {
+      startBtn.disabled = false;
+      startBtn.textContent = error instanceof Error ? error.message : ui('Failed', 'Failed');
+    }
+  };
+  shareBox.append(shareLabel, shareInput, startBtn);
+
+  const joinBox = document.createElement('div');
+  joinBox.className = 'collab-join-box';
+  const joinInput = document.createElement('input');
+  joinInput.type = 'text';
+  joinInput.placeholder = ui('Paste session code/link', 'Paste session code/link');
+  const joinBtn = document.createElement('button');
+  joinBtn.type = 'button';
+  joinBtn.className = 'secondary-btn';
+  joinBtn.textContent = ui('Join', 'Join');
+  joinBtn.onclick = async () => {
+    const raw = joinInput.value.trim();
+    const match = raw.match(/[?&]collab=([^&]+)/);
+    const sessionId = decodeURIComponent(match?.[1] ?? raw);
+    if (!sessionId) return;
+    joinBtn.disabled = true;
+    try {
+      await joinCollabSessionById(sessionId);
+      overlay.remove();
+    } catch (error) {
+      joinBtn.disabled = false;
+      joinBtn.textContent = error instanceof Error ? error.message : ui('Failed', 'Failed');
+    }
+  };
+  joinBox.append(joinInput, joinBtn);
 
   const list = document.createElement('div');
   list.className = 'collab-user-list';
@@ -80,7 +133,7 @@ export function openCollabSessionModal(conversation: Conversation): void {
   });
   overlay.addEventListener('remove', unsubscribe, { once: true });
 
-  card.append(header, subtitle, list);
+  card.append(header, subtitle, shareBox, joinBox, list);
   overlay.appendChild(card);
   document.body.appendChild(overlay);
   const observer = new MutationObserver(() => {

@@ -1,7 +1,8 @@
-import type { Conversation } from './types';
+import type { Choice, Conversation, Turn } from './types';
 import type { CollabInviteOffer, CollabIdentity, CollabInviteReply } from './collab-realtime';
-import type { CollabParticipant, CollabSession } from './collab-protocol';
+import type { CollabFrame, CollabLock, CollabOp, CollabParticipant, CollabSession } from './collab-protocol';
 import {
+  checkpointCollabSession,
   closeCollabSession,
   createCollabSession,
   fetchCollabSession,
@@ -16,13 +17,15 @@ import {
   openSession,
   sendInboxBroadcast,
 } from './collab-realtime';
-import { normalizeParticipants } from './collab-protocol';
+import { applyCollabOpsToConversation, cloneConversation, coalesceCollabOps, normalizeParticipants, nowCollabTs } from './collab-protocol';
 import { store } from './state';
+import { requestFlowCenter } from './flow-navigation';
 
 const SNAPSHOT_BATCH_MS = 250;
-const SNAPSHOT_INTERVAL_MS = 60_000;
+const SNAPSHOT_INTERVAL_MS = 25_000;
 const HOST_GRACE_MS = 15_000;
 const LOCK_IDLE_MS = 10_000;
+const LOCK_RENEW_MS = 4_000;
 const CURSOR_INTERVAL_MS = 200;
 const ACTIVE_SESSION_KEY = 'panda:collab-active-session:v1';
 
@@ -34,7 +37,11 @@ type Runtime = {
   guestEditCount: number;
   channel: ReturnType<typeof openSession> | null;
   flushTimer: ReturnType<typeof setTimeout> | null;
+  checkpointTimer: ReturnType<typeof setInterval> | null;
   hostGraceTimer: ReturnType<typeof setTimeout> | null;
+  lockTimers: Map<string, ReturnType<typeof setInterval>>;
+  localLockTokens: Map<string, string>;
+  syncedConversation: Conversation | null;
   lastSnapshotAt: number;
   lastCursorAt: number;
   framesThisSecond: number;
@@ -187,6 +194,22 @@ export async function acceptCollabInvite(offer: CollabInviteOffer): Promise<void
   });
 }
 
+export async function joinCollabSessionById(sessionId: string): Promise<void> {
+  const currentIdentity = requireIdentity();
+  const session = await joinCollabSession(sessionId.trim(), currentIdentity.publisherId, currentIdentity.username);
+  openRuntime(session, session.host_publisher_id === currentIdentity.publisherId, { select: true });
+  if (session.snapshot) {
+    applySnapshot(session.snapshot, session.snapshot_version, { select: true });
+  } else {
+    void runtime?.channel?.send('snapshot:request', {
+      type: 'snapshot:request',
+      sessionId: session.id,
+      authorId: currentIdentity.publisherId,
+      reason: 'join-code',
+    });
+  }
+}
+
 export async function refuseCollabInvite(offer: CollabInviteOffer): Promise<void> {
   const currentIdentity = requireIdentity();
   await sendInboxBroadcast(offer.hostPublisherId, 'invite:refuse', {
@@ -226,6 +249,11 @@ export async function flushCollabSessionForPublish(): Promise<string | null> {
   return session.id;
 }
 
+export async function flushCollabCheckpoint(): Promise<void> {
+  await flushSnapshotNow();
+  await checkpointSnapshotNow();
+}
+
 export function getCollabPathForFieldKey(fieldKey: string | null | undefined): string | null {
   if (!fieldKey) return null;
   const conversationMatch = /^conversation-\d+-(label|timeout-message)$/u.exec(fieldKey);
@@ -261,7 +289,9 @@ export function collabCanEditPath(path: string | null | undefined): boolean {
 
 export function acquireCollabLock(path: string | null | undefined): void {
   if (!runtime || !identity || !path) return;
-  const token = `${identity.publisherId}:${path}:${Date.now()}`;
+  const existingToken = runtime.localLockTokens.get(path);
+  const token = existingToken ?? `${identity.publisherId}:${path}:${Date.now()}`;
+  runtime.localLockTokens.set(path, token);
   const payload = {
     type: 'lock:acquire' as const,
     sessionId: runtime.session.id,
@@ -271,12 +301,23 @@ export function acquireCollabLock(path: string | null | undefined): void {
     token,
     expiresAt: Date.now() + LOCK_IDLE_MS,
   };
+  store.upsertCollabLock(payload);
   void runtime.channel?.send('lock:acquire', payload);
+  if (!runtime.lockTimers.has(path)) {
+    runtime.lockTimers.set(path, setInterval(() => {
+      if (!runtime || !identity) return;
+      acquireCollabLock(path);
+    }, LOCK_RENEW_MS));
+  }
 }
 
 export function releaseCollabLock(path: string | null | undefined): void {
   if (!runtime || !identity || !path) return;
   const lock = store.get().collab.locks[path];
+  const timer = runtime.lockTimers.get(path);
+  if (timer) clearInterval(timer);
+  runtime.lockTimers.delete(path);
+  runtime.localLockTokens.delete(path);
   void runtime.channel?.send('lock:release', {
     type: 'lock:release',
     sessionId: runtime.session.id,
@@ -284,6 +325,7 @@ export function releaseCollabLock(path: string | null | undefined): void {
     path,
     token: lock?.token,
   });
+  store.removeCollabLock(path, identity.publisherId);
 }
 
 export function sendCollabCursorPing(point: { x: number; y: number }): void {
@@ -291,6 +333,7 @@ export function sendCollabCursorPing(point: { x: number; y: number }): void {
   const now = Date.now();
   if (now - runtime.lastCursorAt < CURSOR_INTERVAL_MS) return;
   runtime.lastCursorAt = now;
+  const state = store.get();
   void runtime.channel?.send('cursor', {
     type: 'cursor',
     sessionId: runtime.session.id,
@@ -300,6 +343,12 @@ export function sendCollabCursorPing(point: { x: number; y: number }): void {
       x: Math.round(point.x),
       y: Math.round(point.y),
       ts: now,
+      selectedTurnNumber: state.selectedTurnNumber,
+      selectedFieldPath: getCollabPathForFieldKey(
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement.getAttribute('data-field-key')
+          : null,
+      ),
     },
   });
 }
@@ -321,7 +370,11 @@ function openRuntime(session: CollabSession, asHost: boolean, options: { select?
     guestEditCount: session.guest_edit_count ?? 0,
     channel: null,
     flushTimer: null,
+    checkpointTimer: null,
     hostGraceTimer: null,
+    lockTimers: new Map(),
+    localLockTokens: new Map(),
+    syncedConversation: cloneConversation(getActiveConversationSnapshot() ?? session.snapshot),
     lastSnapshotAt: Date.now(),
     lastCursorAt: 0,
     framesThisSecond: 0,
@@ -340,6 +393,9 @@ function openRuntime(session: CollabSession, asHost: boolean, options: { select?
     store.selectConversation(session.conversation_id);
   }
   persistRuntimeSession(session.id, currentIdentity);
+  runtime.checkpointTimer = setInterval(() => {
+    void checkpointSnapshotNow();
+  }, SNAPSHOT_INTERVAL_MS);
   runtime.channel = openSession(session.id, currentIdentity, {
     onPresence: (onlineParticipants) => handlePresenceSync(onlineParticipants),
     onBroadcast: (event) => {
@@ -381,8 +437,18 @@ function openRuntime(session: CollabSession, asHost: boolean, options: { select?
           break;
         case 'cursor':
           store.setCollabRemoteCursor(event.cursor);
+          if (
+            store.get().collab.followPublisherId === event.cursor.authorId
+            && event.cursor.selectedTurnNumber != null
+          ) {
+            requestFlowCenter({
+              conversationId: runtime.session.conversation_id,
+              turnNumber: event.cursor.selectedTurnNumber,
+            });
+          }
           break;
         case 'frame':
+          handleFrame(event.frame);
           break;
       }
     },
@@ -407,6 +473,7 @@ function handleInviteReply(reply: CollabInviteReply): void {
     isHost: false,
   }], runtime.session.host_publisher_id);
   store.setCollabParticipants(participants);
+  addActivity(reply.publisherId, reply.username, `${reply.username} joined.`);
   sendSnapshotCommit();
 }
 
@@ -447,6 +514,7 @@ async function promoteSelfToHost(): Promise<void> {
     hostDisconnected: false,
     statusMessage: 'You are host now.',
   });
+  addActivity(identity.publisherId, identity.username, `${identity.username} became host.`);
   sendSnapshotCommit();
 }
 
@@ -467,6 +535,18 @@ async function flushSnapshotNow(): Promise<void> {
   }
   const snapshot = getActiveConversationSnapshot();
   if (!snapshot) return;
+  const before = runtime.syncedConversation;
+  const ops = before ? createOpsFromConversationDiff(before, snapshot, runtime) : [{
+    v: runtime.version + 1,
+    sessionId: runtime.session.id,
+    authorId: runtime.identity.publisherId,
+    ts: nowCollabTs(),
+    path: '',
+    op: 'set' as const,
+    value: snapshot,
+  }];
+  const coalesced = coalesceCollabOps(ops).filter(op => op.path);
+  if (coalesced.length === 0) return;
   runtime.lastSnapshotAt = Date.now();
   runtime.framesThisSecond += 1;
   if (runtime.lastSnapshotAt - runtime.secondStartedAt >= 1000) {
@@ -476,22 +556,15 @@ async function flushSnapshotNow(): Promise<void> {
   }
   if (runtime.isHost) {
     runtime.version += 1;
-    await runtime.channel?.send('snapshot:commit', {
-      type: 'snapshot:commit',
-      sessionId: runtime.session.id,
-      authorId: runtime.identity.publisherId,
-      version: runtime.version,
-      conversation: snapshot,
-    });
+    const committedOps = coalesced.map(op => ({ ...op, v: runtime!.version }));
+    runtime.syncedConversation = applyCollabOpsToConversation(runtime.syncedConversation ?? snapshot, committedOps);
+    store.updateCollabSession({ version: runtime.version });
+    addActivity(runtime.identity.publisherId, runtime.identity.username, describeOps(committedOps));
+    await sendFrame({ mode: 'commit', ops: committedOps, version: runtime.version });
     return;
   }
   runtime.guestEditCount += 1;
-  await runtime.channel?.send('snapshot:propose', {
-    type: 'snapshot:propose',
-    sessionId: runtime.session.id,
-    authorId: runtime.identity.publisherId,
-    conversation: snapshot,
-  });
+  await sendFrame({ mode: 'propose', ops: coalesced, version: runtime.version + 1 });
 }
 
 function sendSnapshotCommit(): void {
@@ -499,6 +572,8 @@ function sendSnapshotCommit(): void {
   const snapshot = getActiveConversationSnapshot();
   if (!snapshot) return;
   runtime.version += 1;
+  runtime.syncedConversation = cloneConversation(snapshot);
+  store.updateCollabSession({ version: runtime.version });
   void runtime.channel?.send('snapshot:commit', {
     type: 'snapshot:commit',
     sessionId: runtime.session.id,
@@ -513,9 +588,238 @@ function applySnapshot(conversation: Conversation, version: number, options: { s
   applyingRemoteSnapshot = true;
   try {
     store.applyCollabConversationSnapshot(runtime.session.conversation_id, conversation, version, options);
+    runtime.syncedConversation = cloneConversation(conversation);
   } finally {
     applyingRemoteSnapshot = false;
   }
+}
+
+function applyOps(ops: CollabOp[], version: number, options: { select?: boolean } = {}): void {
+  if (!runtime || ops.length === 0) return;
+  applyingRemoteSnapshot = true;
+  try {
+    store.applyCollabConversationOps(runtime.session.conversation_id, ops, version, options);
+    const snapshot = getActiveConversationSnapshot();
+    runtime.syncedConversation = snapshot ? cloneConversation(snapshot) : runtime.syncedConversation;
+  } finally {
+    applyingRemoteSnapshot = false;
+  }
+}
+
+function handleFrame(frame: CollabFrame): void {
+  if (!runtime || frame.sessionId !== runtime.session.id || !frame.ops?.length) return;
+  if (frame.mode === 'propose') {
+    if (!runtime.isHost || frame.authorId === runtime.identity.publisherId) return;
+    const acceptedOps = filterOpsAllowedByLocks(frame.ops, frame.authorId);
+    if (!acceptedOps.length) return;
+    runtime.guestEditCount += 1;
+    runtime.version += 1;
+    const committedOps = acceptedOps.map(op => ({ ...op, v: runtime!.version }));
+    applyOps(committedOps, runtime.version);
+    store.updateCollabSession({ guestEditCount: runtime.guestEditCount, version: runtime.version });
+    const participant = store.get().collab.participants.find(item => item.publisherId === frame.authorId);
+    addActivity(frame.authorId, participant?.username ?? frame.authorId, describeOps(committedOps, participant?.username));
+    void sendFrame({ mode: 'commit', ops: committedOps, version: runtime.version, authorId: frame.authorId });
+    void checkpointSnapshotNow();
+    return;
+  }
+  if (frame.mode === 'commit') {
+    runtime.version = Math.max(runtime.version, frame.version ?? runtime.version);
+    store.updateCollabSession({ version: runtime.version });
+    if (frame.authorId === runtime.identity.publisherId) {
+      const snapshot = getActiveConversationSnapshot();
+      runtime.syncedConversation = snapshot ? cloneConversation(snapshot) : runtime.syncedConversation;
+      return;
+    }
+    applyOps(frame.ops, runtime.version);
+    const participant = store.get().collab.participants.find(item => item.publisherId === frame.authorId);
+    addActivity(frame.authorId, participant?.username ?? frame.authorId, describeOps(frame.ops, participant?.username));
+  }
+}
+
+async function sendFrame(params: { mode: 'propose' | 'commit'; ops: CollabOp[]; version: number; authorId?: string }): Promise<void> {
+  if (!runtime) return;
+  await runtime.channel?.send('frame', {
+    type: 'frame',
+    frame: {
+      sessionId: runtime.session.id,
+      authorId: params.authorId ?? runtime.identity.publisherId,
+      mode: params.mode,
+      version: params.version,
+      ops: params.ops,
+    },
+  });
+}
+
+async function checkpointSnapshotNow(): Promise<void> {
+  if (!runtime || !runtime.isHost) return;
+  const snapshot = getActiveConversationSnapshot();
+  if (!snapshot) return;
+  const session = await checkpointCollabSession(
+    runtime.session.id,
+    runtime.identity.publisherId,
+    snapshot,
+    runtime.version,
+    runtime.guestEditCount,
+  );
+  if (session) runtime.session = session;
+}
+
+function createOpsFromConversationDiff(before: Conversation, after: Conversation, current: Runtime): CollabOp[] {
+  const ops: CollabOp[] = [];
+  const pushSet = (path: string, value: unknown) => {
+    ops.push({
+      v: current.version + 1,
+      sessionId: current.session.id,
+      authorId: current.identity.publisherId,
+      ts: nowCollabTs(),
+      path,
+      op: 'set',
+      value: cloneConversation(value),
+      lockToken: current.localLockTokens.get(path),
+    });
+  };
+
+  const conversationFields: Array<keyof Conversation> = [
+    'label',
+    'faction',
+    'language',
+    'initialChannel',
+    'startMode',
+    'repeatable',
+    'storyline_id',
+    'timeout',
+    'timeoutMessage',
+  ];
+  for (const field of conversationFields) {
+    if (!deepEqual(before[field], after[field])) pushSet(String(field), after[field]);
+  }
+  if (!deepEqual(before.preconditions, after.preconditions)) pushSet('preconditions', after.preconditions);
+  if (!deepEqual(before.flowAnnotations, after.flowAnnotations)) pushSet('flowAnnotations', after.flowAnnotations);
+  if (!deepEqual(before.flowEdgeBends, after.flowEdgeBends)) pushSet('flowEdgeBends', after.flowEdgeBends);
+
+  if (!sameTurnShape(before.turns, after.turns)) {
+    pushSet('turns', after.turns);
+    return ops;
+  }
+
+  for (const nextTurn of after.turns) {
+    const prevTurn = before.turns.find(turn => turn.turnNumber === nextTurn.turnNumber);
+    if (!prevTurn) continue;
+    diffTurn(prevTurn, nextTurn, `turns/${nextTurn.turnNumber}`, pushSet);
+  }
+  return ops;
+}
+
+function diffTurn(before: Turn, after: Turn, basePath: string, pushSet: (path: string, value: unknown) => void): void {
+  const fields: Array<keyof Turn> = [
+    'openingMessage',
+    'speaker_npc_id',
+    'speaker_npc_faction_filters',
+    'speaker_allow_generic_stalker',
+    'openingImage',
+    'openingAudio',
+    'openingMessagePlaceholder',
+    'channel',
+    'npcOpenKey',
+    'requiresNpcFirst',
+    'firstSpeaker',
+    'pda_entry',
+    'f2f_entry',
+    'migrationWarnings',
+    'position',
+    'customLabel',
+    'color',
+  ];
+  for (const field of fields) {
+    if (!deepEqual(before[field], after[field])) pushSet(`${basePath}/${String(field)}`, after[field]);
+  }
+  if (!deepEqual(before.preconditions, after.preconditions)) pushSet(`${basePath}/preconditions`, after.preconditions);
+  if (!sameChoiceShape(before.choices, after.choices)) {
+    pushSet(`${basePath}/choices`, after.choices);
+    return;
+  }
+  for (let index = 0; index < after.choices.length; index += 1) {
+    diffChoice(before.choices[index]!, after.choices[index]!, `${basePath}/choices/${index}`, pushSet);
+  }
+}
+
+function diffChoice(before: Choice, after: Choice, basePath: string, pushSet: (path: string, value: unknown) => void): void {
+  const fields: Array<keyof Choice> = [
+    'text',
+    'channel',
+    'reply',
+    'replyImage',
+    'replyAudio',
+    'replyRelHigh',
+    'replyRelLow',
+    'terminal',
+    'continueTo',
+    'continueChannel',
+    'continue_channel',
+    'pdaDelaySeconds',
+    'story_npc_id',
+    'npc_faction_filters',
+    'npc_profile_filters',
+    'allow_generic_stalker',
+    'cont_npc_id',
+  ];
+  for (const field of fields) {
+    if (!deepEqual(before[field], after[field])) pushSet(`${basePath}/${String(field)}`, after[field]);
+  }
+  if (!deepEqual(before.preconditions, after.preconditions)) pushSet(`${basePath}/preconditions`, after.preconditions);
+  if (!deepEqual(before.outcomes, after.outcomes)) pushSet(`${basePath}/outcomes`, after.outcomes);
+}
+
+function sameTurnShape(left: Turn[], right: Turn[]): boolean {
+  return left.length === right.length && left.every((turn, index) => turn.turnNumber === right[index]?.turnNumber);
+}
+
+function sameChoiceShape(left: Choice[], right: Choice[]): boolean {
+  return left.length === right.length && left.every((choice, index) => choice.index === right[index]?.index);
+}
+
+function deepEqual(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true;
+  return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
+}
+
+function filterOpsAllowedByLocks(ops: CollabOp[], authorId: string): CollabOp[] {
+  const locks = store.get().collab.locks;
+  return ops.filter((op) => {
+    const lock = findBlockingLock(locks, op.path);
+    return !lock || lock.authorId === authorId || (op.lockToken && op.lockToken === lock.token);
+  });
+}
+
+function findBlockingLock(locks: Record<string, CollabLock>, path: string): CollabLock | null {
+  let best: CollabLock | null = null;
+  for (const lock of Object.values(locks)) {
+    if (lock.expiresAt <= Date.now()) continue;
+    if (path === lock.path || path.startsWith(`${lock.path}/`) || lock.path.startsWith(`${path}/`)) {
+      if (!best || lock.path.length > best.path.length) best = lock;
+    }
+  }
+  return best;
+}
+
+function describeOps(ops: CollabOp[], username = runtime?.identity.username ?? 'Co-author'): string {
+  if (ops.some(op => op.path === 'turns')) return `${username} changed story structure.`;
+  if (ops.some(op => op.path.endsWith('/position'))) return `${username} moved branch nodes.`;
+  if (ops.some(op => op.path === 'label')) return `${username} renamed story.`;
+  if (ops.some(op => op.path.includes('/choices/'))) return `${username} edited choices.`;
+  if (ops.some(op => op.path.includes('/openingMessage'))) return `${username} edited branch text.`;
+  return `${username} edited story.`;
+}
+
+function addActivity(authorId: string, username: string, message: string): void {
+  store.addCollabActivity({
+    id: `${authorId}:${Date.now()}:${Math.random().toString(36).slice(2, 7)}`,
+    ts: Date.now(),
+    authorId,
+    username,
+    message,
+  });
 }
 
 function getActiveConversationSnapshot(): Conversation | null {
@@ -559,7 +863,11 @@ function closeIdentityChannels(): void {
 
 function closeRuntime(): void {
   if (runtime?.flushTimer) clearTimeout(runtime.flushTimer);
+  if (runtime?.checkpointTimer) clearInterval(runtime.checkpointTimer);
   if (runtime?.hostGraceTimer) clearTimeout(runtime.hostGraceTimer);
+  for (const timer of runtime?.lockTimers.values() ?? []) {
+    clearInterval(timer);
+  }
   runtime?.channel?.close();
   runtime = null;
 }

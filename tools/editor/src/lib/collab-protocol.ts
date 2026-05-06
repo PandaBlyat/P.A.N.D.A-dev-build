@@ -34,6 +34,8 @@ export interface CollabRemoteCursor {
   x: number;
   y: number;
   ts: number;
+  selectedTurnNumber?: number | null;
+  selectedFieldPath?: string | null;
 }
 
 export interface CollabSnapshot {
@@ -62,8 +64,18 @@ export interface CollabSession {
 export interface CollabFrame {
   sessionId: string;
   authorId: string;
+  mode?: 'propose' | 'commit';
+  version?: number;
   ops?: CollabOp[];
   cursor?: CollabRemoteCursor;
+}
+
+export interface CollabActivity {
+  id: string;
+  ts: number;
+  authorId: string;
+  username: string;
+  message: string;
 }
 
 export function encodeCollabPath(parts: Array<string | number>): string {

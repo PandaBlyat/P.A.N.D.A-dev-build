@@ -1,0 +1,3734 @@
+{
+  "version": "2.0.0",
+  "faction": "stalker",
+  "conversations": [
+    {
+      "id": 1,
+      "label": "Freedom Act 1 - Supply Lines",
+      "turns": [
+        {
+          "channel": "pda",
+          "choices": [
+            {
+              "text": "I'm omw. give me a few minutes\n\n\n",
+              "index": 1,
+              "reply": ":thumbsup:\n",
+              "channel": "pda",
+              "outcomes": [
+                {
+                  "params": [
+                    "%cordon_panda_st_key%",
+                    "85"
+                  ],
+                  "command": "watch_location"
+                },
+                {
+                  "params": [
+                    "25",
+                    "freedom"
+                  ],
+                  "command": "reward_gw"
+                }
+              ],
+              "terminal": false,
+              "continueTo": 2,
+              "preconditions": [],
+              "continueChannel": "f2f",
+              "continue_channel": "f2f",
+              "allow_generic_stalker": false
+            },
+            {
+              "text": "Can I have the details sent over? I'll get on it. \n\n",
+              "index": 2,
+              "reply": "NO HQ ASAP.\n\n",
+              "channel": "pda",
+              "outcomes": [],
+              "terminal": false,
+              "continueTo": 3,
+              "preconditions": [],
+              "continueChannel": "pda",
+              "continue_channel": "pda",
+              "allow_generic_stalker": false
+            },
+            {
+              "text": "I'm in the middle of something, sorry.\n",
+              "index": 3,
+              "reply": "You're in the middle of something?! Get your fucking ass here",
+              "channel": "pda",
+              "outcomes": [],
+              "terminal": false,
+              "continueTo": 5,
+              "preconditions": [],
+              "continueChannel": "pda",
+              "continue_channel": "pda",
+              "allow_generic_stalker": false
+            },
+            {
+              "text": "Jeez, slow down your horses. Details and I'll think about it\n\n",
+              "index": 4,
+              "reply": "Listen, kid. I don't have fucking time for jokes rn. You have 5 minutes to get your ass here before I send encouragement.\n",
+              "channel": "pda",
+              "outcomes": [],
+              "terminal": false,
+              "continueTo": 6,
+              "preconditions": [],
+              "continueChannel": "pda",
+              "continue_channel": "pda",
+              "allow_generic_stalker": false
+            }
+          ],
+          "position": {
+            "x": 173,
+            "y": 1674
+          },
+          "f2f_entry": false,
+          "pda_entry": true,
+          "turnNumber": 1,
+          "customLabel": "Go to location",
+          "firstSpeaker": "npc",
+          "preconditions": [
+            {
+              "type": "simple",
+              "command": "req_story_npc",
+              "params": [
+                "mil_smart_terrain_7_7_freedom_leader_stalker"
+              ]
+            },
+            {
+              "type": "simple",
+              "command": "req_rank",
+              "params": [
+                "experienced"
+              ]
+            },
+            {
+              "type": "simple",
+              "command": "req_goodwill",
+              "params": [
+                "1000",
+                "freedom"
+              ]
+            },
+            {
+              "type": "simple",
+              "command": "req_faction_kills",
+              "params": [
+                "20",
+                "dolg"
+              ]
+            },
+            {
+              "type": "simple",
+              "command": "req_game_days_min",
+              "params": [
+                "4"
+              ]
+            },
+            {
+              "type": "simple",
+              "command": "req_not_surge_soon",
+              "params": [
+                "12000"
+              ]
+            }
+          ],
+          "openingMessage": "We have an urgent problem, meet me asap at HQ.\n",
+          "speaker_allow_generic_stalker": false,
+          "openingImage": "hip_pic"
+        },
+        {
+          "channel": "f2f",
+          "choices": [
+            {
+              "index": 1,
+              "text": "Sure, what do you got?",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Drug mule to merc checkpoint. Sensitive package, short route, ugly politics.",
+              "outcomes": [],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 14,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f"
+            },
+            {
+              "index": 2,
+              "text": "As long as it is not a suicide mission, I am in.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Not suicide. Escort. Keep Rabbit alive and you get paid.",
+              "outcomes": [],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 16,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f"
+            },
+            {
+              "index": 3,
+              "text": "I would rather not.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "I am sorry, what?",
+              "outcomes": [],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 17,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f"
+            }
+          ],
+          "position": {
+            "x": 1718,
+            "y": 1366
+          },
+          "f2f_entry": true,
+          "pda_entry": false,
+          "turnNumber": 2,
+          "customLabel": "Meet In Person",
+          "firstSpeaker": "npc",
+          "preconditions": [],
+          "openingMessage": "Glad you came, there's this new situation that I think might interest you, earn your keep in here.\n",
+          "requiresNpcFirst": true,
+          "speaker_allow_generic_stalker": false
+        },
+        {
+          "channel": "pda",
+          "choices": [
+            {
+              "index": 1,
+              "text": "Roger. Heading to HQ.",
+              "channel": "pda",
+              "preconditions": [],
+              "reply": ":thumbsup:",
+              "outcomes": [],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 2,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f"
+            },
+            {
+              "index": 2,
+              "text": "If it is that sensitive, I want hazard pay.",
+              "channel": "pda",
+              "preconditions": [],
+              "reply": "You want hazard pay, earn it first. HQ. Now.",
+              "outcomes": [],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 4,
+              "continueChannel": "pda",
+              "continue_channel": "pda"
+            }
+          ],
+          "position": {
+            "x": 1034,
+            "y": 1770
+          },
+          "f2f_entry": false,
+          "pda_entry": false,
+          "turnNumber": 3,
+          "customLabel": "PDA Details Denied",
+          "firstSpeaker": "npc",
+          "preconditions": [],
+          "openingMessage": "No details over open channel. Too many ears on the net. Move to HQ and hear it face to face.",
+          "speaker_allow_generic_stalker": false
+        },
+        {
+          "turnNumber": 4,
+          "preconditions": [],
+          "channel": "pda",
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": false,
+          "choices": [
+            {
+              "index": 1,
+              "text": "Fine. I will hear it in person.",
+              "channel": "pda",
+              "preconditions": [],
+              "reply": "Good. Come alone and keep your PDA quiet.",
+              "outcomes": [],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 2,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f"
+            },
+            {
+              "index": 2,
+              "text": "Then find another gun.",
+              "channel": "pda",
+              "preconditions": [],
+              "reply": "Bad answer. Do not test me twice today.",
+              "outcomes": [
+                {
+                  "command": "punish_gw",
+                  "params": [
+                    "150",
+                    "freedom"
+                  ]
+                }
+              ],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 7,
+              "continueChannel": "pda",
+              "continue_channel": "pda"
+            }
+          ],
+          "position": {
+            "x": 1370,
+            "y": 1905
+          },
+          "customLabel": "Hazard Pay Pushback",
+          "openingMessage": "This is not trader work. Someone is leaning on our supply line and I need a reliable gun, not an accountant.",
+          "speaker_allow_generic_stalker": false
+        },
+        {
+          "channel": "pda",
+          "choices": [
+            {
+              "text": "On it, apologies.",
+              "index": 1,
+              "reply": ":thumbsup:",
+              "channel": "pda",
+              "outcomes": [],
+              "terminal": false,
+              "preconditions": [],
+              "allow_generic_stalker": false,
+              "continueTo": 2,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f"
+            },
+            {
+              "text": "I don't appreciate that tone Lukash ",
+              "index": 2,
+              "reply": "Do I need to remind you of your position?",
+              "channel": "pda",
+              "outcomes": [],
+              "terminal": false,
+              "preconditions": [],
+              "allow_generic_stalker": false,
+              "continueTo": 7,
+              "continueChannel": "pda",
+              "continue_channel": "pda"
+            }
+          ],
+          "position": {
+            "x": 1042,
+            "y": 2205
+          },
+          "f2f_entry": false,
+          "pda_entry": false,
+          "turnNumber": 5,
+          "customLabel": "Polite Refuse",
+          "firstSpeaker": "npc",
+          "preconditions": [],
+          "openingMessage": "This is not invitation. You are Freedom, and Freedom answers when base calls.",
+          "speaker_allow_generic_stalker": false
+        },
+        {
+          "channel": "pda",
+          "choices": [
+            {
+              "text": "You can't be serious - you know that doesn't work on me, Lukash.",
+              "index": 1,
+              "reply": "You've been on fucking thin ice and now this shit? Last chance, $player_name, before you become another forgotten name. Don't make me lose patience, kiddo.\n",
+              "channel": "pda",
+              "outcomes": [],
+              "terminal": false,
+              "preconditions": [],
+              "allow_generic_stalker": false,
+              "continueChannel": "pda",
+              "continue_channel": "pda",
+              "continueTo": 7
+            },
+            {
+              "text": "Okay-okay. I'm coming\n",
+              "index": 2,
+              "reply": ":thumbsup:",
+              "channel": "pda",
+              "outcomes": [],
+              "terminal": false,
+              "preconditions": [],
+              "allow_generic_stalker": false,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f",
+              "continueTo": 8
+            },
+            {
+              "index": 3,
+              "text": "Sorry, Lukash. I don't know what I was thinking when typing that. I'm omw.",
+              "channel": "pda",
+              "preconditions": [],
+              "reply": "Good.",
+              "outcomes": [],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f",
+              "continueTo": 8
+            }
+          ],
+          "position": {
+            "x": 709,
+            "y": 2747
+          },
+          "f2f_entry": false,
+          "pda_entry": false,
+          "turnNumber": 6,
+          "customLabel": "Rude Reply",
+          "firstSpeaker": "npc",
+          "preconditions": [],
+          "openingMessage": "You want details? Fine. Detail one: you are late. Detail two: I am losing patience.",
+          "speaker_allow_generic_stalker": false
+        },
+        {
+          "turnNumber": 7,
+          "preconditions": [],
+          "channel": "pda",
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": false,
+          "choices": [
+            {
+              "index": 1,
+              "text": "Getting a bit sick of your empty threats.",
+              "channel": "pda",
+              "preconditions": [],
+              "reply": "I'm tired of you. Don't ever show your face anywhere near Warehouses. You were warned.",
+              "outcomes": [
+                {
+                  "command": "pause_job",
+                  "params": [
+                    "6000",
+                    "9",
+                    "10"
+                  ]
+                },
+                {
+                  "command": "spawn_npc_squad",
+                  "params": [
+                    "freedom_sim_squad_advanced",
+                    "75",
+                    "120",
+                    "3",
+                    "hostile"
+                  ]
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": true,
+              "npc_faction_filters": [
+                "dolg"
+              ]
+            },
+            {
+              "index": 2,
+              "text": "Fine, I was just fucking around with you, sorry. I'm coming.",
+              "channel": "pda",
+              "preconditions": [],
+              "reply": "Who do you think you are? We'll talk about it later, don't think that I'll forget it. Now get your ass here already.",
+              "outcomes": [
+                {
+                  "command": "punish_rep",
+                  "params": [
+                    "50"
+                  ]
+                },
+                {
+                  "command": "punish_gw",
+                  "params": [
+                    "100",
+                    "freedom"
+                  ]
+                }
+              ],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 8,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f"
+            }
+          ],
+          "position": {
+            "x": 1419,
+            "y": 2757
+          },
+          "customLabel": "Final Warning",
+          "openingMessage": "Last chance. Either walk into HQ, or walk out of Freedom. Pick.",
+          "speaker_allow_generic_stalker": false
+        },
+        {
+          "turnNumber": 8,
+          "preconditions": [],
+          "channel": "f2f",
+          "requiresNpcFirst": true,
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": true,
+          "choices": [
+            {
+              "index": 1,
+              "text": "Apologies, I am ready. ",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "I think you can handle this.",
+              "outcomes": [],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f",
+              "continueTo": 16
+            }
+          ],
+          "position": {
+            "x": 2123,
+            "y": 2274
+          },
+          "openingMessage": "Took you a while.",
+          "speaker_allow_generic_stalker": false,
+          "customLabel": "Nod between rude and main story"
+        },
+        {
+          "turnNumber": 9,
+          "preconditions": [],
+          "channel": "pda",
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": false,
+          "choices": [
+            {
+              "index": 1,
+              "text": "Minor disagreement.",
+              "channel": "pda",
+              "preconditions": [],
+              "reply": "You want more of these in future?",
+              "outcomes": [],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 11,
+              "continueChannel": "pda",
+              "continue_channel": "pda"
+            },
+            {
+              "index": 2,
+              "text": "Had enough of Lukash and his shit.",
+              "channel": "pda",
+              "preconditions": [],
+              "reply": "We can tell. You will not make it alone; Duty can use a man who already crossed that line.",
+              "outcomes": [],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 11,
+              "continueChannel": "pda",
+              "continue_channel": "pda"
+            },
+            {
+              "index": 3,
+              "text": "Mercs were tied to that route. I want their channel.",
+              "channel": "pda",
+              "preconditions": [],
+              "reply": "Dangerous choice. They buy information, but they also sell loose ends.",
+              "outcomes": [],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 13,
+              "continueChannel": "pda",
+              "continue_channel": "pda"
+            },
+            {
+              "index": 4,
+              "text": "...",
+              "channel": "pda",
+              "preconditions": [],
+              "reply": "Ignoring me, huh? Okay.",
+              "outcomes": [
+                {
+                  "command": "punish_gw",
+                  "params": [
+                    "1500",
+                    "freedom"
+                  ]
+                },
+                {
+                  "command": "punish_rep",
+                  "params": [
+                    "100"
+                  ]
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": false
+            }
+          ],
+          "position": {
+            "x": 2543,
+            "y": 2775
+          },
+          "customLabel": "Success path (duty message)",
+          "openingMessage": "Why did we just watch you kill some of your own!?",
+          "speaker_allow_generic_stalker": false
+        },
+        {
+          "turnNumber": 10,
+          "preconditions": [],
+          "channel": "pda",
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": false,
+          "choices": [
+            {
+              "index": 1,
+              "text": "I need another exit.",
+              "channel": "pda",
+              "preconditions": [],
+              "reply": "Mercs listen when leverage talks. If you still have anything from that run, call them before Freedom finds you.",
+              "outcomes": [],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 13,
+              "continueChannel": "pda",
+              "continue_channel": "pda"
+            },
+            {
+              "index": 2,
+              "text": "I will disappear on my own.",
+              "channel": "pda",
+              "preconditions": [],
+              "reply": "Then disappear. No one is burning more men on you.",
+              "outcomes": [
+                {
+                  "command": "punish_gw",
+                  "params": [
+                    "1500",
+                    "freedom"
+                  ]
+                },
+                {
+                  "command": "punish_rep",
+                  "params": [
+                    "200"
+                  ]
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": false
+            }
+          ],
+          "position": {
+            "x": 2528,
+            "y": 3204
+          },
+          "customLabel": "Freedom Retaliation Fail",
+          "openingMessage": "Freedom hunters break contact before you can finish them. Lukash still wants your head, and now Duty knows you are loose.",
+          "speaker_allow_generic_stalker": false
+        },
+        {
+          "turnNumber": 11,
+          "preconditions": [],
+          "channel": "pda",
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": false,
+          "choices": [
+            {
+              "index": 1,
+              "text": "What do you mean?",
+              "channel": "pda",
+              "preconditions": [],
+              "reply": "Clearly, you have some issues with Lukash, and seeing how you handled those pricks - we could use guys like you in Duty, you know?",
+              "outcomes": [],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueChannel": "pda",
+              "continue_channel": "pda",
+              "continueTo": 12
+            },
+            {
+              "index": 2,
+              "text": "I don't speak with Duty pigs, fuck off.",
+              "channel": "pda",
+              "preconditions": [],
+              "reply": "I just saw a bunch of freedomers hunting you, a freedomer, all across the Warehouses and you are telling me you okay with that and still hate Duty for your miserable life? Fuck, they must've brainwashed you hard.",
+              "outcomes": [],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 12,
+              "continueChannel": "pda",
+              "continue_channel": "pda"
+            },
+            {
+              "index": 3,
+              "text": "...",
+              "channel": "pda",
+              "preconditions": [],
+              "reply": "Ignoring me, huh? Okay.",
+              "outcomes": [
+                {
+                  "command": "punish_gw",
+                  "params": [
+                    "1500",
+                    "freedom"
+                  ]
+                },
+                {
+                  "command": "punish_gw",
+                  "params": [
+                    "300",
+                    "dolg"
+                  ]
+                },
+                {
+                  "command": "punish_rep",
+                  "params": [
+                    "200"
+                  ]
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": false
+            }
+          ],
+          "position": {
+            "x": 3214,
+            "y": 2889
+          },
+          "customLabel": "Duty Offer",
+          "openingMessage": "Duty does not call this sympathy. We call it useful damage. You burned your bridge with Lukash, and we can point that fire somewhere better.",
+          "speaker_allow_generic_stalker": false
+        },
+        {
+          "turnNumber": 12,
+          "preconditions": [],
+          "channel": "pda",
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": false,
+          "choices": [
+            {
+              "index": 1,
+              "text": "I need shelter. Put in that word with Duty.",
+              "channel": "pda",
+              "preconditions": [],
+              "reply": "A patrol is moving toward the checkpoint. Follow their route, keep weapons down in Rostok, and ask for Voronin.",
+              "outcomes": [],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 15,
+              "continueChannel": "pda",
+              "continue_channel": "pda"
+            },
+            {
+              "index": 2,
+              "text": "Mercs were part of this deal. I can sell them what I know.",
+              "channel": "pda",
+              "preconditions": [],
+              "reply": "Risky, but clean. If they answer, you are not Freedom problem anymore.",
+              "outcomes": [],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 13,
+              "continueChannel": "pda",
+              "continue_channel": "pda"
+            },
+            {
+              "index": 3,
+              "text": "No Duty, no Mercs. I run alone.",
+              "channel": "pda",
+              "preconditions": [],
+              "reply": "Then run fast.",
+              "outcomes": [
+                {
+                  "command": "punish_gw",
+                  "params": [
+                    "2000",
+                    "freedom"
+                  ]
+                },
+                {
+                  "command": "punish_gw",
+                  "params": [
+                    "200",
+                    "dolg"
+                  ]
+                },
+                {
+                  "command": "punish_rep",
+                  "params": [
+                    "150"
+                  ]
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": false
+            }
+          ],
+          "position": {
+            "x": 3810,
+            "y": 2898
+          },
+          "customLabel": "Desertion Decision",
+          "openingMessage": "Freedom will not forget this by morning. Duty can shelter you in Rostok. Mercs might buy you, if you bring something worth buying.",
+          "speaker_allow_generic_stalker": false
+        },
+        {
+          "turnNumber": 13,
+          "preconditions": [],
+          "channel": "pda",
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": false,
+          "choices": [
+            {
+              "index": 1,
+              "text": "Freedom mule route, Lukash pressure, Duty interference. I can bring names.",
+              "channel": "pda",
+              "preconditions": [],
+              "reply": "Dead City. Sports Center. Come with empty hands visible and useful information ready.",
+              "outcomes": [
+                {
+                  "command": "panda_task_delivery",
+                  "params": [
+                    "st_cit_killers_name",
+                    "7200",
+                    "43",
+                    "44"
+                  ]
+                },
+                {
+                  "command": "punish_gw",
+                  "params": [
+                    "2500",
+                    "freedom"
+                  ]
+                },
+                {
+                  "command": "reward_gw",
+                  "params": [
+                    "700",
+                    "killer"
+                  ]
+                },
+                {
+                  "command": "watch_location",
+                  "params": [
+                    "st_cit_killers_name",
+                    "100"
+                  ]
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": false
+            },
+            {
+              "index": 2,
+              "text": "I want protection before I move.",
+              "channel": "pda",
+              "preconditions": [],
+              "reply": "Protection costs proof. No proof, no contract.",
+              "outcomes": [
+                {
+                  "command": "punish_gw",
+                  "params": [
+                    "50",
+                    "killer"
+                  ]
+                }
+              ],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 13,
+              "continueChannel": "pda",
+              "continue_channel": "pda"
+            },
+            {
+              "index": 3,
+              "text": "Forget it.",
+              "channel": "pda",
+              "preconditions": [],
+              "reply": "Already forgotten.",
+              "outcomes": [
+                {
+                  "command": "punish_gw",
+                  "params": [
+                    "300",
+                    "killer"
+                  ]
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": false
+            }
+          ],
+          "position": {
+            "x": 4490,
+            "y": 3305
+          },
+          "customLabel": "Desert To Mercs - Contact",
+          "openingMessage": "Merc channel opens after a long dead tone. The voice does not ask your name. It asks what you can prove.",
+          "speaker_allow_generic_stalker": false
+        },
+        {
+          "turnNumber": 14,
+          "preconditions": [],
+          "channel": "f2f",
+          "requiresNpcFirst": true,
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": false,
+          "choices": [
+            {
+              "index": 1,
+              "text": "No problem. I will get Rabbit there.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Good. Rabbit is waiting outside. Do not let him wander.",
+              "outcomes": [
+                {
+                  "command": "panda_task_escort",
+                  "params": [
+                    "st_mil_smart_terrain_2_2_name",
+                    "1600",
+                    "22",
+                    "23",
+                    "custom_npc",
+                    "rabbit_mule",
+                    "30"
+                  ],
+                  "_note": "Escort Rabbit to Army Warehouses fortified checkpoint."
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": false
+            },
+            {
+              "index": 2,
+              "text": "Anything else I need to know?",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "If anyone asks, Rabbit is carrying medicine. If Rabbit talks too much, ignore him.",
+              "outcomes": [],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 19,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f"
+            },
+            {
+              "index": 3,
+              "text": "What is the pay?",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Alive mule means pay. Dead mule means debt.",
+              "outcomes": [],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 19,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f"
+            }
+          ],
+          "position": {
+            "x": 3274,
+            "y": 685
+          },
+          "customLabel": "Escort Mule Brief",
+          "openingMessage": "Rabbit carries a sealed package to the merc checkpoint at the fortified post. You keep him breathing, keep him moving, and do not open his pack.",
+          "speaker_allow_generic_stalker": false
+        },
+        {
+          "turnNumber": 15,
+          "preconditions": [],
+          "channel": "pda",
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": false,
+          "choices": [
+            {
+              "index": 1,
+              "text": "I agree. Duty gets my side of the story.",
+              "channel": "pda",
+              "preconditions": [],
+              "reply": "Move before Freedom closes the roads.",
+              "outcomes": [
+                {
+                  "command": "spawn_npc_squad_at_smart",
+                  "params": [
+                    "duty_sim_squad_veteran",
+                    "st_mil_smart_terrain_7_4_name",
+                    "20",
+                    "2",
+                    "friendly"
+                  ]
+                },
+                {
+                  "command": "punish_gw",
+                  "params": [
+                    "3500",
+                    "freedom"
+                  ]
+                },
+                {
+                  "command": "reward_gw",
+                  "params": [
+                    "2000",
+                    "dolg"
+                  ]
+                },
+                {
+                  "command": "change_faction_relations",
+                  "params": [
+                    "dolg",
+                    "freedom",
+                    "-1000"
+                  ]
+                },
+                {
+                  "command": "watch_location",
+                  "params": [
+                    "st_bar_dolg_general_name",
+                    "100"
+                  ]
+                }
+              ],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 20,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f"
+            },
+            {
+              "index": 2,
+              "text": "I changed my mind. Mercs pay better.",
+              "channel": "pda",
+              "preconditions": [],
+              "reply": "Then call them and hope they like traitors more than we do.",
+              "outcomes": [
+                {
+                  "command": "punish_gw",
+                  "params": [
+                    "250",
+                    "dolg"
+                  ]
+                }
+              ],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 13,
+              "continueChannel": "pda",
+              "continue_channel": "pda"
+            }
+          ],
+          "position": {
+            "x": 4454,
+            "y": 2864
+          },
+          "customLabel": "Duty Safe Route",
+          "speaker_allow_generic_stalker": false,
+          "openingMessage": "Duty confirms patrol movement near the southern road. They will not shoot if you keep your weapon down and come straight to Rostok."
+        },
+        {
+          "turnNumber": 16,
+          "preconditions": [],
+          "channel": "f2f",
+          "requiresNpcFirst": true,
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": false,
+          "choices": [
+            {
+              "index": 1,
+              "text": "What's the details?",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "We have a deal with the mercs. Sometimes we run package mules to them. I am a man down and Rabbit needs escort to the merc checkpoint up the road.",
+              "outcomes": [],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 14,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f"
+            }
+          ],
+          "position": {
+            "x": 2724,
+            "y": 1332
+          },
+          "customLabel": "Mission Details",
+          "speaker_allow_generic_stalker": false,
+          "openingMessage": "Rabbit takes a sealed pack to the merc checkpoint. You escort him, no sightseeing, no opening the package."
+        },
+        {
+          "turnNumber": 17,
+          "preconditions": [],
+          "channel": "f2f",
+          "requiresNpcFirst": true,
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": false,
+          "choices": [
+            {
+              "index": 1,
+              "text": "I have other timed work already.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Cancel it or finish this first. Rabbit moves now.",
+              "outcomes": [],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 18,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f"
+            },
+            {
+              "index": 2,
+              "text": "Bad call. What do you need?",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "That is better. Rabbit goes to the merc checkpoint, and you keep him alive.",
+              "outcomes": [],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 14,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f"
+            }
+          ],
+          "position": {
+            "x": 2650,
+            "y": 1709
+          },
+          "customLabel": "Refuse Attempt - Angry",
+          "speaker_allow_generic_stalker": false,
+          "openingMessage": "You are refusing an order in my office. Think before your next sentence."
+        },
+        {
+          "turnNumber": 18,
+          "preconditions": [],
+          "channel": "f2f",
+          "requiresNpcFirst": true,
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": false,
+          "choices": [
+            {
+              "index": 1,
+              "text": "I get it. Rabbit gets to the checkpoint.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Good. He is outside. He leaves with you.",
+              "outcomes": [],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 19,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f"
+            },
+            {
+              "index": 2,
+              "text": "I do not take shit from anyone, blyat.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Grab this idiot.",
+              "outcomes": [
+                {
+                  "command": "punish_gw",
+                  "params": [
+                    "3000",
+                    "freedom"
+                  ]
+                },
+                {
+                  "command": "set_npc_hostile",
+                  "params": []
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": false
+            }
+          ],
+          "position": {
+            "x": 3309,
+            "y": 1669
+          },
+          "customLabel": "Defuse Or Break",
+          "speaker_allow_generic_stalker": false,
+          "openingMessage": "You can still walk out with a job instead of a beating. Choose fast."
+        },
+        {
+          "turnNumber": 19,
+          "preconditions": [],
+          "channel": "f2f",
+          "requiresNpcFirst": true,
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": false,
+          "choices": [
+            {
+              "index": 1,
+              "text": "I will keep Rabbit alive.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Now fuck off and get it done.",
+              "outcomes": [
+                {
+                  "command": "panda_task_escort",
+                  "params": [
+                    "st_mil_smart_terrain_2_2_name",
+                    "1600",
+                    "22",
+                    "23",
+                    "custom_npc",
+                    "rabbit_mule",
+                    "30"
+                  ]
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": false
+            },
+            {
+              "index": 2,
+              "text": "I apologize. I am on it.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Do not forget your place.",
+              "outcomes": [
+                {
+                  "command": "panda_task_escort",
+                  "params": [
+                    "st_mil_smart_terrain_2_2_name",
+                    "1600",
+                    "22",
+                    "23",
+                    "custom_npc",
+                    "rabbit_mule",
+                    "30"
+                  ]
+                },
+                {
+                  "command": "punish_gw",
+                  "params": [
+                    "50",
+                    "freedom"
+                  ]
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": false
+            }
+          ],
+          "position": {
+            "x": 3781,
+            "y": 1377
+          },
+          "customLabel": "Escort Start Confirmation",
+          "speaker_allow_generic_stalker": false,
+          "openingMessage": "Rabbit is outside with the package. Destination is the fortified checkpoint. You have less than half an hour before the deal goes sour."
+        },
+        {
+          "turnNumber": 20,
+          "preconditions": [],
+          "channel": "f2f",
+          "requiresNpcFirst": true,
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": true,
+          "choices": [
+            {
+              "index": 1,
+              "text": "Long version. Lukash sent men after me, and I put them down.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Names, route, motive. Start from the first message.",
+              "outcomes": [],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 21,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f",
+              "cont_npc_id": "bar_dolg_leader"
+            },
+            {
+              "index": 2,
+              "text": "I changed my mind. I will not betray Freedom.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Then leave Rostok while discipline still holds. Next time, you are target, not guest.",
+              "outcomes": [
+                {
+                  "command": "punish_gw",
+                  "params": [
+                    "500",
+                    "dolg"
+                  ]
+                },
+                {
+                  "command": "reward_gw",
+                  "params": [
+                    "200",
+                    "freedom"
+                  ]
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": false,
+              "cont_npc_id": "bar_dolg_leader"
+            }
+          ],
+          "position": {
+            "x": 5163,
+            "y": 2830
+          },
+          "customLabel": "Desert To Duty - Voronin",
+          "openingMessage": "Voronin hears you out behind closed doors. No one in Rostok reaches for a rifle, but every guard watches your hands.",
+          "speaker_allow_generic_stalker": false
+        },
+        {
+          "turnNumber": 21,
+          "preconditions": [],
+          "channel": "f2f",
+          "requiresNpcFirst": true,
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": false,
+          "choices": [
+            {
+              "index": 1,
+              "text": "I want payback and a place where Freedom cannot reach me.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Then you work under Duty discipline. First task comes soon.",
+              "outcomes": [
+                {
+                  "command": "change_player_faction",
+                  "params": [
+                    "dolg"
+                  ]
+                },
+                {
+                  "command": "reward_gw",
+                  "params": [
+                    "1200",
+                    "dolg"
+                  ]
+                },
+                {
+                  "command": "punish_gw",
+                  "params": [
+                    "3000",
+                    "freedom"
+                  ]
+                }
+              ],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 42,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f",
+              "cont_npc_id": "bar_dolg_leader"
+            },
+            {
+              "index": 2,
+              "text": "I will give intel, but I keep my patch for now.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Temporary arrangement. Break it and Rostok closes.",
+              "outcomes": [
+                {
+                  "command": "reward_gw",
+                  "params": [
+                    "800",
+                    "dolg"
+                  ]
+                },
+                {
+                  "command": "punish_gw",
+                  "params": [
+                    "1800",
+                    "freedom"
+                  ]
+                }
+              ],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 42,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f",
+              "cont_npc_id": "bar_dolg_leader"
+            }
+          ],
+          "position": {
+            "x": 5797,
+            "y": 2829
+          },
+          "customLabel": "Duty Debrief",
+          "speaker_allow_generic_stalker": false,
+          "openingMessage": "Voronin listens without interruption. When you finish, he marks the supply route on his map and turns the folder around for you to see."
+        },
+        {
+          "turnNumber": 22,
+          "openingMessage": "Rabbit reached the checkpoint. Good. Problem got worse while you were out: another mule went silent near the abandoned farmstead. Find him before Duty or mercs do.",
+          "preconditions": [],
+          "channel": "f2f",
+          "requiresNpcFirst": true,
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": true,
+          "choices": [
+            {
+              "index": 1,
+              "text": "Where am I headed?",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Farmstead south-east of base. If he lives, bring him back. If he is dead, bring his PDA.",
+              "outcomes": [
+                {
+                  "command": "panda_task_rescue",
+                  "params": [
+                    "duty_sim_squad_advanced",
+                    "st_mil_smart_terrain_2_4_name",
+                    "2",
+                    "missing_mule",
+                    "2400",
+                    "33",
+                    "34",
+                    "hostile"
+                  ]
+                },
+                {
+                  "command": "watch_location",
+                  "params": [
+                    "st_mil_smart_terrain_2_4_name",
+                    "120"
+                  ]
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": false
+            },
+            {
+              "index": 2,
+              "text": "Payment first. Rabbit lived because of me.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Fine, take it. Now earn next stack.",
+              "outcomes": [
+                {
+                  "command": "reward_money",
+                  "params": [
+                    "2500"
+                  ]
+                },
+                {
+                  "command": "reward_gw",
+                  "params": [
+                    "150",
+                    "freedom"
+                  ]
+                }
+              ],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 24,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f"
+            }
+          ],
+          "position": {
+            "x": 4281,
+            "y": 814
+          },
+          "customLabel": "Escort Success - Missing Mule",
+          "speaker_allow_generic_stalker": false
+        },
+        {
+          "turnNumber": 23,
+          "openingMessage": "You had one job and Rabbit is gone. Package is gone too. Explain fast.",
+          "preconditions": [],
+          "channel": "f2f",
+          "requiresNpcFirst": true,
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": true,
+          "choices": [
+            {
+              "index": 1,
+              "text": "We got jumped and I could not identify them in the chaos.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Then slow down and tell me what you saw.",
+              "outcomes": [],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 25,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f"
+            },
+            {
+              "index": 2,
+              "text": "Mutants hit us. I lost the package in the scramble.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "You are paying for the lost goods, one way or another.",
+              "outcomes": [],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 27,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f"
+            },
+            {
+              "index": 3,
+              "text": "Monolith. No idea why they were this far south.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "That is either bad luck or a lie. Did you recover the package?",
+              "outcomes": [],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 28,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f"
+            },
+            {
+              "index": 4,
+              "text": "I fucked up. No excuse.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Truth does not make it cheaper.",
+              "outcomes": [
+                {
+                  "command": "punish_gw",
+                  "params": [
+                    "600",
+                    "freedom"
+                  ]
+                }
+              ],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 36,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f"
+            }
+          ],
+          "position": {
+            "x": 4298,
+            "y": 1312
+          },
+          "customLabel": "Escort Failure - Lukash",
+          "speaker_allow_generic_stalker": false
+        },
+        {
+          "turnNumber": 24,
+          "preconditions": [],
+          "channel": "f2f",
+          "requiresNpcFirst": true,
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": false,
+          "choices": [
+            {
+              "index": 1,
+              "text": "I will find him.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Go.",
+              "outcomes": [
+                {
+                  "command": "panda_task_rescue",
+                  "params": [
+                    "duty_sim_squad_advanced",
+                    "st_mil_smart_terrain_2_4_name",
+                    "2",
+                    "missing_mule",
+                    "2400",
+                    "33",
+                    "34",
+                    "hostile"
+                  ]
+                },
+                {
+                  "command": "watch_location",
+                  "params": [
+                    "st_mil_smart_terrain_2_4_name",
+                    "120"
+                  ]
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": false
+            },
+            {
+              "index": 2,
+              "text": "I squeezed too hard. Sorry.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Apology noted. Job still stands.",
+              "outcomes": [
+                {
+                  "command": "panda_task_rescue",
+                  "params": [
+                    "duty_sim_squad_advanced",
+                    "st_mil_smart_terrain_2_4_name",
+                    "2",
+                    "missing_mule",
+                    "2400",
+                    "33",
+                    "34",
+                    "hostile"
+                  ]
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": false
+            }
+          ],
+          "position": {
+            "x": 5003,
+            "y": 820
+          },
+          "customLabel": "Paid But Pressed",
+          "speaker_allow_generic_stalker": false,
+          "openingMessage": "Payment handled. Now the missing mule. Farmstead, south-east. Alive preferred, PDA acceptable."
+        },
+        {
+          "turnNumber": 25,
+          "preconditions": [],
+          "channel": "f2f",
+          "requiresNpcFirst": true,
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": false,
+          "choices": [
+            {
+              "index": 1,
+              "text": "Duty.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Then we answer loud.",
+              "outcomes": [],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 26,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f"
+            },
+            {
+              "index": 2,
+              "text": "Mutants.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "You lost my mule to wildlife. Bad look.",
+              "outcomes": [],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 27,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f"
+            },
+            {
+              "index": 3,
+              "text": "Monolith.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "This far south? Show me what you recovered.",
+              "outcomes": [],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 28,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f"
+            },
+            {
+              "index": 4,
+              "text": "Other. Could not identify them.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Then you failed twice: mule and facts.",
+              "outcomes": [],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 36,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f"
+            }
+          ],
+          "position": {
+            "x": 4940,
+            "y": 1639
+          },
+          "customLabel": "Who Hit Rabbit",
+          "speaker_allow_generic_stalker": false,
+          "openingMessage": "Names matter. If you do not know, say so. If you lie, Rabbit will not be only corpse today."
+        },
+        {
+          "turnNumber": 26,
+          "preconditions": [],
+          "channel": "f2f",
+          "requiresNpcFirst": true,
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": false,
+          "choices": [
+            {
+              "index": 1,
+              "text": "I will handle the patrol.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Bring proof. Dead Duty is proof enough.",
+              "outcomes": [
+                {
+                  "command": "panda_task_eliminate",
+                  "params": [
+                    "duty_sim_squad_veteran",
+                    "st_mil_smart_terrain_7_4_name",
+                    "100",
+                    "2400",
+                    "37",
+                    "38",
+                    "2",
+                    "hostile"
+                  ]
+                },
+                {
+                  "command": "watch_location",
+                  "params": [
+                    "st_mil_smart_terrain_7_4_name",
+                    "120"
+                  ]
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": false
+            },
+            {
+              "index": 2,
+              "text": "Give me a few good men.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "No. You lost one already. You do this clean or you do not come back.",
+              "outcomes": [
+                {
+                  "command": "panda_task_eliminate",
+                  "params": [
+                    "duty_sim_squad_advanced",
+                    "st_mil_smart_terrain_7_4_name",
+                    "100",
+                    "2400",
+                    "37",
+                    "38",
+                    "2",
+                    "hostile"
+                  ]
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": false
+            },
+            {
+              "index": 3,
+              "text": "Feed them bad intel and ambush response team.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Risky. I like risky when it hurts Duty. I will call when bait is set.",
+              "outcomes": [
+                {
+                  "command": "pause_job",
+                  "params": [
+                    "3600",
+                    "29",
+                    "38"
+                  ]
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": false
+            }
+          ],
+          "position": {
+            "x": 5510,
+            "y": 1508
+          },
+          "customLabel": "Freedom Counterstrike Plan",
+          "speaker_allow_generic_stalker": false,
+          "openingMessage": "Duty thinks our side route is soft. We hit their abandoned village patrol and take back whatever they lifted."
+        },
+        {
+          "turnNumber": 27,
+          "preconditions": [],
+          "channel": "f2f",
+          "requiresNpcFirst": true,
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": false,
+          "choices": [
+            {
+              "index": 1,
+              "text": "You are right. I panicked.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Then you reimburse lost goods. No debate.",
+              "outcomes": [
+                {
+                  "command": "punish_money",
+                  "params": [
+                    "5000"
+                  ]
+                },
+                {
+                  "command": "punish_gw",
+                  "params": [
+                    "700",
+                    "freedom"
+                  ]
+                },
+                {
+                  "command": "punish_rep",
+                  "params": [
+                    "100"
+                  ]
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": false
+            },
+            {
+              "index": 2,
+              "text": "Give me one chance to square it.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "One. Recover replacement goods from the farmstead cache.",
+              "outcomes": [],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 39,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f"
+            }
+          ],
+          "position": {
+            "x": 5527,
+            "y": 1847
+          },
+          "customLabel": "Mutant Excuse",
+          "speaker_allow_generic_stalker": false,
+          "openingMessage": "Mutants do not steal sealed packages and vanish toward a checkpoint. You either panicked or got played."
+        },
+        {
+          "turnNumber": 28,
+          "preconditions": [],
+          "channel": "f2f",
+          "requiresNpcFirst": true,
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": false,
+          "choices": [
+            {
+              "index": 1,
+              "text": "I killed them and recovered the package.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Could be worse. Hand it over and we keep moving.",
+              "outcomes": [],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 31,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f"
+            },
+            {
+              "index": 2,
+              "text": "I had to back off.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Then answer one thing: did you retrieve the goods?",
+              "outcomes": [],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 30,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f"
+            }
+          ],
+          "position": {
+            "x": 5608,
+            "y": 2129
+          },
+          "customLabel": "Monolith Claim",
+          "speaker_allow_generic_stalker": false,
+          "openingMessage": "Monolith that far south means the package drew attention. If you kept the goods, hand them over. If not, you owe me a miracle."
+        },
+        {
+          "turnNumber": 29,
+          "openingMessage": "Bait worked. Duty patrol is moving through the abandoned village with their noses up. Get there and cut them down.",
+          "preconditions": [],
+          "channel": "pda",
+          "firstSpeaker": "npc",
+          "pda_entry": true,
+          "f2f_entry": false,
+          "choices": [
+            {
+              "index": 1,
+              "text": "Send the marker.",
+              "channel": "pda",
+              "preconditions": [],
+              "reply": "Marked. Make it ugly.",
+              "outcomes": [
+                {
+                  "command": "panda_task_eliminate",
+                  "params": [
+                    "duty_sim_squad_veteran",
+                    "st_mil_smart_terrain_7_4_name",
+                    "100",
+                    "2400",
+                    "37",
+                    "38",
+                    "2",
+                    "hostile"
+                  ]
+                },
+                {
+                  "command": "watch_location",
+                  "params": [
+                    "st_mil_smart_terrain_7_4_name",
+                    "120"
+                  ]
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": false
+            },
+            {
+              "index": 2,
+              "text": "This is too hot. I am out.",
+              "channel": "pda",
+              "preconditions": [],
+              "reply": "Then stay out.",
+              "outcomes": [
+                {
+                  "command": "punish_gw",
+                  "params": [
+                    "1200",
+                    "freedom"
+                  ]
+                },
+                {
+                  "command": "punish_rep",
+                  "params": [
+                    "150"
+                  ]
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": false
+            }
+          ],
+          "position": {
+            "x": 6204,
+            "y": 1606
+          },
+          "customLabel": "Main Freedom - Ambush Ready",
+          "speaker_allow_generic_stalker": false
+        },
+        {
+          "turnNumber": 30,
+          "preconditions": [],
+          "channel": "f2f",
+          "requiresNpcFirst": true,
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": false,
+          "choices": [
+            {
+              "index": 1,
+              "text": "No. I had to retreat.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Then you recover replacement goods or hand over what you stashed. Pick fast.",
+              "outcomes": [
+                {
+                  "command": "punish_gw",
+                  "params": [
+                    "500",
+                    "freedom"
+                  ]
+                }
+              ],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 32,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f"
+            },
+            {
+              "index": 2,
+              "text": "Yes. Got it on me.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Good. Hand it over.",
+              "outcomes": [],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 31,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f"
+            }
+          ],
+          "position": {
+            "x": 6106,
+            "y": 2287
+          },
+          "customLabel": "Package Check",
+          "speaker_allow_generic_stalker": false,
+          "openingMessage": "You get one answer before I decide how expensive this becomes. Do you have the package?"
+        },
+        {
+          "turnNumber": 31,
+          "preconditions": [],
+          "channel": "f2f",
+          "requiresNpcFirst": true,
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": false,
+          "choices": [
+            {
+              "index": 1,
+              "text": "What now?",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Now we find who tipped them off.",
+              "outcomes": [
+                {
+                  "command": "reward_gw",
+                  "params": [
+                    "300",
+                    "freedom"
+                  ]
+                },
+                {
+                  "command": "reward_money",
+                  "params": [
+                    "1500"
+                  ]
+                }
+              ],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 35,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f"
+            },
+            {
+              "index": 2,
+              "text": "I want this done.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Then finish it with us.",
+              "outcomes": [],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 35,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f"
+            }
+          ],
+          "position": {
+            "x": 6213,
+            "y": 1945
+          },
+          "speaker_allow_generic_stalker": false,
+          "customLabel": "Package Recovered",
+          "openingMessage": "Lukash checks the seals and relaxes by one degree. The route is compromised, but the cargo is not lost."
+        },
+        {
+          "turnNumber": 32,
+          "preconditions": [],
+          "channel": "f2f",
+          "requiresNpcFirst": true,
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": false,
+          "choices": [
+            {
+              "index": 1,
+              "text": "I will clean up the leak.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Abandoned village. Duty patrol. Start there.",
+              "outcomes": [
+                {
+                  "command": "panda_task_eliminate",
+                  "params": [
+                    "duty_sim_squad_advanced",
+                    "st_mil_smart_terrain_7_4_name",
+                    "100",
+                    "2400",
+                    "37",
+                    "38",
+                    "1",
+                    "hostile"
+                  ]
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": false
+            },
+            {
+              "index": 2,
+              "text": "I am done being used.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Then you are done being Freedom.",
+              "outcomes": [
+                {
+                  "command": "punish_gw",
+                  "params": [
+                    "3000",
+                    "freedom"
+                  ]
+                },
+                {
+                  "command": "set_npc_hostile",
+                  "params": []
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": false
+            }
+          ],
+          "position": {
+            "x": 6880,
+            "y": 2187
+          },
+          "speaker_allow_generic_stalker": false,
+          "customLabel": "Hand Over Replacement Goods",
+          "openingMessage": "Replacement goods clear part of the debt. Not all of it. Lukash still wants proof the leak is dead."
+        },
+        {
+          "turnNumber": 33,
+          "preconditions": [],
+          "channel": "f2f",
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": true,
+          "choices": [
+            {
+              "index": 1,
+              "text": "Lukash needs to hear this.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Then move. If he dies on the way, bring his PDA.",
+              "outcomes": [
+                {
+                  "command": "reward_gw",
+                  "params": [
+                    "250",
+                    "freedom"
+                  ]
+                },
+                {
+                  "command": "give_item",
+                  "params": [
+                    "device_pda_2"
+                  ]
+                }
+              ],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 35,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f"
+            },
+            {
+              "index": 2,
+              "text": "Mercs knew too much. I want their side.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Careful. Mercs sell shelter with one hand and your corpse with the other.",
+              "outcomes": [],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 13,
+              "continueChannel": "pda",
+              "continue_channel": "pda"
+            }
+          ],
+          "position": {
+            "x": 7020,
+            "y": 1050
+          },
+          "customLabel": "Missing Mule Found",
+          "openingMessage": "The missing mule is alive, barely. He says Duty knew Rabbit by name and knew the checkpoint handoff time.",
+          "speaker_allow_generic_stalker": false,
+          "requiresNpcFirst": true
+        },
+        {
+          "turnNumber": 34,
+          "preconditions": [],
+          "channel": "f2f",
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": true,
+          "choices": [
+            {
+              "index": 1,
+              "text": "Give me one way to fix this.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Replacement goods. Farmstead cache. You have one run.",
+              "outcomes": [
+                {
+                  "command": "punish_gw",
+                  "params": [
+                    "500",
+                    "freedom"
+                  ]
+                }
+              ],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 39,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f"
+            },
+            {
+              "index": 2,
+              "text": "I am not dying over mule cargo.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Then do not come back to Warehouses.",
+              "outcomes": [
+                {
+                  "command": "punish_gw",
+                  "params": [
+                    "2500",
+                    "freedom"
+                  ]
+                },
+                {
+                  "command": "punish_rep",
+                  "params": [
+                    "250"
+                  ]
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": false
+            }
+          ],
+          "position": {
+            "x": 7020,
+            "y": 1440
+          },
+          "customLabel": "Missing Mule Lost",
+          "openingMessage": "No mule, no PDA, no clean answer. Lukash looks past you like he is already choosing someone else.",
+          "speaker_allow_generic_stalker": false,
+          "requiresNpcFirst": true
+        },
+        {
+          "turnNumber": 35,
+          "preconditions": [],
+          "channel": "f2f",
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": false,
+          "choices": [
+            {
+              "index": 1,
+              "text": "Point me at them.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Marked. Kill the patrol and bring back anything that explains the leak.",
+              "outcomes": [
+                {
+                  "command": "panda_task_eliminate",
+                  "params": [
+                    "duty_sim_squad_veteran",
+                    "st_mil_smart_terrain_7_4_name",
+                    "100",
+                    "2400",
+                    "37",
+                    "38",
+                    "2",
+                    "hostile"
+                  ]
+                },
+                {
+                  "command": "watch_location",
+                  "params": [
+                    "st_mil_smart_terrain_7_4_name",
+                    "120"
+                  ]
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": false
+            },
+            {
+              "index": 2,
+              "text": "This started with mercs. We should cut them off too.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Later. First we stop Duty from eating our backyard.",
+              "outcomes": [
+                {
+                  "command": "panda_task_eliminate",
+                  "params": [
+                    "duty_sim_squad_veteran",
+                    "st_mil_smart_terrain_7_4_name",
+                    "100",
+                    "2400",
+                    "37",
+                    "38",
+                    "2",
+                    "hostile"
+                  ]
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": false
+            }
+          ],
+          "position": {
+            "x": 7590,
+            "y": 1040
+          },
+          "customLabel": "Main Freedom - Leak Identified",
+          "openingMessage": "Lukash reads the recovered PDA twice. Duty had a name inside Freedom, but the contact is moving with a patrol near the abandoned village.",
+          "speaker_allow_generic_stalker": false,
+          "requiresNpcFirst": true
+        },
+        {
+          "turnNumber": 36,
+          "preconditions": [],
+          "channel": "f2f",
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": false,
+          "choices": [
+            {
+              "index": 1,
+              "text": "I will repay it in work.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Replacement goods first. Then maybe I let you keep the patch.",
+              "outcomes": [
+                {
+                  "command": "punish_money",
+                  "params": [
+                    "3000"
+                  ]
+                },
+                {
+                  "command": "punish_gw",
+                  "params": [
+                    "700",
+                    "freedom"
+                  ]
+                }
+              ],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 39,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f"
+            },
+            {
+              "index": 2,
+              "text": "I cannot cover that.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Then you are useless to me.",
+              "outcomes": [
+                {
+                  "command": "punish_gw",
+                  "params": [
+                    "2500",
+                    "freedom"
+                  ]
+                },
+                {
+                  "command": "punish_rep",
+                  "params": [
+                    "300"
+                  ]
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": false
+            }
+          ],
+          "position": {
+            "x": 7580,
+            "y": 1780
+          },
+          "customLabel": "Main Freedom Fail - Debt",
+          "openingMessage": "Lukash does not shout now. Worse: he starts counting what Rabbit cost, what the package cost, and what your word is worth.",
+          "speaker_allow_generic_stalker": false,
+          "requiresNpcFirst": true
+        },
+        {
+          "turnNumber": 37,
+          "preconditions": [],
+          "channel": "f2f",
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": true,
+          "choices": [
+            {
+              "index": 1,
+              "text": "So we won?",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "We survived Act One. Winning comes later.",
+              "outcomes": [
+                {
+                  "command": "reward_money",
+                  "params": [
+                    "7000"
+                  ]
+                },
+                {
+                  "command": "reward_gw",
+                  "params": [
+                    "900",
+                    "freedom"
+                  ]
+                },
+                {
+                  "command": "reward_rep",
+                  "params": [
+                    "250"
+                  ]
+                },
+                {
+                  "command": "give_info",
+                  "params": [
+                    "panda_freedom_act1_complete"
+                  ],
+                  "_note": "Custom info portion for later Freedom Act 2 gating."
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": false
+            },
+            {
+              "index": 2,
+              "text": "What about the mercs?",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "They get watched. You get paid. Then we plan next move.",
+              "outcomes": [
+                {
+                  "command": "reward_money",
+                  "params": [
+                    "5000"
+                  ]
+                },
+                {
+                  "command": "reward_gw",
+                  "params": [
+                    "700",
+                    "freedom"
+                  ]
+                },
+                {
+                  "command": "give_info",
+                  "params": [
+                    "panda_freedom_act1_complete"
+                  ],
+                  "_note": "Custom info portion for later Freedom Act 2 gating."
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": false
+            }
+          ],
+          "position": {
+            "x": 8200,
+            "y": 800
+          },
+          "customLabel": "Main Freedom Act 1 Complete",
+          "openingMessage": "Duty patrol is dead and the leak is burned. Lukash calls the route poisoned, but Freedom keeps the merc channel alive for now.",
+          "speaker_allow_generic_stalker": false,
+          "requiresNpcFirst": true
+        },
+        {
+          "turnNumber": 38,
+          "preconditions": [],
+          "channel": "f2f",
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": true,
+          "choices": [
+            {
+              "index": 1,
+              "text": "Blame me after I fix supply.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Fine. Replacement run, no pay, no complaint.",
+              "outcomes": [
+                {
+                  "command": "punish_gw",
+                  "params": [
+                    "900",
+                    "freedom"
+                  ]
+                },
+                {
+                  "command": "punish_rep",
+                  "params": [
+                    "100"
+                  ]
+                }
+              ],
+              "terminal": false,
+              "allow_generic_stalker": false,
+              "continueTo": 39,
+              "continueChannel": "f2f",
+              "continue_channel": "f2f"
+            },
+            {
+              "index": 2,
+              "text": "I am done taking blame.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Then get out before I make blame permanent.",
+              "outcomes": [
+                {
+                  "command": "punish_gw",
+                  "params": [
+                    "2500",
+                    "freedom"
+                  ]
+                },
+                {
+                  "command": "set_npc_hostile",
+                  "params": []
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": false
+            }
+          ],
+          "position": {
+            "x": 8200,
+            "y": 1450
+          },
+          "customLabel": "Main Freedom Strike Failed",
+          "openingMessage": "Duty slipped the net. Worse, they know Freedom knows. Lukash has to burn the route and needs someone to blame.",
+          "speaker_allow_generic_stalker": false,
+          "requiresNpcFirst": true
+        },
+        {
+          "turnNumber": 39,
+          "preconditions": [],
+          "channel": "f2f",
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": false,
+          "choices": [
+            {
+              "index": 1,
+              "text": "I will bring it back.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Twenty units. You lose this too, you lose Freedom.",
+              "outcomes": [
+                {
+                  "command": "panda_task_fetch",
+                  "params": [
+                    "cocaine",
+                    "20",
+                    "3600",
+                    "40",
+                    "41"
+                  ],
+                  "_note": "Cocaine is already used by rabbit_mule template; replace if mod item section differs."
+                },
+                {
+                  "command": "watch_location",
+                  "params": [
+                    "st_mil_smart_terrain_7_10_name",
+                    "100"
+                  ]
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": false
+            },
+            {
+              "index": 2,
+              "text": "No. I am not mule anymore.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Then you are nothing here.",
+              "outcomes": [
+                {
+                  "command": "punish_gw",
+                  "params": [
+                    "3000",
+                    "freedom"
+                  ]
+                },
+                {
+                  "command": "punish_rep",
+                  "params": [
+                    "300"
+                  ]
+                },
+                {
+                  "command": "set_npc_hostile",
+                  "params": []
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": false
+            }
+          ],
+          "position": {
+            "x": 8830,
+            "y": 1780
+          },
+          "customLabel": "Main Freedom Fail - Replacement Run",
+          "openingMessage": "A small cache near the destroyed substation still has product from an older route. Retrieve enough to cover the loss. No heroics, no speeches.",
+          "speaker_allow_generic_stalker": false,
+          "requiresNpcFirst": true
+        },
+        {
+          "turnNumber": 40,
+          "preconditions": [],
+          "channel": "f2f",
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": true,
+          "choices": [
+            {
+              "index": 1,
+              "text": "Understood.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Good. Stay useful.",
+              "outcomes": [
+                {
+                  "command": "reward_gw",
+                  "params": [
+                    "200",
+                    "freedom"
+                  ]
+                },
+                {
+                  "command": "give_info",
+                  "params": [
+                    "panda_freedom_act1_fail_debt_paid"
+                  ],
+                  "_note": "Custom info portion for later fail-branch gating."
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": false
+            }
+          ],
+          "position": {
+            "x": 9430,
+            "y": 1620
+          },
+          "customLabel": "Main Freedom Fail - Debt Paid",
+          "openingMessage": "Replacement goods cover the lost package, barely. Lukash keeps you in Freedom, but trust is gone and Act Two starts with a leash.",
+          "speaker_allow_generic_stalker": false,
+          "requiresNpcFirst": true
+        },
+        {
+          "turnNumber": 41,
+          "preconditions": [],
+          "channel": "f2f",
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": true,
+          "choices": [
+            {
+              "index": 1,
+              "text": "I understand.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "No, you do not. But you will.",
+              "outcomes": [
+                {
+                  "command": "punish_gw",
+                  "params": [
+                    "4000",
+                    "freedom"
+                  ]
+                },
+                {
+                  "command": "punish_rep",
+                  "params": [
+                    "500"
+                  ]
+                },
+                {
+                  "command": "give_info",
+                  "params": [
+                    "panda_freedom_act1_exiled"
+                  ],
+                  "_note": "Custom info portion for later exile gating."
+                },
+                {
+                  "command": "set_npc_hostile",
+                  "params": []
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": false
+            }
+          ],
+          "position": {
+            "x": 9430,
+            "y": 2030
+          },
+          "customLabel": "Main Freedom Fail - Exiled",
+          "openingMessage": "No goods, no Rabbit, no patience. Lukash marks you unreliable and every Freedomer in Warehouses gets the same message.",
+          "speaker_allow_generic_stalker": false,
+          "requiresNpcFirst": true
+        },
+        {
+          "turnNumber": 42,
+          "preconditions": [],
+          "channel": "f2f",
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": false,
+          "choices": [
+            {
+              "index": 1,
+              "text": "What happens now?",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Now you learn discipline, then we aim you back at Lukash.",
+              "outcomes": [
+                {
+                  "command": "give_info",
+                  "params": [
+                    "panda_desert_to_duty_act1_complete"
+                  ],
+                  "_note": "Custom info portion for later Duty branch gating."
+                },
+                {
+                  "command": "reward_money",
+                  "params": [
+                    "4000"
+                  ]
+                },
+                {
+                  "command": "reward_rep",
+                  "params": [
+                    "200"
+                  ]
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": false,
+              "cont_npc_id": "bar_dolg_leader"
+            }
+          ],
+          "position": {
+            "x": 5100,
+            "y": 2460
+          },
+          "customLabel": "Desert To Duty Act 1 Complete",
+          "openingMessage": "Voronin files your statement under operational intelligence, not confession. Freedom will call you traitor; Duty calls you asset.",
+          "speaker_allow_generic_stalker": false,
+          "requiresNpcFirst": true
+        },
+        {
+          "turnNumber": 43,
+          "preconditions": [],
+          "channel": "f2f",
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": true,
+          "choices": [
+            {
+              "index": 1,
+              "text": "Contract beats execution.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "For now. Welcome to paid work.",
+              "outcomes": [
+                {
+                  "command": "change_player_faction",
+                  "params": [
+                    "killer"
+                  ]
+                },
+                {
+                  "command": "reward_gw",
+                  "params": [
+                    "1500",
+                    "killer"
+                  ]
+                },
+                {
+                  "command": "punish_gw",
+                  "params": [
+                    "3500",
+                    "freedom"
+                  ]
+                },
+                {
+                  "command": "reward_money",
+                  "params": [
+                    "6000"
+                  ]
+                },
+                {
+                  "command": "give_info",
+                  "params": [
+                    "panda_desert_to_mercs_act1_complete"
+                  ],
+                  "_note": "Custom info portion for later Merc branch gating."
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": false,
+              "cont_npc_id": "cit_killers_merc_barman_mlr"
+            },
+            {
+              "index": 2,
+              "text": "I only wanted safe passage.",
+              "channel": "f2f",
+              "preconditions": [],
+              "reply": "Safe passage is a contract with fewer words.",
+              "outcomes": [
+                {
+                  "command": "reward_gw",
+                  "params": [
+                    "900",
+                    "killer"
+                  ]
+                },
+                {
+                  "command": "punish_gw",
+                  "params": [
+                    "2500",
+                    "freedom"
+                  ]
+                },
+                {
+                  "command": "give_info",
+                  "params": [
+                    "panda_desert_to_mercs_act1_complete"
+                  ],
+                  "_note": "Custom info portion for later Merc branch gating."
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": false,
+              "cont_npc_id": "cit_killers_merc_barman_mlr"
+            }
+          ],
+          "position": {
+            "x": 5100,
+            "y": 3450
+          },
+          "customLabel": "Desert To Mercs Act 1 Complete",
+          "openingMessage": "Aslan accepts the route intel without smiling. Mercs do not forgive your betrayal; they invoice it, then put you on contract.",
+          "speaker_allow_generic_stalker": false,
+          "requiresNpcFirst": true
+        },
+        {
+          "turnNumber": 44,
+          "preconditions": [],
+          "channel": "pda",
+          "firstSpeaker": "npc",
+          "pda_entry": false,
+          "f2f_entry": false,
+          "choices": [
+            {
+              "index": 1,
+              "text": "Then I disappear.",
+              "channel": "pda",
+              "preconditions": [],
+              "reply": "Try.",
+              "outcomes": [
+                {
+                  "command": "punish_gw",
+                  "params": [
+                    "3000",
+                    "freedom"
+                  ]
+                },
+                {
+                  "command": "punish_gw",
+                  "params": [
+                    "800",
+                    "killer"
+                  ]
+                },
+                {
+                  "command": "punish_gw",
+                  "params": [
+                    "500",
+                    "dolg"
+                  ]
+                },
+                {
+                  "command": "punish_rep",
+                  "params": [
+                    "300"
+                  ]
+                }
+              ],
+              "terminal": true,
+              "allow_generic_stalker": false
+            }
+          ],
+          "position": {
+            "x": 5100,
+            "y": 3830
+          },
+          "customLabel": "Desert To Mercs Failed",
+          "openingMessage": "Merc channel closes before you reach Dead City. Freedom still wants you, Duty distrusts you, and mercs will not spend credit on late assets.",
+          "speaker_allow_generic_stalker": false
+        }
+      ],
+      "faction": "freedom",
+      "startMode": "pda",
+      "preconditions": [
+        {
+          "type": "simple",
+          "command": "req_story_npc",
+          "params": [
+            "mil_smart_terrain_7_7_freedom_leader_stalker"
+          ]
+        },
+        {
+          "type": "simple",
+          "command": "req_rank",
+          "params": [
+            "experienced"
+          ]
+        },
+        {
+          "type": "simple",
+          "command": "req_goodwill",
+          "params": [
+            "1000",
+            "freedom"
+          ]
+        },
+        {
+          "type": "simple",
+          "command": "req_faction_kills",
+          "params": [
+            "20",
+            "dolg"
+          ]
+        },
+        {
+          "type": "simple",
+          "command": "req_game_days_min",
+          "params": [
+            "4"
+          ]
+        },
+        {
+          "type": "simple",
+          "command": "req_not_surge_soon",
+          "params": [
+            "12000"
+          ]
+        }
+      ],
+      "initialChannel": "pda",
+      "flowAnnotations": [
+        {
+          "id": "a08cae7b-f00c-450b-8637-2ed7cc501e1d",
+          "type": "note",
+          "color": "#ffd84d",
+          "x": 2642,
+          "y": 1130,
+          "text": "Main Story Setup",
+          "createdAt": "2026-04-28T17:26:37.627Z"
+        },
+        {
+          "id": "bc716d43-8789-43d6-b4b9-fd2f71028896",
+          "type": "note",
+          "color": "#e40c0c",
+          "x": 6475,
+          "y": 2715,
+          "text": "bring back document",
+          "createdAt": "2026-04-29T12:22:43.766Z"
+        },
+        {
+          "id": "4adad26c-0a97-4465-9ad6-e5dbd71ed3e2",
+          "type": "note",
+          "color": "#e40c0c",
+          "x": 3399,
+          "y": 290,
+          "text": "ESCORT MULE",
+          "createdAt": "2026-04-29T12:26:15.921Z"
+        },
+        {
+          "id": "73eac3f2-59be-46f2-bcd4-0aa08e423e11",
+          "type": "note",
+          "color": "#e40c0c",
+          "x": 3992,
+          "y": 286,
+          "text": "FIND MISSING MULE",
+          "createdAt": "2026-04-29T12:26:27.785Z"
+        },
+        {
+          "id": "5cbd8705-883d-46ff-8d19-1e7e28f82dc3",
+          "type": "note",
+          "color": "#e40c0c",
+          "x": 3695,
+          "y": 283,
+          "text": "turn back in",
+          "createdAt": "2026-04-29T12:26:42.034Z"
+        },
+        {
+          "id": "0cdc4fe5-787d-4196-88da-93ae780a8afc",
+          "type": "note",
+          "color": "#e40c0c",
+          "x": 4278,
+          "y": 281,
+          "text": "talk to missing mule",
+          "createdAt": "2026-04-29T12:26:51.346Z"
+        },
+        {
+          "id": "b29e5e04-902b-4669-b8f8-60bfc5446bb0",
+          "type": "note",
+          "color": "#e40c0c",
+          "x": 4576,
+          "y": 283,
+          "text": "spawn enemy squads",
+          "createdAt": "2026-04-29T12:26:58.538Z"
+        },
+        {
+          "id": "0a345807-766c-4092-9973-0de5eba10573",
+          "type": "line-set",
+          "color": "#ffd84d",
+          "lines": [
+            [
+              {
+                "x": 3739,
+                "y": 2046
+              },
+              {
+                "x": 3737,
+                "y": 2050
+              },
+              {
+                "x": 3733,
+                "y": 2065
+              },
+              {
+                "x": 3729,
+                "y": 2073
+              },
+              {
+                "x": 3727,
+                "y": 2081
+              },
+              {
+                "x": 3724,
+                "y": 2089
+              },
+              {
+                "x": 3720,
+                "y": 2097
+              },
+              {
+                "x": 3716,
+                "y": 2102
+              },
+              {
+                "x": 3712,
+                "y": 2107
+              },
+              {
+                "x": 3709,
+                "y": 2113
+              },
+              {
+                "x": 3703,
+                "y": 2123
+              },
+              {
+                "x": 3699,
+                "y": 2131
+              },
+              {
+                "x": 3695,
+                "y": 2138
+              },
+              {
+                "x": 3691,
+                "y": 2145
+              },
+              {
+                "x": 3687,
+                "y": 2154
+              },
+              {
+                "x": 3684,
+                "y": 2158
+              },
+              {
+                "x": 3680,
+                "y": 2167
+              },
+              {
+                "x": 3675,
+                "y": 2175
+              },
+              {
+                "x": 3673,
+                "y": 2181
+              },
+              {
+                "x": 3672,
+                "y": 2185
+              },
+              {
+                "x": 3669,
+                "y": 2189
+              },
+              {
+                "x": 3667,
+                "y": 2194
+              },
+              {
+                "x": 3661,
+                "y": 2203
+              },
+              {
+                "x": 3657,
+                "y": 2210
+              },
+              {
+                "x": 3656,
+                "y": 2215
+              }
+            ],
+            [
+              {
+                "x": 3739,
+                "y": 2043
+              },
+              {
+                "x": 3739,
+                "y": 2049
+              },
+              {
+                "x": 3743,
+                "y": 2075
+              },
+              {
+                "x": 3744,
+                "y": 2085
+              },
+              {
+                "x": 3753,
+                "y": 2122
+              },
+              {
+                "x": 3759,
+                "y": 2135
+              },
+              {
+                "x": 3759,
+                "y": 2142
+              },
+              {
+                "x": 3760,
+                "y": 2147
+              },
+              {
+                "x": 3763,
+                "y": 2155
+              },
+              {
+                "x": 3764,
+                "y": 2165
+              },
+              {
+                "x": 3767,
+                "y": 2170
+              },
+              {
+                "x": 3767,
+                "y": 2175
+              },
+              {
+                "x": 3765,
+                "y": 2183
+              },
+              {
+                "x": 3765,
+                "y": 2189
+              },
+              {
+                "x": 3765,
+                "y": 2194
+              },
+              {
+                "x": 3765,
+                "y": 2199
+              },
+              {
+                "x": 3765,
+                "y": 2205
+              }
+            ],
+            [
+              {
+                "x": 3684,
+                "y": 2154
+              },
+              {
+                "x": 3696,
+                "y": 2155
+              },
+              {
+                "x": 3701,
+                "y": 2155
+              },
+              {
+                "x": 3720,
+                "y": 2154
+              },
+              {
+                "x": 3725,
+                "y": 2154
+              },
+              {
+                "x": 3740,
+                "y": 2153
+              },
+              {
+                "x": 3755,
+                "y": 2153
+              }
+            ],
+            [
+              {
+                "x": 3903,
+                "y": 2045
+              },
+              {
+                "x": 3895,
+                "y": 2047
+              },
+              {
+                "x": 3883,
+                "y": 2053
+              },
+              {
+                "x": 3877,
+                "y": 2055
+              },
+              {
+                "x": 3869,
+                "y": 2059
+              },
+              {
+                "x": 3865,
+                "y": 2061
+              },
+              {
+                "x": 3859,
+                "y": 2066
+              },
+              {
+                "x": 3856,
+                "y": 2070
+              },
+              {
+                "x": 3853,
+                "y": 2074
+              },
+              {
+                "x": 3851,
+                "y": 2079
+              },
+              {
+                "x": 3849,
+                "y": 2085
+              },
+              {
+                "x": 3848,
+                "y": 2091
+              },
+              {
+                "x": 3848,
+                "y": 2097
+              },
+              {
+                "x": 3848,
+                "y": 2109
+              },
+              {
+                "x": 3848,
+                "y": 2118
+              },
+              {
+                "x": 3848,
+                "y": 2129
+              },
+              {
+                "x": 3848,
+                "y": 2134
+              },
+              {
+                "x": 3848,
+                "y": 2139
+              },
+              {
+                "x": 3848,
+                "y": 2145
+              },
+              {
+                "x": 3849,
+                "y": 2155
+              },
+              {
+                "x": 3851,
+                "y": 2162
+              },
+              {
+                "x": 3852,
+                "y": 2166
+              },
+              {
+                "x": 3853,
+                "y": 2170
+              },
+              {
+                "x": 3856,
+                "y": 2177
+              },
+              {
+                "x": 3860,
+                "y": 2182
+              },
+              {
+                "x": 3865,
+                "y": 2187
+              },
+              {
+                "x": 3875,
+                "y": 2193
+              },
+              {
+                "x": 3888,
+                "y": 2193
+              },
+              {
+                "x": 3899,
+                "y": 2193
+              },
+              {
+                "x": 3911,
+                "y": 2193
+              },
+              {
+                "x": 3915,
+                "y": 2194
+              },
+              {
+                "x": 3921,
+                "y": 2194
+              },
+              {
+                "x": 3933,
+                "y": 2190
+              }
+            ],
+            [
+              {
+                "x": 3991,
+                "y": 2009
+              },
+              {
+                "x": 3989,
+                "y": 2021
+              },
+              {
+                "x": 3989,
+                "y": 2037
+              },
+              {
+                "x": 3989,
+                "y": 2055
+              },
+              {
+                "x": 3989,
+                "y": 2074
+              },
+              {
+                "x": 3989,
+                "y": 2087
+              },
+              {
+                "x": 3989,
+                "y": 2095
+              },
+              {
+                "x": 3989,
+                "y": 2102
+              },
+              {
+                "x": 3989,
+                "y": 2119
+              },
+              {
+                "x": 3989,
+                "y": 2125
+              },
+              {
+                "x": 3989,
+                "y": 2139
+              },
+              {
+                "x": 3989,
+                "y": 2151
+              },
+              {
+                "x": 3989,
+                "y": 2157
+              },
+              {
+                "x": 3989,
+                "y": 2165
+              },
+              {
+                "x": 3989,
+                "y": 2170
+              },
+              {
+                "x": 3989,
+                "y": 2175
+              },
+              {
+                "x": 3988,
+                "y": 2185
+              }
+            ],
+            [
+              {
+                "x": 3897,
+                "y": 2001
+              },
+              {
+                "x": 3908,
+                "y": 2001
+              },
+              {
+                "x": 3919,
+                "y": 2001
+              },
+              {
+                "x": 3924,
+                "y": 2001
+              },
+              {
+                "x": 3943,
+                "y": 2001
+              },
+              {
+                "x": 3960,
+                "y": 2001
+              },
+              {
+                "x": 3972,
+                "y": 2001
+              },
+              {
+                "x": 3979,
+                "y": 2001
+              },
+              {
+                "x": 3995,
+                "y": 2002
+              },
+              {
+                "x": 4008,
+                "y": 2003
+              },
+              {
+                "x": 4013,
+                "y": 2003
+              },
+              {
+                "x": 4021,
+                "y": 2003
+              },
+              {
+                "x": 4027,
+                "y": 2003
+              },
+              {
+                "x": 4032,
+                "y": 2003
+              },
+              {
+                "x": 4037,
+                "y": 2003
+              }
+            ],
+            [
+              {
+                "x": 4207,
+                "y": 2065
+              },
+              {
+                "x": 4213,
+                "y": 2059
+              },
+              {
+                "x": 4216,
+                "y": 2054
+              },
+              {
+                "x": 4220,
+                "y": 2046
+              },
+              {
+                "x": 4223,
+                "y": 2039
+              },
+              {
+                "x": 4225,
+                "y": 2033
+              },
+              {
+                "x": 4227,
+                "y": 2027
+              },
+              {
+                "x": 4228,
+                "y": 2022
+              },
+              {
+                "x": 4229,
+                "y": 2018
+              },
+              {
+                "x": 4231,
+                "y": 2014
+              },
+              {
+                "x": 4232,
+                "y": 2009
+              },
+              {
+                "x": 4232,
+                "y": 2001
+              },
+              {
+                "x": 4232,
+                "y": 1994
+              },
+              {
+                "x": 4232,
+                "y": 1989
+              }
+            ],
+            [
+              {
+                "x": 4232,
+                "y": 1989
+              },
+              {
+                "x": 4233,
+                "y": 1997
+              },
+              {
+                "x": 4239,
+                "y": 2021
+              },
+              {
+                "x": 4243,
+                "y": 2033
+              },
+              {
+                "x": 4244,
+                "y": 2041
+              },
+              {
+                "x": 4245,
+                "y": 2046
+              },
+              {
+                "x": 4245,
+                "y": 2053
+              },
+              {
+                "x": 4245,
+                "y": 2058
+              },
+              {
+                "x": 4245,
+                "y": 2063
+              },
+              {
+                "x": 4245,
+                "y": 2069
+              },
+              {
+                "x": 4245,
+                "y": 2074
+              },
+              {
+                "x": 4245,
+                "y": 2079
+              },
+              {
+                "x": 4245,
+                "y": 2089
+              },
+              {
+                "x": 4245,
+                "y": 2097
+              },
+              {
+                "x": 4245,
+                "y": 2102
+              },
+              {
+                "x": 4245,
+                "y": 2109
+              },
+              {
+                "x": 4245,
+                "y": 2115
+              },
+              {
+                "x": 4245,
+                "y": 2121
+              },
+              {
+                "x": 4245,
+                "y": 2134
+              },
+              {
+                "x": 4245,
+                "y": 2141
+              },
+              {
+                "x": 4245,
+                "y": 2147
+              },
+              {
+                "x": 4245,
+                "y": 2155
+              },
+              {
+                "x": 4245,
+                "y": 2163
+              },
+              {
+                "x": 4245,
+                "y": 2169
+              },
+              {
+                "x": 4245,
+                "y": 2174
+              },
+              {
+                "x": 4245,
+                "y": 2179
+              },
+              {
+                "x": 4245,
+                "y": 2187
+              },
+              {
+                "x": 4245,
+                "y": 2193
+              }
+            ]
+          ],
+          "createdAt": "2026-04-30T09:17:27.925Z"
+        },
+        {
+          "id": "b1fa2413-f63b-499c-92ef-683f906f9e8e",
+          "type": "note",
+          "color": "#ffffff",
+          "x": 5040,
+          "y": 1421,
+          "text": "Fail Branch:\n\nNew job",
+          "createdAt": "2026-04-30T10:51:05.779Z",
+          "fontSize": 28
+        },
+        {
+          "id": "1ca3a6a5-c4d8-4fa5-a7bd-912a63369e4d",
+          "type": "note",
+          "color": "#56f202",
+          "x": 3928,
+          "y": 532,
+          "text": "Main Freedom\nStoryline",
+          "createdAt": "2026-04-30T10:51:37.971Z",
+          "fontSize": 28
+        },
+        {
+          "id": "d89b4b5f-11fc-43f2-a58c-e8118eb976e3",
+          "type": "note",
+          "color": "#d41111",
+          "x": 3035,
+          "y": 2588,
+          "text": "Join Duty",
+          "createdAt": "2026-04-30T10:52:12.820Z",
+          "fontSize": 28
+        }
+      ],
+      "timeout": 600,
+      "flowEdgeBends": {
+        "8:1:14:continue": -53,
+        "5:1:2:continue": 1,
+        "11:2:12:continue": 31,
+        "2:1:14:continue": -162,
+        "6:2:8:continue": -118
+      },
+      "timeoutMessage": "Lukash stops waiting. Freedom marks this as unfinished business.",
+      "repeatable": false
+    }
+  ],
+  "npcTemplates": [
+    {
+      "id": "rabbit_mule",
+      "name": "Rabbit",
+      "faction": "freedom",
+      "rank": "experienced",
+      "relation": "companion",
+      "primary": "wpn_k98",
+      "outfit": "svoboda_heavy_outfit",
+      "items": "cocaine:50",
+      "allowRoam": false,
+      "spawnMode": "player",
+      "spawnDist": 30
+    },
+    {
+      "id": "missing_mule",
+      "name": "Slick",
+      "faction": "freedom",
+      "rank": "experienced",
+      "relation": "friendly",
+      "primary": "wpn_ak74",
+      "outfit": "svoboda_light_outfit",
+      "items": "device_pda_2:1,cocaine:20",
+      "spawnMode": "smart",
+      "smartTerrain": "st_mil_smart_terrain_2_4_name",
+      "allowRoam": false
+    }
+  ],
+  "systemStrings": {}
+}

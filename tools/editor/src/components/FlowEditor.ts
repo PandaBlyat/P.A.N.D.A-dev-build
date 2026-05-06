@@ -20,6 +20,7 @@ import { measurePerf, recordPerf } from '../lib/perf';
 import { setBeginnerTooltip } from '../lib/beginner-tooltips';
 import { createCollabPresenceLayer } from './CollabPresenceLayer';
 import { sendCollabCursorPing } from '../lib/collab-session';
+import { pathBelongsToTurn } from '../lib/collab-protocol';
 import { STORY_NPC_OPTIONS } from '../lib/generated/story-npc-catalog';
 import { renderBranchInlinePanel } from './BranchInlinePanel';
 import { parseOutcomeResumeTurnNumbers } from '../lib/outcome-branching';
@@ -2646,6 +2647,17 @@ function renderTurnNode(options: RenderTurnNodeOptions): HTMLElement {
   labelSpan.onpointerdown = startLabelEdit;
   labelSpan.onclick = startLabelEdit;
   header.appendChild(labelSpan);
+  const remoteLock = Object.values(state.collab.locks).find(lock =>
+    lock.authorId !== state.collab.localPublisherId
+    && lock.expiresAt > Date.now()
+    && pathBelongsToTurn(lock.path, turn.turnNumber),
+  );
+  if (remoteLock) {
+    const lockChip = document.createElement('span');
+    lockChip.className = 'turn-header-lock-chip';
+    lockChip.textContent = `${remoteLock.username} editing`;
+    header.appendChild(lockChip);
+  }
 
   const colorDot = document.createElement('input');
   colorDot.type = 'color';

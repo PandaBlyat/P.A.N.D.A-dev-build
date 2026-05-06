@@ -15,6 +15,12 @@ export function createCollabRoster(): HTMLElement | null {
     const chip = document.createElement('span');
     chip.className = `collab-roster-chip${participant.online ? '' : ' is-offline'}${participant.isHost ? ' is-host' : ''}`;
     chip.textContent = `${participant.isHost ? t('collab.roster.hostPrefix') : ''}${participant.username}`;
+    chip.title = participant.online ? 'Follow co-author cursor' : 'Offline';
+    chip.onclick = () => {
+      if (!participant.online || participant.publisherId === collab.localPublisherId) return;
+      store.setCollabFollowPublisher(collab.followPublisherId === participant.publisherId ? null : participant.publisherId);
+    };
+    chip.classList.toggle('is-followed', collab.followPublisherId === participant.publisherId);
     roster.appendChild(chip);
   }
 
@@ -33,5 +39,17 @@ export function createCollabRoster(): HTMLElement | null {
     void leaveCollabSession();
   };
   roster.appendChild(leave);
+
+  if (collab.activityLog.length > 0) {
+    const feed = document.createElement('div');
+    feed.className = 'collab-activity-feed';
+    for (const item of collab.activityLog.slice(0, 4)) {
+      const row = document.createElement('span');
+      row.className = 'collab-activity-row';
+      row.textContent = item.message;
+      feed.appendChild(row);
+    }
+    roster.appendChild(feed);
+  }
   return roster;
 }

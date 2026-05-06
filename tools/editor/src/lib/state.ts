@@ -1,9 +1,9 @@
 // P.A.N.D.A. Conversation Editor — Application State
 
 import type { Project, Conversation, Turn, Choice, Outcome, ValidationMessage, NpcTemplate, FlowAnnotation } from './types';
-import type { CollabLock, CollabParticipant, CollabRemoteCursor } from './collab-protocol';
+import type { CollabActivity, CollabLock, CollabOp, CollabParticipant, CollabRemoteCursor } from './collab-protocol';
 import { getConversationFaction } from './types';
-import { cloneConversation } from './collab-protocol';
+import { applyCollabOpsToConversation, cloneConversation } from './collab-protocol';
 import { createEmptyProject, createConversation, createTurn, createChoice } from './xml-export';
 import { getOutcomeResumeTurnParamIndices } from './outcome-branching';
 import { migrateLegacyF2FEntryOpenings } from './f2f-entry-migration';
@@ -143,6 +143,8 @@ export interface CollabAppState {
   participants: CollabParticipant[];
   locks: Record<string, CollabLock>;
   remoteCursors: Record<string, CollabRemoteCursor>;
+  activityLog: CollabActivity[];
+  followPublisherId: string | null;
   pendingOps: number;
   version: number;
   isHost: boolean;
@@ -213,6 +215,8 @@ function createEmptyCollabState(): CollabAppState {
     participants: [],
     locks: {},
     remoteCursors: {},
+    activityLog: [],
+    followPublisherId: null,
     pendingOps: 0,
     version: 0,
     isHost: false,
@@ -541,6 +545,17 @@ class StateManager {
       [cursor.authorId]: cursor,
     };
     this.notify(createFlowChange('position', 'flowEditor'));
+  }
+
+  addCollabActivity(activity: CollabActivity): void {
+    if (!this.state.collab.sessionId) return;
+    this.state.collab.activityLog = [activity, ...this.state.collab.activityLog].slice(0, 8);
+    this.notify(createStateChange('toolbar', 'flowEditor'));
+  }
+
+  setCollabFollowPublisher(publisherId: string | null): void {
+    this.state.collab.followPublisherId = publisherId;
+    this.notify(createStateChange('toolbar', 'flowEditor'));
   }
 
   clearExpiredCollabPresence(now = Date.now()): void {
@@ -1457,6 +1472,22 @@ class StateManager {
     nextChange.projectChanged = true;
     nextChange.validationChanged = validationChange?.validationChanged ?? false;
     this.notify(nextChange);
+  }
+
+  applyCollabConversationOps(
+    conversationId: number,
+    ops: CollabOp[],
+    version: number,
+    options: { select?: boolean } = {},
+  ): void {
+    const existing = this.state.project.conversations.find((item) => item.id === conversationId);
+    if (!existing || ops.length === 0) return;
+    this.applyCollabConversationSnapshot(
+      conversationId,
+      applyCollabOpsToConversation(existing, ops),
+      version,
+      options,
+    );
   }
 
   setFaction(faction: Project['faction']): void {

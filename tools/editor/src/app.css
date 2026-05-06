@@ -23372,6 +23372,32 @@ button.pa-avatar:focus-visible {
   gap: 8px;
 }
 
+.collab-share-box,
+.collab-join-box {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.collab-share-box span {
+  grid-column: 1 / -1;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.collab-share-box input,
+.collab-join-box input {
+  min-width: 0;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0 9px;
+  background: var(--bg-input);
+  color: var(--text);
+}
+
 .collab-user-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
@@ -23444,6 +23470,10 @@ button.pa-avatar:focus-visible {
   color: var(--warning);
 }
 
+.collab-roster-chip.is-followed {
+  outline: 1px solid var(--info);
+}
+
 .collab-roster-chip.is-offline {
   opacity: 0.55;
 }
@@ -23461,6 +23491,35 @@ button.pa-avatar:focus-visible {
   color: var(--danger);
   font-size: 11px;
   cursor: pointer;
+}
+
+.collab-activity-feed {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 80;
+  width: 240px;
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-panel);
+  box-shadow: var(--shadow-lg);
+}
+
+.collab-roster {
+  position: relative;
+}
+
+.collab-roster:hover .collab-activity-feed {
+  display: flex;
+}
+
+.collab-activity-row {
+  color: var(--text-dim);
+  font-size: 11px;
 }
 
 .collab-presence-layer {
@@ -23492,7 +23551,8 @@ button.pa-avatar:focus-visible {
 }
 
 .collab-remote-cursor span,
-.collab-lock-chip {
+.collab-lock-chip,
+.collab-selection-chip {
   position: absolute;
   left: 12px;
   top: 12px;
@@ -23504,10 +23564,30 @@ button.pa-avatar:focus-visible {
   white-space: nowrap;
 }
 
-.collab-lock-chip {
+.collab-lock-chip,
+.collab-selection-chip {
   z-index: 21;
   left: auto;
   top: auto;
+}
+
+.collab-selection-chip {
+  background: color-mix(in srgb, var(--collab-color) 16%, var(--bg-panel));
+  color: var(--collab-color);
+  border: 1px solid var(--collab-color);
+}
+
+.turn-header-lock-chip {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-left: auto;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--warning) 16%, transparent);
+  color: var(--warning);
+  font-size: 10px;
 }
 
 .collab-field-locked {

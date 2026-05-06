@@ -1237,8 +1237,13 @@ async function updateCollabSession(id: string, body: Record<string, unknown>): P
 
 app.post('/api/collab/sessions', async (req, res) => {
   try {
-    const { host_publisher_id, conversation_id, conversation_label, snapshot, username } = req.body ?? {};
+    const { host_publisher_id, conversation_id, conversation_label, snapshot, username, max_users } = req.body ?? {};
     const host = typeof host_publisher_id === 'string' ? host_publisher_id.trim() : '';
+    const publisherAuth = await resolveRequestPublisherId(req, host);
+    if (isPublisherAuthFailure(publisherAuth)) {
+      res.status(publisherAuth.status).json({ error: publisherAuth.error });
+      return;
+    }
     const label = typeof conversation_label === 'string' ? conversation_label.trim() : '';
     const conversationId = Number(conversation_id);
     if (!host || !Number.isFinite(conversationId) || !label || !snapshot) {
@@ -1255,7 +1260,7 @@ app.post('/api/collab/sessions', async (req, res) => {
       snapshot,
       snapshot_version: 0,
       status: 'open',
-      max_users: 2,
+      max_users: Math.max(2, Math.min(4, Number(max_users) || 2)),
     };
     const response = await fetch(sbEndpoint(COLLAB_TABLE), {
       method: 'POST',
@@ -1289,6 +1294,11 @@ app.get('/api/collab/sessions/:id', async (req, res) => {
 app.post('/api/collab/sessions/:id/join', async (req, res) => {
   try {
     const publisherId = typeof req.body?.publisher_id === 'string' ? req.body.publisher_id.trim() : '';
+    const publisherAuth = await resolveRequestPublisherId(req, publisherId);
+    if (isPublisherAuthFailure(publisherAuth)) {
+      res.status(publisherAuth.status).json({ error: publisherAuth.error });
+      return;
+    }
     const username = typeof req.body?.username === 'string' && req.body.username.trim() ? req.body.username.trim() : publisherId;
     if (!publisherId) {
       res.status(400).json({ error: 'Missing publisher_id.' });
@@ -1326,6 +1336,11 @@ app.post('/api/collab/sessions/:id/join', async (req, res) => {
 app.post('/api/collab/sessions/:id/close', async (req, res) => {
   try {
     const caller = typeof req.body?.caller === 'string' ? req.body.caller.trim() : '';
+    const publisherAuth = await resolveRequestPublisherId(req, caller);
+    if (isPublisherAuthFailure(publisherAuth)) {
+      res.status(publisherAuth.status).json({ error: publisherAuth.error });
+      return;
+    }
     const session = await fetchCollabSessionById(req.params.id);
     if (!session) {
       res.status(404).json({ error: 'Collab session not found.' });
@@ -1339,9 +1354,39 @@ app.post('/api/collab/sessions/:id/close', async (req, res) => {
       status: 'closed',
       snapshot: req.body?.snapshot ?? session.snapshot,
       snapshot_version: typeof req.body?.snapshot_version === 'number' ? req.body.snapshot_version : session.snapshot_version,
-      guest_edit_count: typeof req.body?.guest_edit_count === 'number' ? req.body.guest_edit_count : session.guest_edit_count,
-      last_guest_edit_at: typeof req.body?.guest_edit_count === 'number' && req.body.guest_edit_count > 0 ? new Date().toISOString() : session.last_guest_edit_at,
+      guest_edit_count: typeof req.body?.guest_edit_count === 'number' ? Math.max(session.guest_edit_count, req.body.guest_edit_count) : session.guest_edit_count,
+      last_guest_edit_at: typeof req.body?.guest_edit_count === 'number' && req.body.guest_edit_count > session.guest_edit_count ? new Date().toISOString() : session.last_guest_edit_at,
       closed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+    res.json({ session: updated });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.post('/api/collab/sessions/:id/checkpoint', async (req, res) => {
+  try {
+    const caller = typeof req.body?.caller === 'string' ? req.body.caller.trim() : '';
+    const publisherAuth = await resolveRequestPublisherId(req, caller);
+    if (isPublisherAuthFailure(publisherAuth)) {
+      res.status(publisherAuth.status).json({ error: publisherAuth.error });
+      return;
+    }
+    const session = await fetchCollabSessionById(req.params.id);
+    if (!session || session.status !== 'open') {
+      res.status(404).json({ error: 'Open collab session not found.' });
+      return;
+    }
+    if (session.host_publisher_id !== caller) {
+      res.status(403).json({ error: 'Only host can checkpoint collab session.' });
+      return;
+    }
+    const updated = await updateCollabSession(session.id, {
+      snapshot: req.body?.snapshot ?? session.snapshot,
+      snapshot_version: typeof req.body?.snapshot_version === 'number' ? req.body.snapshot_version : session.snapshot_version,
+      guest_edit_count: typeof req.body?.guest_edit_count === 'number' ? Math.max(session.guest_edit_count, req.body.guest_edit_count) : session.guest_edit_count,
+      last_guest_edit_at: typeof req.body?.guest_edit_count === 'number' && req.body.guest_edit_count > session.guest_edit_count ? new Date().toISOString() : session.last_guest_edit_at,
       updated_at: new Date().toISOString(),
     });
     res.json({ session: updated });
@@ -1353,6 +1398,11 @@ app.post('/api/collab/sessions/:id/close', async (req, res) => {
 app.post('/api/collab/sessions/:id/promote-host', async (req, res) => {
   try {
     const newHostId = typeof req.body?.new_host_id === 'string' ? req.body.new_host_id.trim() : '';
+    const publisherAuth = await resolveRequestPublisherId(req, newHostId);
+    if (isPublisherAuthFailure(publisherAuth)) {
+      res.status(publisherAuth.status).json({ error: publisherAuth.error });
+      return;
+    }
     const session = await fetchCollabSessionById(req.params.id);
     if (!session || session.status !== 'open') {
       res.status(404).json({ error: 'Open collab session not found.' });

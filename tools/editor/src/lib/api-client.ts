@@ -517,12 +517,13 @@ export async function createCollabSession(input: {
   conversation_label: string;
   snapshot: Conversation;
   username?: string;
+  max_users?: number;
 }): Promise<CollabSession> {
   const body = JSON.stringify(input);
   try {
     const response = await fetchFromApi<unknown>('/api/collab/sessions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: apiJsonHeaders(),
       body,
     });
     return unwrapCollabSessionResponse(response);
@@ -547,7 +548,7 @@ export async function joinCollabSession(sessionId: string, publisherId: string, 
   try {
     const response = await fetchFromApi<unknown>(`/api/collab/sessions/${encodeURIComponent(sessionId)}/join`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: apiJsonHeaders(),
       body: JSON.stringify({ publisher_id: publisherId, username }),
     });
     return unwrapCollabSessionResponse(response);
@@ -576,7 +577,7 @@ export async function closeCollabSession(
   try {
     const response = await fetchFromApi<unknown>(`/api/collab/sessions/${encodeURIComponent(sessionId)}/close`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: apiJsonHeaders(),
       body: JSON.stringify({
         caller,
         snapshot,
@@ -606,7 +607,7 @@ export async function promoteCollabSessionHost(sessionId: string, newHostId: str
   try {
     const response = await fetchFromApi<unknown>(`/api/collab/sessions/${encodeURIComponent(sessionId)}/promote-host`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: apiJsonHeaders(),
       body: JSON.stringify({ new_host_id: newHostId }),
     });
     return unwrapCollabSessionResponse(response);
@@ -638,6 +639,30 @@ export async function fetchCollabSession(sessionId: string): Promise<CollabSessi
     if (!res.ok) return null;
     const rows = await res.json() as Array<Partial<CollabSession>>;
     return rows[0] ? normalizeCollabSessionRow(rows[0]) : null;
+  }
+}
+
+export async function checkpointCollabSession(
+  sessionId: string,
+  caller: string,
+  snapshot: Conversation,
+  snapshotVersion: number,
+  guestEditCount: number,
+): Promise<CollabSession | null> {
+  try {
+    const response = await fetchFromApi<unknown>(`/api/collab/sessions/${encodeURIComponent(sessionId)}/checkpoint`, {
+      method: 'POST',
+      headers: apiJsonHeaders(),
+      body: JSON.stringify({
+        caller,
+        snapshot,
+        snapshot_version: snapshotVersion,
+        guest_edit_count: guestEditCount,
+      }),
+    });
+    return unwrapCollabSessionResponse(response);
+  } catch {
+    return null;
   }
 }
 

@@ -19,7 +19,9 @@ export function createCollabPresenceLayer(conversation: Conversation): HTMLEleme
     dot.style.top = `${cursor.y}px`;
     dot.style.setProperty('--collab-color', colorForPublisher(cursor.authorId));
     const label = document.createElement('span');
-    label.textContent = cursor.username;
+    label.textContent = cursor.selectedTurnNumber
+      ? `${cursor.username} · Branch ${cursor.selectedTurnNumber}`
+      : cursor.username;
     dot.appendChild(label);
     layer.appendChild(dot);
   }
@@ -33,6 +35,19 @@ export function createCollabPresenceLayer(conversation: Conversation): HTMLEleme
     chip.style.top = `${Math.max(0, turn.position.y - 18)}px`;
     chip.style.setProperty('--collab-color', colorForPublisher(remoteLocks[0].authorId));
     chip.textContent = remoteLocks[0].username;
+    layer.appendChild(chip);
+  }
+
+  for (const cursor of Object.values(collab.remoteCursors)) {
+    if (!cursor.selectedTurnNumber || cursor.authorId === localId) continue;
+    const turn = conversation.turns.find(item => item.turnNumber === cursor.selectedTurnNumber);
+    if (!turn) continue;
+    const chip = document.createElement('div');
+    chip.className = 'collab-selection-chip';
+    chip.style.left = `${turn.position.x + 12}px`;
+    chip.style.top = `${turn.position.y + 8}px`;
+    chip.style.setProperty('--collab-color', colorForPublisher(cursor.authorId));
+    chip.textContent = cursor.username;
     layer.appendChild(chip);
   }
 
