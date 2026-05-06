@@ -186,6 +186,8 @@ function getRenderContext(container: HTMLElement): AppRenderContext {
 
   applyFactionTheme(container, getConversationFaction(conv, state.project.faction));
   document.documentElement.lang = state.uiLanguage;
+  document.body.classList.toggle('theme-soviet', state.uiTheme === 'soviet');
+  document.body.classList.toggle('theme-modern', state.uiTheme === 'modern');
   container.classList.toggle('graphics-low', state.flowGraphicsQuality === 'low');
   container.classList.toggle('graphics-medium', state.flowGraphicsQuality === 'medium');
   container.classList.toggle('graphics-high', state.flowGraphicsQuality === 'high');

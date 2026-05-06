@@ -36,6 +36,24 @@ const CURSOR_PREFS_KEY = 'panda:cursor-prefs:v1';
 const ADVANCED_MODE_KEY = 'panda:advanced-mode:v1';
 const FLOW_OCCLUSION_KEY = 'panda:flow-occlusion:v1';
 const FLOW_GRAPHICS_QUALITY_KEY = 'panda:flow-graphics-quality:v1';
+const UI_THEME_KEY = 'panda:ui-theme:v1';
+
+export type UiTheme = 'soviet' | 'modern';
+
+function isUiTheme(value: unknown): value is UiTheme {
+  return value === 'soviet' || value === 'modern';
+}
+
+function loadUiTheme(): UiTheme {
+  if (typeof window === 'undefined') return 'soviet';
+  const raw = window.localStorage.getItem(UI_THEME_KEY);
+  return isUiTheme(raw) ? raw : 'soviet';
+}
+
+function persistUiTheme(theme: UiTheme): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(UI_THEME_KEY, theme);
+}
 
 type CursorPrefs = {
   enabled: boolean;
@@ -117,6 +135,7 @@ export interface AppState {
   flowOcclusionEnabled: boolean;
   flowGraphicsQuality: FlowGraphicsQuality;
   uiLanguage: UiLanguage;
+  uiTheme: UiTheme;
   customCursorEnabled: boolean;
   cursorAnimationIntensity: CursorAnimationIntensity;
   cursorSize: number;
@@ -452,6 +471,7 @@ class StateManager {
       flowOcclusionEnabled: loadFlowOcclusionEnabled(),
       flowGraphicsQuality: loadFlowGraphicsQuality(),
       uiLanguage: loadUiLanguagePreference(),
+      uiTheme: loadUiTheme(),
       customCursorEnabled: cursorPrefs.enabled,
       cursorAnimationIntensity: cursorPrefs.animationIntensity,
       cursorSize: cursorPrefs.size,
@@ -1696,6 +1716,17 @@ class StateManager {
     this.state.flowGraphicsQuality = quality;
     persistFlowGraphicsQuality(quality);
     this.notify(createFlowChange('structure', 'toolbar', 'flowEditor'));
+  }
+
+  setUiTheme(theme: UiTheme): void {
+    if (this.state.uiTheme === theme) return;
+    this.state.uiTheme = theme;
+    persistUiTheme(theme);
+    this.notify(FULL_APP_RENDER);
+  }
+
+  toggleUiTheme(): void {
+    this.setUiTheme(this.state.uiTheme === 'soviet' ? 'modern' : 'soviet');
   }
 
   setUiLanguage(language: UiLanguage): void {

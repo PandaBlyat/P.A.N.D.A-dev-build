@@ -171,6 +171,16 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
     title: ui('Toggle editor tooltips', 'Переключить подсказки редактора'),
     onclick: () => setBeginnerTooltipsDisabled(!areBeginnerTooltipsDisabled()),
   };
+  const themeToggleAction: OverflowAction = {
+    icon: 'brand',
+    label: state.uiTheme === 'soviet'
+      ? ui('UI Style: Modern', 'Стиль UI: современный')
+      : ui('UI Style: Soviet', 'Стиль UI: советский'),
+    title: state.uiTheme === 'soviet'
+      ? ui('Switch to the modern glassy UI style', 'Переключиться на современный глянцевый стиль UI')
+      : ui('Switch to the old-Soviet metal UI style', 'Переключиться на старо-советский металлический стиль UI'),
+    onclick: () => store.toggleUiTheme(),
+  };
   const occlusionToggleAction: OverflowAction = {
     icon: 'eye',
     label: state.flowOcclusionEnabled ? ui('Disable Occlusion', 'Отключить отсечение') : ui('Enable Occlusion', 'Включить отсечение'),
@@ -231,6 +241,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
     rightZone.append(roadmapBtn, leadersBtn, supportBtn);
 
     rightZone.appendChild(createOverflowMenu(ui('More', 'Ещё'), [
+      themeToggleAction,
       occlusionToggleAction,
       graphicsQualityAction,
       tooltipToggleAction,
@@ -291,6 +302,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
   if (isCompact) {
     const projectOverflowActions: OverflowMenuAction[] = [];
     projectOverflowActions.push(
+      themeToggleAction,
       occlusionToggleAction,
       graphicsQualityAction,
       tooltipToggleAction,
@@ -356,6 +368,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
     utilityTier.appendChild(createLanguageSwitcher(state.uiLanguage));
     utilityTier.appendChild(supportBtn);
     utilityTier.appendChild(createOverflowMenu(ui('More', 'Ещё'), [
+      themeToggleAction,
       occlusionToggleAction,
       graphicsQualityAction,
       tooltipToggleAction,
