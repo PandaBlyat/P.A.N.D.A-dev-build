@@ -3425,6 +3425,93 @@ body.use-custom-cursor * {
   letter-spacing: 0.05em;
 }
 
+.branch-inline-dialogue-pane {
+  gap: 12px;
+}
+
+.branch-inline-dialogue-pane > .branch-inline-field,
+.branch-inline-dialogue-pane > .branch-inline-field-block,
+.branch-inline-dialogue-pane > .branch-inline-segmented {
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.055);
+}
+
+.branch-inline-dialogue-pane > .branch-inline-field:first-of-type {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.branch-inline-section-title {
+  color: color-mix(in srgb, var(--branch-color, var(--accent)) 72%, white 28%);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.branch-inline-collapsible {
+  display: grid;
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--branch-color, var(--accent)) 24%, var(--border));
+  border-radius: var(--radius);
+  background: rgba(0, 0, 0, 0.14);
+  overflow: hidden;
+}
+
+.branch-inline-collapsible-header {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 0;
+  background: color-mix(in srgb, var(--branch-color, var(--accent)) 8%, rgba(255, 255, 255, 0.025));
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.branch-inline-collapsible-header:hover,
+.branch-inline-collapsible-header:focus-visible {
+  background: color-mix(in srgb, var(--branch-color, var(--accent)) 14%, rgba(255, 255, 255, 0.035));
+}
+
+.branch-inline-collapsible-summary {
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.branch-inline-collapsible-chevron {
+  color: color-mix(in srgb, var(--branch-color, var(--accent)) 78%, white 22%);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1;
+  transform: rotate(90deg);
+  transition: transform 120ms ease;
+}
+
+.branch-inline-collapsible.is-collapsed .branch-inline-collapsible-chevron {
+  transform: rotate(0deg);
+}
+
+.branch-inline-collapsible-body {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--branch-color, var(--accent)) 18%, var(--border));
+}
+
+.branch-inline-collapsible.is-collapsed .branch-inline-collapsible-body {
+  display: none;
+}
+
 .branch-inline-field,
 .branch-inline-field-block {
   display: grid;

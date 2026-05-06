@@ -70,6 +70,9 @@ type BranchNpcTarget = {
 
 const npcContinuationSpeakerByChoice = new Map<string, NpcContinuationSpeaker>();
 const newNpcContinuationModeByChoice = new Map<string, NewNpcContinuationMode>();
+const collapsedInlineSections = new Set<string>();
+const initializedInlineSections = new Set<string>();
+let branchInlineSectionId = 0;
 
 function getUiText() {
   return createUiText(store.get().uiLanguage);
@@ -227,6 +230,7 @@ function renderDialoguePanel(container: HTMLElement, conv: Conversation, turn: T
   grid.className = 'branch-inline-grid branch-inline-grid-two';
 
   const textPane = createPane(choice ? ui('Dialogue Text', 'Текст диалога') : ui('NPC Opener', 'Начальная реплика NPC'));
+  textPane.classList.add('branch-inline-dialogue-pane');
   textPane.appendChild(createHint(choice
     ? ui(
       'Player Choice Text is what player clicks. NPC Reply is response shown after that choice.',
@@ -260,6 +264,12 @@ function renderDialoguePanel(container: HTMLElement, conv: Conversation, turn: T
       fieldKey: getTurnFieldKey(conv.id, turn.turnNumber, 'opening-audio'),
       onCommit: (value) => store.updateTurn(conv.id, turn.turnNumber, { openingAudio: value.trim() || undefined }),
     }));
+    wrapPreviousInlineChildren(textPane, 2, {
+      key: `branch-inline-media-${conv.id}-${turn.turnNumber}-opener`,
+      title: ui('Media Options', 'Настройки медиа'),
+      summary: formatMediaSummary(turn.openingImage, turn.openingAudio, ui),
+      defaultCollapsed: true,
+    });
     textPane.appendChild(createChannelControls(conv, turn));
     if (turn.turnNumber === 1) {
       const repeatableField = document.createElement('label');
@@ -339,6 +349,12 @@ function renderDialoguePanel(container: HTMLElement, conv: Conversation, turn: T
       fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'reply-audio'),
       onCommit: (value) => store.updateChoice(conv.id, turn.turnNumber, choice.index, { replyAudio: value.trim() || undefined }),
     }));
+    wrapPreviousInlineChildren(textPane, 2, {
+      key: `branch-inline-media-${conv.id}-${turn.turnNumber}-${choice.index}`,
+      title: ui('Media Options', 'Настройки медиа'),
+      summary: formatMediaSummary(choice.replyImage, choice.replyAudio, ui),
+      defaultCollapsed: true,
+    });
   }
 
   const placeholderPane = createPane(ui('Dynamic Placeholder List', 'Список динамических плейсхолдеров'));
@@ -1922,6 +1938,85 @@ function createPane(title: string): HTMLElement {
   heading.textContent = title;
   pane.appendChild(heading);
   return pane;
+}
+
+function wrapPreviousInlineChildren(parent: HTMLElement, count: number, options: {
+  key: string;
+  title: string;
+  summary: string;
+  defaultCollapsed?: boolean;
+}): void {
+  const children = Array.from(parent.children).slice(-count);
+  if (children.length !== count) return;
+  const { wrapper, body } = createInlineCollapsibleSection(options);
+  for (const child of children) {
+    body.appendChild(child);
+  }
+  parent.appendChild(wrapper);
+}
+
+function createInlineCollapsibleSection(options: {
+  key: string;
+  title: string;
+  summary: string;
+  defaultCollapsed?: boolean;
+}): { wrapper: HTMLElement; body: HTMLElement } {
+  if (!initializedInlineSections.has(options.key)) {
+    if (options.defaultCollapsed) {
+      collapsedInlineSections.add(options.key);
+    } else {
+      collapsedInlineSections.delete(options.key);
+    }
+    initializedInlineSections.add(options.key);
+  }
+
+  const isCollapsed = collapsedInlineSections.has(options.key);
+  const wrapper = document.createElement('section');
+  wrapper.className = `branch-inline-collapsible${isCollapsed ? ' is-collapsed' : ''}`;
+
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = 'branch-inline-collapsible-header';
+
+  const title = document.createElement('span');
+  title.className = 'branch-inline-section-title';
+  title.textContent = options.title;
+
+  const summary = document.createElement('span');
+  summary.className = 'branch-inline-collapsible-summary';
+  summary.textContent = options.summary;
+
+  const chevron = document.createElement('span');
+  chevron.className = 'branch-inline-collapsible-chevron';
+  chevron.textContent = '>';
+
+  const body = document.createElement('div');
+  body.className = 'branch-inline-collapsible-body';
+  body.id = `branch-inline-collapsible-body-${++branchInlineSectionId}`;
+
+  const setCollapsed = (nextCollapsed: boolean): void => {
+    if (nextCollapsed) {
+      collapsedInlineSections.add(options.key);
+    } else {
+      collapsedInlineSections.delete(options.key);
+    }
+    wrapper.classList.toggle('is-collapsed', nextCollapsed);
+    toggle.setAttribute('aria-expanded', String(!nextCollapsed));
+  };
+
+  toggle.setAttribute('aria-controls', body.id);
+  toggle.setAttribute('aria-expanded', String(!isCollapsed));
+  toggle.onclick = () => setCollapsed(!collapsedInlineSections.has(options.key));
+  toggle.append(title, summary, chevron);
+  wrapper.append(toggle, body);
+  return { wrapper, body };
+}
+
+function formatMediaSummary(image: string | undefined, audio: string | undefined, ui: ReturnType<typeof getUiText>): string {
+  const parts: string[] = [];
+  if (image?.trim()) parts.push(ui('Image set', 'Картинка задана'));
+  if (audio?.trim()) parts.push(ui('Audio set', 'Аудио задано'));
+  return parts.length > 0 ? parts.join(' / ') : ui('Optional image and audio', 'Необязательные картинка и аудио');
 }
 
 function createActionButton(label: string, onClick: () => void, disabled = false): HTMLButtonElement {
