@@ -2,6 +2,8 @@
 
 import { requestFlowCenter } from '../lib/flow-navigation';
 import { store, type FlowGraphicsQuality } from '../lib/state';
+import { FACTION_IDS } from '../lib/constants';
+import { FACTION_DISPLAY_NAMES, FACTION_DISPLAY_NAMES_RU, type FactionId } from '../lib/types';
 import { createTurnDisplayLabeler } from '../lib/turn-labels';
 import { exportProjectJson, exportXml, importFromXml, importFromJson } from '../lib/project-io';
 import { openSharePanel } from './SharePanel';
@@ -238,7 +240,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
       rightZone.appendChild(viewGroup);
     }
 
-    rightZone.append(roadmapBtn, leadersBtn, supportBtn);
+    rightZone.append(roadmapBtn, leadersBtn, supportBtn, createUiThemeFactionPicker(state.uiThemeFaction, true));
 
     rightZone.appendChild(createOverflowMenu(ui('More', 'Ещё'), [
       themeToggleAction,
@@ -366,6 +368,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
   }
 
     utilityTier.appendChild(createLanguageSwitcher(state.uiLanguage));
+    utilityTier.appendChild(createUiThemeFactionPicker(state.uiThemeFaction, true));
     utilityTier.appendChild(supportBtn);
     utilityTier.appendChild(createOverflowMenu(ui('More', 'Ещё'), [
       themeToggleAction,
@@ -555,6 +558,35 @@ function createGraphicsQualityPicker(currentQuality: FlowGraphicsQuality): HTMLE
   }
   select.onchange = () => {
     store.setFlowGraphicsQuality(select.value as FlowGraphicsQuality);
+  };
+
+  row.append(text, select);
+  return row;
+}
+
+function createUiThemeFactionPicker(currentFaction: FactionId, inline = false): HTMLElement {
+  const row = document.createElement('label');
+  row.className = inline ? 'toolbar-faction-picker toolbar-ui-color-picker' : 'toolbar-overflow-select-row';
+  const ui = createUiText(store.get().uiLanguage);
+  const isRussian = store.get().uiLanguage === 'ru';
+
+  const text = document.createElement('span');
+  text.className = inline ? 'toolbar-select-label' : 'toolbar-overflow-select-label';
+  text.textContent = ui('UI Color', 'Цвет UI');
+
+  const select = document.createElement('select');
+  select.className = inline ? 'toolbar-faction-select toolbar-ui-color-select' : 'toolbar-overflow-select';
+  select.title = ui('Editor UI theme colour', 'Цвет темы интерфейса редактора');
+  select.setAttribute('aria-label', ui('Editor UI theme colour', 'Цвет темы интерфейса редактора'));
+  for (const faction of FACTION_IDS) {
+    const option = document.createElement('option');
+    option.value = faction;
+    option.textContent = isRussian ? FACTION_DISPLAY_NAMES_RU[faction] : FACTION_DISPLAY_NAMES[faction];
+    option.selected = faction === currentFaction;
+    select.appendChild(option);
+  }
+  select.onchange = () => {
+    store.setUiThemeFaction(select.value as FactionId);
   };
 
   row.append(text, select);

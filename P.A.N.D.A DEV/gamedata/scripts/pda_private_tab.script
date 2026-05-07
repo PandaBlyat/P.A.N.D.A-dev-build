@@ -862,6 +862,12 @@ function pda_private_tab:Update()
 
     CUIScriptWnd.Update(self)
 
+    -- Auto-close active conversations when PDA Private Messages is opened
+    -- Player wants to read messages, not continue a dialogue
+    if pda_interactive_conv and pda_interactive_conv.remove_active_conversation_entry then
+        pda_interactive_conv.remove_active_conversation_entry()
+    end
+
     local cur_desc_w = (self.desc_box and self.desc_box.GetWidth and self.desc_box:GetWidth()) or 0
     local cur_desc_h = (self.desc_box and self.desc_box.GetHeight and self.desc_box:GetHeight()) or 0
     if cur_desc_w ~= (self.layout_cache_desc_w or -1) or cur_desc_h ~= (self.layout_cache_desc_h or -1) then

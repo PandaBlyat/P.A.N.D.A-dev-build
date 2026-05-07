@@ -21,7 +21,8 @@ import { shouldShowFirstRunExperience, renderFirstRunExperience } from './Onboar
 import { exportProjectJson, exportXml, importFromJson, importFromXml, normalizeProjectData } from '../lib/project-io';
 import { setButtonContent, createIcon } from './icons';
 import { getFactionThemeVariables } from '../lib/faction-colors';
-import { getConversationFaction } from '../lib/types';
+import { FACTION_DISPLAY_NAMES, getConversationFaction, type FactionId } from '../lib/types';
+import { FACTION_IDS } from '../lib/constants';
 import { setBeginnerTooltip } from '../lib/beginner-tooltips';
 import { openSharePanel } from './SharePanel';
 import { openHelpModal } from './HelpModal';
@@ -184,7 +185,7 @@ function getRenderContext(container: HTMLElement): AppRenderContext {
   const conv = store.getSelectedConversation();
   const firstRun = state.project.conversations.length === 0 && shouldShowFirstRunExperience();
 
-  applyFactionTheme(container, getConversationFaction(conv, state.project.faction));
+  applyFactionTheme(container, state.uiThemeFaction);
   document.documentElement.lang = state.uiLanguage;
   document.body.classList.toggle('theme-soviet', state.uiTheme === 'soviet');
   document.body.classList.toggle('theme-modern', state.uiTheme === 'modern');
@@ -568,6 +569,10 @@ function applyFactionTheme(container: HTMLElement, faction: ReturnType<typeof st
   document.body.style.setProperty('--accent-dim', theme.accentDim);
   document.body.style.setProperty('--accent-glow', theme.accentGlow);
   document.body.style.setProperty('--accent-glow-strong', theme.accentGlowStrong);
+  document.body.style.setProperty('--bg-selected', theme.bgSelected);
+  document.body.style.setProperty('--bg-selected-border', theme.bgSelectedBorder);
+  document.body.style.setProperty('--edge-color', theme.edgeColor);
+  document.body.style.setProperty('--focus-ring', theme.focusRing);
 }
 
 function createAddConversationButton(): HTMLButtonElement {
@@ -938,12 +943,38 @@ function renderMobileMoreActions(body: HTMLElement): void {
     createMobileSheetAction('help', 'Help', () => { closeMobileSheet(); openHelpModal(); }),
     createMobileSheetAction('eye', `Occlusion: ${state.flowOcclusionEnabled ? 'On' : 'Off'}`, () => store.toggleFlowOcclusion()),
     createMobileGraphicsQualityPicker(state.flowGraphicsQuality),
+    createMobileUiThemeFactionPicker(state.uiThemeFaction),
     createMobileSheetAction('eye', state.advancedMode ? 'Advanced On' : 'Advanced mode', () => store.toggleAdvancedMode()),
     createMobileSheetAction('locate', `Density: ${state.flowDensity}`, () => store.setFlowDensity(nextDensity(state.flowDensity))),
     createMobileSheetAction('brand', 'Reset Intro', resetIntro),
   );
 
   body.appendChild(actions);
+}
+
+function createMobileUiThemeFactionPicker(currentFaction: FactionId): HTMLElement {
+  const row = document.createElement('label');
+  row.className = 'mobile-sheet-select-row';
+
+  const label = document.createElement('span');
+  label.textContent = t('label.uiColor');
+
+  const select = document.createElement('select');
+  select.className = 'mobile-sheet-select';
+  select.setAttribute('aria-label', t('aria.uiThemeColour'));
+  for (const faction of FACTION_IDS) {
+    const option = document.createElement('option');
+    option.value = faction;
+    option.textContent = FACTION_DISPLAY_NAMES[faction];
+    option.selected = faction === currentFaction;
+    select.appendChild(option);
+  }
+  select.onchange = () => {
+    store.setUiThemeFaction(select.value as FactionId);
+  };
+
+  row.append(label, select);
+  return row;
 }
 
 function createMobileGraphicsQualityPicker(currentQuality: FlowGraphicsQuality): HTMLElement {

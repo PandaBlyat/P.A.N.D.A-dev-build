@@ -1,8 +1,8 @@
 // P.A.N.D.A. Conversation Editor — Application State
 
-import type { Project, Conversation, Turn, Choice, Outcome, ValidationMessage, NpcTemplate, FlowAnnotation } from './types';
+import type { Project, Conversation, Turn, Choice, Outcome, ValidationMessage, NpcTemplate, FlowAnnotation, FactionId } from './types';
 import type { CollabActivity, CollabLock, CollabOp, CollabParticipant, CollabRemoteCursor } from './collab-protocol';
-import { getConversationFaction } from './types';
+import { FACTION_XML_KEYS, getConversationFaction } from './types';
 import { applyCollabOpsToConversation, cloneConversation } from './collab-protocol';
 import { createEmptyProject, createConversation, createTurn, createChoice } from './xml-export';
 import { getOutcomeResumeTurnParamIndices } from './outcome-branching';
@@ -37,6 +37,7 @@ const ADVANCED_MODE_KEY = 'panda:advanced-mode:v1';
 const FLOW_OCCLUSION_KEY = 'panda:flow-occlusion:v1';
 const FLOW_GRAPHICS_QUALITY_KEY = 'panda:flow-graphics-quality:v1';
 const UI_THEME_KEY = 'panda:ui-theme:v1';
+const UI_THEME_FACTION_KEY = 'panda:ui-theme-faction:v1';
 
 export type UiTheme = 'soviet' | 'modern';
 
@@ -45,14 +46,29 @@ function isUiTheme(value: unknown): value is UiTheme {
 }
 
 function loadUiTheme(): UiTheme {
-  if (typeof window === 'undefined') return 'soviet';
+  if (typeof window === 'undefined') return 'modern';
   const raw = window.localStorage.getItem(UI_THEME_KEY);
-  return isUiTheme(raw) ? raw : 'soviet';
+  return isUiTheme(raw) ? raw : 'modern';
 }
 
 function persistUiTheme(theme: UiTheme): void {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(UI_THEME_KEY, theme);
+}
+
+function isFactionId(value: unknown): value is FactionId {
+  return typeof value === 'string' && value in FACTION_XML_KEYS;
+}
+
+function loadUiThemeFaction(): FactionId {
+  if (typeof window === 'undefined') return 'stalker';
+  const raw = window.localStorage.getItem(UI_THEME_FACTION_KEY);
+  return isFactionId(raw) ? raw : 'stalker';
+}
+
+function persistUiThemeFaction(faction: FactionId): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(UI_THEME_FACTION_KEY, faction);
 }
 
 type CursorPrefs = {
@@ -136,6 +152,7 @@ export interface AppState {
   flowGraphicsQuality: FlowGraphicsQuality;
   uiLanguage: UiLanguage;
   uiTheme: UiTheme;
+  uiThemeFaction: FactionId;
   customCursorEnabled: boolean;
   cursorAnimationIntensity: CursorAnimationIntensity;
   cursorSize: number;
@@ -472,6 +489,7 @@ class StateManager {
       flowGraphicsQuality: loadFlowGraphicsQuality(),
       uiLanguage: loadUiLanguagePreference(),
       uiTheme: loadUiTheme(),
+      uiThemeFaction: loadUiThemeFaction(),
       customCursorEnabled: cursorPrefs.enabled,
       cursorAnimationIntensity: cursorPrefs.animationIntensity,
       cursorSize: cursorPrefs.size,
@@ -1727,6 +1745,13 @@ class StateManager {
 
   toggleUiTheme(): void {
     this.setUiTheme(this.state.uiTheme === 'soviet' ? 'modern' : 'soviet');
+  }
+
+  setUiThemeFaction(faction: FactionId): void {
+    if (!isFactionId(faction) || this.state.uiThemeFaction === faction) return;
+    this.state.uiThemeFaction = faction;
+    persistUiThemeFaction(faction);
+    this.notify(FULL_APP_RENDER);
   }
 
   setUiLanguage(language: UiLanguage): void {

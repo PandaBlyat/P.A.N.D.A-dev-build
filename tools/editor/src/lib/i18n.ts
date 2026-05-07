@@ -27,7 +27,9 @@ export const I18N_KEYS = [
 
   // Labels / aria
   'label.graphics',
+  'label.uiColor',
   'aria.editorGraphicsQuality',
+  'aria.uiThemeColour',
   'graphicsQuality.low',
   'graphicsQuality.medium',
   'graphicsQuality.high',
@@ -439,7 +441,9 @@ export const STRINGS: Record<UiLanguage, Record<I18nKey, string>> = {
     'action.newStory': 'New story',
 
     'label.graphics': 'Graphics',
+    'label.uiColor': 'UI Color',
     'aria.editorGraphicsQuality': 'Editor graphics quality',
+    'aria.uiThemeColour': 'Editor UI theme colour',
     'graphicsQuality.low': 'Low',
     'graphicsQuality.medium': 'Med',
     'graphicsQuality.high': 'High',
@@ -824,7 +828,9 @@ export const STRINGS: Record<UiLanguage, Record<I18nKey, string>> = {
     'action.newStory': 'Новая история',
 
     'label.graphics': 'Графика',
+    'label.uiColor': 'Цвет UI',
     'aria.editorGraphicsQuality': 'Качество графики редактора',
+    'aria.uiThemeColour': 'Цвет темы интерфейса редактора',
     'graphicsQuality.low': 'Низк',
     'graphicsQuality.medium': 'Сред',
     'graphicsQuality.high': 'Выс',

@@ -9974,6 +9974,20 @@ remove_active_conversation_entry = function(contact_id)
     return removed
 end
 
+cancel_all_active_conversations = function()
+    if not type(active_conversations) == "table" then
+        return
+    end
+
+    for contact_key in pairs(active_conversations) do
+        active_conversations[contact_key] = nil
+    end
+
+    if CONV then
+        CONV = nil
+    end
+end
+
 abort_contact_f2f_state = function(contact_id, reason, options)
     local contact_key = tostring(contact_id or "")
     if contact_key == "" then
