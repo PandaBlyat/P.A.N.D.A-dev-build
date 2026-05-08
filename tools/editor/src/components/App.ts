@@ -441,6 +441,37 @@ function renderCenterPanel(shell: AppShell, conv: ReturnType<typeof store.getSel
   renderFlowEditorContent(shell.centerBody);
 }
 
+// Tracks the inputs the properties panel last rendered against. When a state
+// change targets the panel but none of these inputs changed, the rebuild
+// would produce identical DOM — skipping it avoids destroying ~hundreds of
+// elements (and any focus / selection inside them) for nothing.
+let lastPropertiesPanelKey: string | null = null;
+
+function computePropertiesPanelKey(state: AppState): string {
+  const branch = state.branchInlinePanel;
+  const branchKey = branch
+    ? `${branch.mode}:${branch.conversationId}:${branch.turnNumber}:${branch.choiceIndex ?? 'opener'}:${branch.selectedOutcomeIndex ?? 'none'}`
+    : 'none';
+  return [
+    state.selectedConversationId ?? 'none',
+    state.selectedTurnNumber ?? 'none',
+    state.selectedChoiceIndex ?? 'none',
+    state.propertiesTab,
+    branchKey,
+    state.flowStructureRevision,
+    state.flowContentRevision,
+    state.flowPositionRevision,
+    state.systemStringsRevision,
+    state.advancedMode ? 1 : 0,
+    state.uiLanguage,
+    state.uiTheme,
+    state.uiThemeFaction,
+    layoutState.responsiveMode,
+    layoutState.rightCollapsed ? 1 : 0,
+    layoutState.activeDrawer ?? 'none',
+  ].join('|');
+}
+
 function renderRightPanel(shell: AppShell, firstRun = false): void {
   const state = store.get();
   const hideRightPanel = firstRun || !state.advancedMode || layoutState.responsiveMode === 'mobile';
@@ -453,6 +484,7 @@ function renderRightPanel(shell: AppShell, firstRun = false): void {
     shell.rightPanel.setAttribute('aria-hidden', 'true');
     shell.rightActions.replaceChildren();
     shell.rightBody.replaceChildren();
+    lastPropertiesPanelKey = null;
     return;
   }
 
@@ -465,6 +497,15 @@ function renderRightPanel(shell: AppShell, firstRun = false): void {
   shell.rightPanel.setAttribute('aria-hidden', String(isOverlay && !isDrawerOpen));
   shell.rightActions.replaceChildren(createPanelToggleButton('right'));
   shell.rightBody.hidden = layoutState.rightCollapsed && !isOverlay;
+
+  // Skip the rebuild when nothing the panel cares about has changed. Cheap
+  // string-equality check; the panel is the most expensive thing to rebuild
+  // in a typical render, so this pays for itself even at low hit rates.
+  const key = computePropertiesPanelKey(state);
+  if (key === lastPropertiesPanelKey && shell.rightBody.firstChild) {
+    return;
+  }
+  lastPropertiesPanelKey = key;
   shell.rightBody.replaceChildren();
   renderPropertiesPanelContent(shell.rightBody);
 }
