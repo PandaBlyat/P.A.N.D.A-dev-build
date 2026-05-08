@@ -201,16 +201,7 @@ export function getOutcomeChanceFieldKey(conversationId: number, turnNumber: num
 /** Validate the entire project and return all messages. */
 export function validate(project: Project): ValidationMessage[] {
   const messages: ValidationMessage[] = [];
-  const knownNpcTemplateIds = new Set(
-    (project.npcTemplates ?? [])
-      .map((template) => template.id.trim())
-      .filter((id) => id.length > 0),
-  );
-  const knownDialogueStatKeys = new Set<string>([
-    ...CORE_DIALOGUE_STATS,
-    RANDOM_STAT_KEY,
-    ...((project.dialogueStatRegistry ?? []).map((entry) => entry.key)),
-  ]);
+  const ctx = buildValidationContext(project);
 
   const ids = project.conversations.map(c => c.id).sort((a, b) => a - b);
   for (let i = 0; i < ids.length; i++) {
@@ -229,10 +220,46 @@ export function validate(project: Project): ValidationMessage[] {
   }
 
   for (const conv of project.conversations) {
-    validateConversation(conv, knownNpcTemplateIds, knownDialogueStatKeys, messages);
+    validateConversation(conv, ctx.knownNpcTemplateIds, ctx.knownDialogueStatKeys, messages);
   }
 
   return messages;
+}
+
+/**
+ * Validate just the conversations whose ids are in `conversationIds`. Used by
+ * the delta-validation fast path in Store: when the user types in one
+ * conversation we don't need to re-walk the other 99. Project-scope checks
+ * (like the conversation-id-gap check in `validate`) are intentionally
+ * skipped here — the caller is responsible for using `validate` whenever the
+ * project structure itself changes (conversation add/remove/duplicate).
+ */
+export function validateConversations(project: Project, conversationIds: ReadonlySet<number>): ValidationMessage[] {
+  if (conversationIds.size === 0) return [];
+  const messages: ValidationMessage[] = [];
+  const ctx = buildValidationContext(project);
+  for (const conv of project.conversations) {
+    if (!conversationIds.has(conv.id)) continue;
+    validateConversation(conv, ctx.knownNpcTemplateIds, ctx.knownDialogueStatKeys, messages);
+  }
+  return messages;
+}
+
+function buildValidationContext(project: Project): {
+  knownNpcTemplateIds: Set<string>;
+  knownDialogueStatKeys: Set<string>;
+} {
+  const knownNpcTemplateIds = new Set(
+    (project.npcTemplates ?? [])
+      .map((template) => template.id.trim())
+      .filter((id) => id.length > 0),
+  );
+  const knownDialogueStatKeys = new Set<string>([
+    ...CORE_DIALOGUE_STATS,
+    RANDOM_STAT_KEY,
+    ...((project.dialogueStatRegistry ?? []).map((entry) => entry.key)),
+  ]);
+  return { knownNpcTemplateIds, knownDialogueStatKeys };
 }
 
 function validateConversation(conv: Conversation, knownNpcTemplateIds: Set<string>, knownDialogueStatKeys: Set<string>, messages: ValidationMessage[]): void {

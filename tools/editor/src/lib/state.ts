@@ -8,7 +8,7 @@ import { createEmptyProject, createConversation, createTurn, createChoice } from
 import { getOutcomeResumeTurnParamIndices } from './outcome-branching';
 import { migrateLegacyF2FEntryOpenings } from './f2f-entry-migration';
 import { estimateFlowNodeHeight, getDefaultFlowTurnPosition, getFlowAutoLayoutSpacing, getFlowNodeLayout } from './flow-layout';
-import { measurePerf } from './perf';
+import { measurePerf, recordPerf } from './perf';
 import { loadUiLanguagePreference, persistUiLanguagePreference, type UiLanguage } from './ui-language';
 import {
   cancelPendingValidation,
@@ -16,6 +16,7 @@ import {
   scheduleValidation as scheduleWorkerValidation,
   type ValidationMode,
 } from './validation-client';
+import { validateConversations } from './validation';
 
 export type PropertiesTab = 'conversation' | 'selection';
 export type FlowDensity = 'compact' | 'standard' | 'detailed';
@@ -132,6 +133,20 @@ function persistFlowGraphicsQuality(quality: FlowGraphicsQuality): void {
   window.localStorage.setItem(FLOW_GRAPHICS_QUALITY_KEY, quality);
 }
 
+/**
+ * A point-in-time snapshot for undo/redo. We avoid `JSON.stringify(project)` —
+ * it's O(n) in project size on every mutation and rapidly becomes the dominant
+ * cost on large projects. `structuredClone` is faster (V8 has it heavily
+ * optimized) and preserves Map/Set/Date semantics if we ever start using them.
+ *
+ * Most mutations only touch a single conversation. The `'conversation'` variant
+ * stores just that conversation, so e.g. `addChoice` stops paying the cost of
+ * cloning every other conversation in the project.
+ */
+type UndoSnapshot =
+  | { kind: 'project'; project: Project }
+  | { kind: 'conversation'; conversationId: number; conversation: Conversation };
+
 export interface AppState {
   project: Project;
   systemStrings: Map<string, string>;
@@ -157,8 +172,8 @@ export interface AppState {
   cursorAnimationIntensity: CursorAnimationIntensity;
   cursorSize: number;
   dirty: boolean;
-  undoStack: string[];
-  redoStack: string[];
+  undoStack: UndoSnapshot[];
+  redoStack: UndoSnapshot[];
   copiedTurn: TurnClipboard | null;
   copiedChoice: ChoiceClipboard | null;
   projectRevision: number;
@@ -474,6 +489,15 @@ class StateManager {
   private batchDepth = 0;
   private batchedChange: StateChange | null = null;
   private textSessions: Map<string, TextSession> = new Map();
+  // Conversations whose contents changed since the last validation completed.
+  // Drives the delta-validation fast path: while the dirty set is small we
+  // only re-validate those conversations on the main thread and merge with
+  // the previous results, avoiding the full-project worker postMessage.
+  private dirtyConversationIds: Set<number> = new Set();
+  // True when a project-level mutation invalidates structural checks that
+  // span all conversations (id-gap detection, conversation add/remove, etc.).
+  // Stays true until a full validate() pass clears it.
+  private projectStructureDirty = true;
 
   constructor() {
     const cursorPrefs = loadCursorPrefs();
@@ -723,13 +747,85 @@ class StateManager {
   }
 
   private pushUndo(): void {
+    // Project-scope snapshots imply the structural checks (id sequence,
+    // cross-conversation references) need to be re-run too.
+    this.projectStructureDirty = true;
     measurePerf('state.undoSnapshot', () => {
-      this.state.undoStack.push(JSON.stringify(this.state.project));
+      this.state.undoStack.push({
+        kind: 'project',
+        project: structuredClone(this.state.project),
+      });
       if (this.state.undoStack.length > 50) this.state.undoStack.shift();
       this.state.redoStack = [];
     }, {
       conversations: this.state.project.conversations.length,
     });
+  }
+
+  /**
+   * Undo snapshot for mutations that only touch a single conversation
+   * (addChoice, addTurn, updateTurn text edits, etc.). Avoids cloning the
+   * whole project — at 100+ conversations that's the difference between
+   * "instant" and "noticeable hitch on every keystroke".
+   *
+   * Falls back to a full project snapshot if the conversation isn't found
+   * (shouldn't happen, but defensive — caller would have early-returned).
+   */
+  private pushUndoForConversation(conversationId: number): void {
+    const conv = this.state.project.conversations.find(c => c.id === conversationId);
+    if (!conv) {
+      this.pushUndo();
+      return;
+    }
+    // Single-conversation mutation → mark that conversation dirty so the
+    // next validation can use the delta path instead of revalidating the
+    // entire project.
+    this.dirtyConversationIds.add(conversationId);
+    measurePerf('state.undoSnapshotConversation', () => {
+      this.state.undoStack.push({
+        kind: 'conversation',
+        conversationId,
+        conversation: structuredClone(conv),
+      });
+      if (this.state.undoStack.length > 50) this.state.undoStack.shift();
+      this.state.redoStack = [];
+    }, {
+      turns: conv.turns.length,
+    });
+  }
+
+  // Capture the inverse snapshot — the state we're about to overwrite — so the
+  // user can redo it. Returns null if the conversation referenced by an undo
+  // snapshot no longer exists, in which case the snapshot can't be redone.
+  private captureInverseSnapshot(target: UndoSnapshot): UndoSnapshot | null {
+    if (target.kind === 'project') {
+      return { kind: 'project', project: structuredClone(this.state.project) };
+    }
+    const conv = this.state.project.conversations.find(c => c.id === target.conversationId);
+    if (!conv) return null;
+    return {
+      kind: 'conversation',
+      conversationId: target.conversationId,
+      conversation: structuredClone(conv),
+    };
+  }
+
+  // Apply a snapshot back into state. Per-conversation snapshots replace just
+  // that one entry; project snapshots swap everything.
+  private applySnapshot(snapshot: UndoSnapshot): void {
+    if (snapshot.kind === 'project') {
+      this.state.project = snapshot.project;
+      return;
+    }
+    const idx = this.state.project.conversations.findIndex(c => c.id === snapshot.conversationId);
+    if (idx === -1) {
+      // Conversation was removed by an intervening project-level mutation.
+      // Re-insert it where structurally appropriate (push at end; ID order is
+      // an invariant elsewhere, so callers re-normalize as needed).
+      this.state.project.conversations.push(snapshot.conversation);
+      return;
+    }
+    this.state.project.conversations[idx] = snapshot.conversation;
   }
 
   private getConversationById(conversationId: number): Conversation | null {
@@ -861,8 +957,9 @@ class StateManager {
     this.clearPendingTextSessions();
     const prev = this.state.undoStack.pop();
     if (!prev) return;
-    this.state.redoStack.push(JSON.stringify(this.state.project));
-    this.state.project = JSON.parse(prev);
+    const inverse = this.captureInverseSnapshot(prev);
+    if (inverse) this.state.redoStack.push(inverse);
+    this.applySnapshot(prev);
     this.markProjectChanged();
     const baseChange = this.prepareChange(FULL_APP_RENDER, { projectChanged: true });
     const validationChange = this.revalidate(baseChange, { notify: false });
@@ -877,8 +974,9 @@ class StateManager {
     this.clearPendingTextSessions();
     const next = this.state.redoStack.pop();
     if (!next) return;
-    this.state.undoStack.push(JSON.stringify(this.state.project));
-    this.state.project = JSON.parse(next);
+    const inverse = this.captureInverseSnapshot(next);
+    if (inverse) this.state.undoStack.push(inverse);
+    this.applySnapshot(next);
     this.markProjectChanged();
     const baseChange = this.prepareChange(FULL_APP_RENDER, { projectChanged: true });
     const validationChange = this.revalidate(baseChange, { notify: false });
@@ -909,14 +1007,55 @@ class StateManager {
   private revalidate(change: StateChange = FULL_APP_RENDER, options: { notify?: boolean } = {}): StateChange | null {
     const revision = ++this.validationRequestRevision;
     const mode: ValidationMode = options.notify === false ? 'immediate' : 'idle';
-    // The worker path's postMessage already structured-clones the project, so
-    // we do not pre-clone here. The fallback (synchronous) path runs on a
-    // setTimeout(0); validate() is read-only, so passing the live project is
-    // safe. Telemetry counts are sampled inline at scheduling time.
     const project = this.state.project;
+
+    // Delta path: project structure is clean and we have a small set of
+    // dirty conversations. Re-validate just those on the main thread (it's
+    // fast for one conversation) and merge with previous messages. Avoids
+    // the worker postMessage clone of the entire project on every keystroke.
+    const dirtyIds = this.dirtyConversationIds;
     const conversationCount = project.conversations.length;
+    const dirtyThreshold = Math.max(2, Math.floor(conversationCount / 2));
+    if (
+      !this.projectStructureDirty
+      && dirtyIds.size > 0
+      && dirtyIds.size <= dirtyThreshold
+    ) {
+      const dirtySnapshot = new Set(dirtyIds);
+      this.dirtyConversationIds.clear();
+      const start = performance.now();
+      const newMessages = validateConversations(project, dirtySnapshot);
+      const durationMs = performance.now() - start;
+      recordPerf('state.validation.delta', durationMs, {
+        revision,
+        dirtyConversations: dirtySnapshot.size,
+        totalConversations: conversationCount,
+      });
+      const previous = this.state.validationMessages;
+      const merged: ValidationMessage[] = [];
+      for (const msg of previous) {
+        if (msg.conversationId == null || !dirtySnapshot.has(msg.conversationId)) {
+          merged.push(msg);
+        }
+      }
+      for (const msg of newMessages) merged.push(msg);
+      // Apply synchronously — delta validation completes before the next
+      // animation frame, so there's no benefit to deferring.
+      this.applyValidationMessages(merged);
+      return null;
+    }
+
+    // Full validation path: structural changes (or the dirty set is too big
+    // to be worth validating piecemeal). The worker path's postMessage
+    // already structured-clones the project, so we do not pre-clone here.
+    // The fallback (synchronous) path runs on a setTimeout(0); validate()
+    // is read-only, so passing the live project is safe.
     let turnCount = 0;
     for (const conversation of project.conversations) turnCount += conversation.turns.length;
+    // Full validation will refresh everything — clear the deltas so we
+    // don't double-process the same edits.
+    this.dirtyConversationIds.clear();
+    this.projectStructureDirty = false;
     const callback = (result: { revision: number; messages: ValidationMessage[]; durationMs: number }) => {
       if (result.revision !== this.validationRequestRevision) return;
       measurePerf('state.validation.apply', () => {
@@ -1545,7 +1684,7 @@ class StateManager {
   setConversationFaction(id: number, faction: Project['faction']): void {
     const conv = this.state.project.conversations.find(c => c.id === id);
     if (!conv || conv.faction === faction) return;
-    this.pushUndo();
+    this.pushUndoForConversation(id);
     conv.faction = faction;
     this.finishProjectMutation();
   }
@@ -1553,7 +1692,7 @@ class StateManager {
   setConversationInitialChannel(id: number, channel: 'pda' | 'f2f'): void {
     const conv = this.state.project.conversations.find(c => c.id === id);
     if (!conv) return;
-    this.pushUndo();
+    this.pushUndoForConversation(id);
     conv.startMode = channel;
     conv.initialChannel = channel;
     const firstTurn = conv.turns.find((turn) => turn.turnNumber === 1);
@@ -1932,7 +2071,7 @@ class StateManager {
       return;
     }
 
-    this.pushUndo();
+    this.pushUndoForConversation(id);
     apply();
     // Conversation-level updates (label/description/faction) affect the side
     // list and inspector; default to the broader conversation-structure target.
@@ -1963,7 +2102,7 @@ class StateManager {
     if (!conversation || !sourceTurn || !sourceChoice) return null;
 
     if (!(options.skipUndo ?? false)) {
-      this.pushUndo();
+      this.pushUndoForConversation(conversationId);
     }
 
     const nextTurnNumber = conversation.turns.reduce((max, turn) => Math.max(max, turn.turnNumber), 0) + 1;
@@ -2016,7 +2155,7 @@ class StateManager {
     const validTurnNumbers = new Set(conversation.turns.map(turn => turn.turnNumber));
     validTurnNumbers.add(nextTurnNumber);
 
-    this.pushUndo();
+    this.pushUndoForConversation(conversationId);
 
     const duplicatedTurn = this.cloneTurnFromSource(sourceTurn, nextTurnNumber, {
       turnNumberMap,
@@ -2059,7 +2198,7 @@ class StateManager {
     const validTurnNumbers = new Set(conversation.turns.map(turn => turn.turnNumber));
     validTurnNumbers.add(nextTurnNumber);
 
-    this.pushUndo();
+    this.pushUndoForConversation(conversationId);
 
     const pastedTurn = this.cloneTurnFromSource(clipboard.turn, nextTurnNumber, {
       turnNumberMap,
@@ -2081,7 +2220,7 @@ class StateManager {
   addTurn(conversationId: number): void {
     const conv = this.state.project.conversations.find(c => c.id === conversationId);
     if (!conv) return;
-    this.pushUndo();
+    this.pushUndoForConversation(conversationId);
     const maxTurn = conv.turns.reduce((m, t) => Math.max(m, t.turnNumber), 0);
     const turn = createTurn(maxTurn + 1);
     turn.position = this.getContextualTurnPlacement(conv, turn, {
@@ -2101,7 +2240,7 @@ class StateManager {
     const choice = turn?.choices.find(item => item.index === choiceIndex);
     if (!conversation || !turn || !choice) return null;
 
-    this.pushUndo();
+    this.pushUndoForConversation(conversationId);
 
     const nextOutcome: Outcome = {
       ...outcome,
@@ -2173,7 +2312,7 @@ class StateManager {
     if (turnNumber === 1) return;
     const conv = this.state.project.conversations.find(c => c.id === conversationId);
     if (!conv) return;
-    this.pushUndo();
+    this.pushUndoForConversation(conversationId);
     for (const turn of conv.turns) {
       for (const choice of turn.choices) {
         if (choice.continueTo === turnNumber) {
@@ -2224,7 +2363,7 @@ class StateManager {
       return;
     }
 
-    this.pushUndo();
+    this.pushUndoForConversation(conversationId);
     apply();
     this.finishProjectMutation({
       revalidate: options.revalidate ?? true,
@@ -2241,7 +2380,7 @@ class StateManager {
     const nextY = Math.max(0, Math.round(position.y));
     if (turn.position.x === nextX && turn.position.y === nextY) return;
 
-    this.pushUndo();
+    this.pushUndoForConversation(conversationId);
     turn.position.x = nextX;
     turn.position.y = nextY;
     this.finishProjectMutation({ revalidate: false, change: createFlowChange('position', 'flowEditor') });
@@ -2262,7 +2401,7 @@ class StateManager {
       const nextY = Math.max(0, Math.round(update.position.y));
       if (turn.position.x === nextX && turn.position.y === nextY) continue;
 
-      if (!changed) this.pushUndo();
+      if (!changed) this.pushUndoForConversation(conversationId);
       changed = true;
       turn.position.x = nextX;
       turn.position.y = nextY;
@@ -2276,7 +2415,7 @@ class StateManager {
     const conv = this.getConversationById(conversationId);
     const turn = conv?.turns.find(t => t.turnNumber === turnNumber);
     if (!turn) return;
-    this.pushUndo();
+    this.pushUndoForConversation(conversationId);
     if (label.trim() === '') {
       delete turn.customLabel;
     } else {
@@ -2289,7 +2428,7 @@ class StateManager {
     const conv = this.getConversationById(conversationId);
     const turn = conv?.turns.find(t => t.turnNumber === turnNumber);
     if (!turn) return;
-    this.pushUndo();
+    this.pushUndoForConversation(conversationId);
     if (color === '') {
       delete turn.color;
     } else {
@@ -2333,7 +2472,7 @@ class StateManager {
   addFlowAnnotation(conversationId: number, annotation: FlowAnnotation): void {
     const conv = this.getConversationById(conversationId);
     if (!conv) return;
-    this.pushUndo();
+    this.pushUndoForConversation(conversationId);
     conv.flowAnnotations = [...(conv.flowAnnotations ?? []), cloneConversation(annotation)];
     this.finishProjectMutation({ revalidate: false, change: createFlowChange('structure', 'flowEditor') });
   }
@@ -2343,7 +2482,7 @@ class StateManager {
     const annotation = conv?.flowAnnotations?.find(item => item.id === annotationId);
     if (!conv || !annotation) return;
     if (!hasOwnUpdates(annotation, updates)) return;
-    this.pushUndo();
+    this.pushUndoForConversation(conversationId);
     Object.assign(annotation, cloneConversation(updates));
     this.finishProjectMutation({ revalidate: false, change: createFlowChange('structure', 'flowEditor') });
   }
@@ -2351,7 +2490,7 @@ class StateManager {
   deleteFlowAnnotation(conversationId: number, annotationId: string): void {
     const conv = this.getConversationById(conversationId);
     if (!conv?.flowAnnotations?.some(item => item.id === annotationId)) return;
-    this.pushUndo();
+    this.pushUndoForConversation(conversationId);
     conv.flowAnnotations = conv.flowAnnotations.filter(item => item.id !== annotationId);
     if (conv.flowAnnotations.length === 0) {
       delete conv.flowAnnotations;
@@ -2362,7 +2501,7 @@ class StateManager {
   clearFlowAnnotations(conversationId: number): void {
     const conv = this.getConversationById(conversationId);
     if (!conv?.flowAnnotations?.length) return;
-    this.pushUndo();
+    this.pushUndoForConversation(conversationId);
     delete conv.flowAnnotations;
     this.finishProjectMutation({ revalidate: false, change: createFlowChange('structure', 'flowEditor') });
   }
@@ -2373,7 +2512,7 @@ class StateManager {
     const normalized = Math.round(Math.max(-320, Math.min(320, bend)) * 10) / 10;
     const current = conv.flowEdgeBends?.[edgeKey] ?? 0;
     if (current === normalized) return;
-    this.pushUndo();
+    this.pushUndoForConversation(conversationId);
     const next = { ...(conv.flowEdgeBends ?? {}) };
     if (Math.abs(normalized) < 0.5) {
       delete next[edgeKey];
@@ -2388,7 +2527,7 @@ class StateManager {
     const conv = this.state.project.conversations.find(c => c.id === conversationId);
     const turn = conv?.turns.find(t => t.turnNumber === turnNumber);
     if (!turn || turn.choices.length >= 4) return;
-    this.pushUndo();
+    this.pushUndoForConversation(conversationId);
     const nextIndex = turn.choices.length + 1;
     const newChoice = createChoice(nextIndex);
     newChoice.channel = normalizeChannelValue(turn.channel, 'pda');
@@ -2405,7 +2544,7 @@ class StateManager {
     const validTurnNumbers = new Set(conv.turns.map(item => item.turnNumber));
     const nextIndex = turn.choices.length + 1;
 
-    this.pushUndo();
+    this.pushUndoForConversation(conversationId);
     turn.choices.push(this.cloneChoiceFromSource(sourceChoice, nextIndex, {
       validTurnNumbers,
       parentTurnChannel: normalizeChannelValue(turn.channel, 'pda'),
@@ -2443,7 +2582,7 @@ class StateManager {
     const validTurnNumbers = new Set(conv.turns.map(item => item.turnNumber));
     const nextIndex = turn.choices.length + 1;
 
-    this.pushUndo();
+    this.pushUndoForConversation(conversationId);
     turn.choices.push(this.cloneChoiceFromSource(clipboard.choice, nextIndex, {
       validTurnNumbers,
       parentTurnChannel: normalizeChannelValue(turn.channel, 'pda'),
@@ -2460,7 +2599,7 @@ class StateManager {
     const conv = this.state.project.conversations.find(c => c.id === conversationId);
     const turn = conv?.turns.find(t => t.turnNumber === turnNumber);
     if (!conv || !turn || !turn.choices.some(c => c.index === choiceIndex)) return;
-    this.pushUndo();
+    this.pushUndoForConversation(conversationId);
     turn.choices = turn.choices.filter(c => c.index !== choiceIndex);
     turn.choices.forEach((c, i) => { c.index = i + 1; });
     if (conv.flowEdgeBends) {
@@ -2525,7 +2664,7 @@ class StateManager {
       return;
     }
 
-    this.pushUndo();
+    this.pushUndoForConversation(conversationId);
     apply();
     this.finishProjectMutation({
       revalidate: options.revalidate ?? true,
@@ -2539,7 +2678,7 @@ class StateManager {
     const choice = turn?.choices.find(c => c.index === choiceIndex);
     if (!conv || !turn || !choice) return;
 
-    this.pushUndo();
+    this.pushUndoForConversation(conversationId);
     this.applyChoiceContinuationChannel(conv, turn, choice, nextChannel);
     this.finishProjectMutation({ change: FLOW_STRUCTURE_RENDER });
   }
@@ -2556,13 +2695,13 @@ class StateManager {
     if (!conv || !turn || !choice) return null;
 
     if (choice.continueTo == null) {
-      this.pushUndo();
+      this.pushUndoForConversation(conversationId);
       choice.continueChannel = nextChannel;
       choice.continue_channel = nextChannel;
       return this.createConnectedTurn(conversationId, turnNumber, choiceIndex, { skipUndo: true });
     }
 
-    this.pushUndo();
+    this.pushUndoForConversation(conversationId);
     this.applyChoiceContinuationChannel(conv, turn, choice, nextChannel);
     this.finishProjectMutation({ change: FLOW_STRUCTURE_RENDER });
     return choice.continueTo;
@@ -2575,7 +2714,7 @@ class StateManager {
     const target = conv?.turns.find(t => t.turnNumber === targetTurnNumber);
     const choice = turn?.choices.find(c => c.index === choiceIndex);
     if (!conv || !turn || !choice || !target) return;
-    this.pushUndo();
+    this.pushUndoForConversation(conversationId);
     choice.continueTo = targetTurnNumber;
     choice.terminal = false;
     const sourceChannel = normalizeChannelValue(turn.channel, normalizeChannelValue(conv.initialChannel, 'pda'));
@@ -2590,7 +2729,7 @@ class StateManager {
     const turn = conv?.turns.find(t => t.turnNumber === turnNumber);
     const choice = turn?.choices.find(c => c.index === choiceIndex);
     if (!choice || choice.continueTo == null) return;
-    this.pushUndo();
+    this.pushUndoForConversation(conversationId);
     delete choice.continueTo;
     choice.terminal = true;
     delete choice.continueChannel;
