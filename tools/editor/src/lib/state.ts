@@ -242,6 +242,14 @@ export const FULL_APP_RENDER = createFlowChange('structure', 'appShell');
 export const SELECTION_RENDER = createFlowChange('selection', 'flowEditor', 'propertiesPanel');
 const VALIDATION_RENDER = createValidationChange();
 
+// Structural mutation that only affects the canvas + inspector. Skips the
+// conversation list, toolbar, bottom workspace, and app shell — those don't
+// care that a turn or choice was added to the currently-open conversation.
+const FLOW_STRUCTURE_RENDER = createFlowChange('structure', 'flowEditor', 'propertiesPanel');
+// Same, but also re-renders the conversation list (used when conversations
+// themselves are added/removed/duplicated/renamed).
+const CONVERSATION_STRUCTURE_RENDER = createFlowChange('structure', 'conversationList', 'flowEditor', 'propertiesPanel');
+
 function createEmptyCollabState(): CollabAppState {
   return {
     sessionId: null,
@@ -1560,7 +1568,7 @@ class StateManager {
       }
       normalizeTurnEntryFlags(firstTurn);
     }
-    this.finishProjectMutation();
+    this.finishProjectMutation({ change: FLOW_STRUCTURE_RENDER });
   }
 
   clearSelection(options: { notify?: boolean } = {}): void {
@@ -1830,7 +1838,7 @@ class StateManager {
     this.state.project.conversations.push(conv);
     this.state.selectedConversationId = conv.id;
     this.clearSelection({ notify: false });
-    this.finishProjectMutation();
+    this.finishProjectMutation({ change: CONVERSATION_STRUCTURE_RENDER });
   }
 
   addConversationFromTemplate(conversation: Conversation, npcTemplates: NpcTemplate[] = []): void {
@@ -1871,7 +1879,7 @@ class StateManager {
     }
     this.state.selectedConversationId = nextConversation.id;
     this.clearSelection({ notify: false });
-    this.finishProjectMutation();
+    this.finishProjectMutation({ change: CONVERSATION_STRUCTURE_RENDER });
   }
 
   deleteConversation(id: number): void {
@@ -1892,7 +1900,7 @@ class StateManager {
         ? this.state.project.conversations[0].id : null;
       this.clearSelection({ notify: false });
     }
-    this.finishProjectMutation();
+    this.finishProjectMutation({ change: CONVERSATION_STRUCTURE_RENDER });
   }
 
   duplicateConversation(id: number): void {
@@ -1907,7 +1915,7 @@ class StateManager {
     this.state.conversationSourceMetadata.delete(dup.id);
     this.state.selectedConversationId = dup.id;
     this.clearSelection({ notify: false });
-    this.finishProjectMutation();
+    this.finishProjectMutation({ change: CONVERSATION_STRUCTURE_RENDER });
   }
 
   updateConversation(id: number, updates: Partial<Conversation>, options: MutationOptions = {}): void {
@@ -1926,9 +1934,11 @@ class StateManager {
 
     this.pushUndo();
     apply();
+    // Conversation-level updates (label/description/faction) affect the side
+    // list and inspector; default to the broader conversation-structure target.
     this.finishProjectMutation({
       revalidate: options.revalidate ?? true,
-      change: options.change ?? FULL_APP_RENDER,
+      change: options.change ?? CONVERSATION_STRUCTURE_RENDER,
     });
   }
 
@@ -1992,7 +2002,7 @@ class StateManager {
     this.state.selectedTurnNumber = nextTurnNumber;
     this.state.selectedChoiceIndex = null;
     this.state.propertiesTab = 'selection';
-    this.finishProjectMutation();
+    this.finishProjectMutation({ change: FLOW_STRUCTURE_RENDER });
     return nextTurnNumber;
   }
 
@@ -2021,7 +2031,7 @@ class StateManager {
     this.state.selectedTurnNumber = duplicatedTurn.turnNumber;
     this.state.selectedChoiceIndex = null;
     this.state.propertiesTab = 'selection';
-    this.finishProjectMutation();
+    this.finishProjectMutation({ change: FLOW_STRUCTURE_RENDER });
     return duplicatedTurn.turnNumber;
   }
 
@@ -2034,7 +2044,8 @@ class StateManager {
       conversationId,
       turn: structuredClone(turn) as Turn,
     };
-    this.notify();
+    // Clipboard buttons live in the toolbar / properties panel; no need to redraw the canvas.
+    this.notify(createStateChange('toolbar', 'propertiesPanel'));
     return true;
   }
 
@@ -2063,7 +2074,7 @@ class StateManager {
     this.state.selectedTurnNumber = pastedTurn.turnNumber;
     this.state.selectedChoiceIndex = null;
     this.state.propertiesTab = 'selection';
-    this.finishProjectMutation();
+    this.finishProjectMutation({ change: FLOW_STRUCTURE_RENDER });
     return pastedTurn.turnNumber;
   }
 
@@ -2081,7 +2092,7 @@ class StateManager {
     this.state.selectedTurnNumber = turn.turnNumber;
     this.state.selectedChoiceIndex = null;
     this.state.propertiesTab = 'selection';
-    this.finishProjectMutation();
+    this.finishProjectMutation({ change: FLOW_STRUCTURE_RENDER });
   }
 
   appendOutcomeToChoice(conversationId: number, turnNumber: number, choiceIndex: number, outcome: Outcome): number | null {
@@ -2154,7 +2165,7 @@ class StateManager {
     this.state.selectedTurnNumber = turnNumber;
     this.state.selectedChoiceIndex = choiceIndex;
     this.state.propertiesTab = 'selection';
-    this.finishProjectMutation();
+    this.finishProjectMutation({ change: FLOW_STRUCTURE_RENDER });
     return nextIndex;
   }
 
@@ -2187,7 +2198,7 @@ class StateManager {
     if (this.state.selectedTurnNumber === turnNumber) {
       this.clearSelection({ notify: false });
     }
-    this.finishProjectMutation();
+    this.finishProjectMutation({ change: FLOW_STRUCTURE_RENDER });
   }
 
   updateTurn(conversationId: number, turnNumber: number, updates: Partial<Turn>, options: MutationOptions = {}): void {
@@ -2209,7 +2220,7 @@ class StateManager {
     };
 
     if (options.textSessionKey) {
-      this.applyTextMutation(options.textSessionKey, options.change ?? FULL_APP_RENDER, apply);
+      this.applyTextMutation(options.textSessionKey, options.change ?? FLOW_STRUCTURE_RENDER, apply);
       return;
     }
 
@@ -2217,7 +2228,7 @@ class StateManager {
     apply();
     this.finishProjectMutation({
       revalidate: options.revalidate ?? true,
-      change: options.change ?? FULL_APP_RENDER,
+      change: options.change ?? FLOW_STRUCTURE_RENDER,
     });
   }
 
@@ -2271,7 +2282,7 @@ class StateManager {
     } else {
       turn.customLabel = label.trim();
     }
-    this.finishProjectMutation({ revalidate: false });
+    this.finishProjectMutation({ revalidate: false, change: FLOW_STRUCTURE_RENDER });
   }
 
   setTurnColor(conversationId: number, turnNumber: number, color: string): void {
@@ -2284,7 +2295,7 @@ class StateManager {
     } else {
       turn.color = color;
     }
-    this.finishProjectMutation({ revalidate: false });
+    this.finishProjectMutation({ revalidate: false, change: FLOW_STRUCTURE_RENDER });
   }
 
   addDialogueStat(key: string, label?: string): void {
@@ -2382,7 +2393,7 @@ class StateManager {
     const newChoice = createChoice(nextIndex);
     newChoice.channel = normalizeChannelValue(turn.channel, 'pda');
     turn.choices.push(newChoice);
-    this.finishProjectMutation();
+    this.finishProjectMutation({ change: FLOW_STRUCTURE_RENDER });
   }
 
   duplicateChoice(conversationId: number, turnNumber: number, choiceIndex: number): number | null {
@@ -2403,7 +2414,7 @@ class StateManager {
     this.state.selectedTurnNumber = turnNumber;
     this.state.selectedChoiceIndex = nextIndex;
     this.state.propertiesTab = 'selection';
-    this.finishProjectMutation();
+    this.finishProjectMutation({ change: FLOW_STRUCTURE_RENDER });
     return nextIndex;
   }
 
@@ -2418,7 +2429,8 @@ class StateManager {
       turnNumber,
       choice: structuredClone(choice) as Choice,
     };
-    this.notify();
+    // Clipboard buttons live in the toolbar / properties panel; no need to redraw the canvas.
+    this.notify(createStateChange('toolbar', 'propertiesPanel'));
     return true;
   }
 
@@ -2440,7 +2452,7 @@ class StateManager {
     this.state.selectedTurnNumber = turnNumber;
     this.state.selectedChoiceIndex = nextIndex;
     this.state.propertiesTab = 'selection';
-    this.finishProjectMutation();
+    this.finishProjectMutation({ change: FLOW_STRUCTURE_RENDER });
     return nextIndex;
   }
 
@@ -2472,7 +2484,7 @@ class StateManager {
     } else if (this.state.selectedTurnNumber === turnNumber && this.state.selectedChoiceIndex != null && this.state.selectedChoiceIndex > choiceIndex) {
       this.state.selectedChoiceIndex -= 1;
     }
-    this.finishProjectMutation();
+    this.finishProjectMutation({ change: FLOW_STRUCTURE_RENDER });
   }
 
   updateChoice(
@@ -2509,7 +2521,7 @@ class StateManager {
     };
 
     if (options.textSessionKey) {
-      this.applyTextMutation(options.textSessionKey, options.change ?? FULL_APP_RENDER, apply);
+      this.applyTextMutation(options.textSessionKey, options.change ?? FLOW_STRUCTURE_RENDER, apply);
       return;
     }
 
@@ -2517,7 +2529,7 @@ class StateManager {
     apply();
     this.finishProjectMutation({
       revalidate: options.revalidate ?? true,
-      change: options.change ?? FULL_APP_RENDER,
+      change: options.change ?? FLOW_STRUCTURE_RENDER,
     });
   }
 
@@ -2529,7 +2541,7 @@ class StateManager {
 
     this.pushUndo();
     this.applyChoiceContinuationChannel(conv, turn, choice, nextChannel);
-    this.finishProjectMutation();
+    this.finishProjectMutation({ change: FLOW_STRUCTURE_RENDER });
   }
 
   ensureChoiceContinuationTurn(
@@ -2552,7 +2564,7 @@ class StateManager {
 
     this.pushUndo();
     this.applyChoiceContinuationChannel(conv, turn, choice, nextChannel);
-    this.finishProjectMutation();
+    this.finishProjectMutation({ change: FLOW_STRUCTURE_RENDER });
     return choice.continueTo;
   }
 
@@ -2570,7 +2582,7 @@ class StateManager {
     const destinationChannel = normalizeChannelValue(target.channel, sourceChannel);
     choice.continueChannel = destinationChannel;
     choice.continue_channel = destinationChannel;
-    this.finishProjectMutation();
+    this.finishProjectMutation({ change: FLOW_STRUCTURE_RENDER });
   }
 
   clearChoiceContinuation(conversationId: number, turnNumber: number, choiceIndex: number): void {
@@ -2583,7 +2595,7 @@ class StateManager {
     choice.terminal = true;
     delete choice.continueChannel;
     delete choice.continue_channel;
-    this.finishProjectMutation();
+    this.finishProjectMutation({ change: FLOW_STRUCTURE_RENDER });
   }
 
   private applyChoiceContinuationChannel(
@@ -2635,7 +2647,7 @@ class StateManager {
       this.state.project.conversations.push(merged);
       this.state.conversationSourceMetadata.delete(merged.id);
     }
-    this.finishProjectMutation();
+    this.finishProjectMutation({ change: CONVERSATION_STRUCTURE_RENDER });
     return importedIds;
   }
 

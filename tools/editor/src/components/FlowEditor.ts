@@ -188,7 +188,12 @@ function syncAnnotationToolUi(canvas: HTMLElement | null, tool: FlowAnnotationTo
 // ── Live flow editor state for incremental updates ──
 type LiveFlowState = {
   conversationId: number;
-  projectRevision: number;
+  // Tracks the last applied flow-structure revision (turns/choices added or
+  // removed). Position-only and text-content edits do NOT bump this — those
+  // are handled by the targeted sync paths below without invalidating memos.
+  structureRevision: number;
+  positionRevision: number;
+  contentRevision: number;
   nodeElements: Map<number, HTMLElement>;
   edgeElements: Map<string, SVGGElement>;
   edges: EdgeDescriptor[];
@@ -212,6 +217,29 @@ let liveFlow: LiveFlowState | null = null;
 let flowCursorSystem: FlowCursorSystem | null = null;
 const edgeElementRefs = new WeakMap<SVGGElement, EdgeElementRefs>();
 
+/**
+ * Position a turn node via `transform: translate3d` instead of left/top.
+ * Transforms are composited on the GPU so pan/zoom and per-node drags don't
+ * trigger layout for the whole canvas — critical when there are 50+ nodes.
+ *
+ * Position is driven through CSS custom properties (`--node-x`, `--node-y`)
+ * rather than inline `transform` so that variant CSS rules — drag tilt,
+ * connection-target lift, etc. — can compose their own transforms on top of
+ * the base translation. See `.turn-node` in app.css for the actual rule.
+ *
+ * Skips the write when the value is unchanged so we don't re-invalidate the
+ * compositor unnecessarily during full redraws of mostly-stationary graphs.
+ */
+function setNodePosition(node: HTMLElement, x: number, y: number): void {
+  const nx = Math.round(x);
+  const ny = Math.round(y);
+  const cached = (node as { __flowPos?: { x: number; y: number } }).__flowPos;
+  if (cached && cached.x === nx && cached.y === ny) return;
+  node.style.setProperty('--node-x', `${nx}px`);
+  node.style.setProperty('--node-y', `${ny}px`);
+  (node as { __flowPos?: { x: number; y: number } }).__flowPos = { x: nx, y: ny };
+}
+
 export function resetFlowViewState(conversationId: number): void {
   viewStateByConversation.delete(conversationId);
 }
@@ -227,7 +255,7 @@ export function updateFlowSelection(): boolean {
   if (!conv || conv.id !== liveFlow.conversationId) return false;
 
   // If structure changed, we need a full rebuild
-  if (state.projectRevision !== liveFlow.projectRevision) return false;
+  if (state.flowStructureRevision !== liveFlow.structureRevision) return false;
 
   const nextSelected = state.selectedTurnNumber;
   const nextChoiceIndex = state.selectedChoiceIndex;
@@ -322,7 +350,7 @@ export function syncFlowEditor(change: StateChange): boolean {
   if (kind === 'selection') return updateFlowSelection();
 
   if (kind === 'position') {
-    liveFlow.projectRevision = state.projectRevision;
+    liveFlow.positionRevision = state.flowPositionRevision;
     // Diff positions against the cached graph model so we only touch the
     // turns that actually moved. This skips a full buildFlowGraphModel +
     // buildEdgeDescriptors pass, and lets drawEdges process only edges
@@ -336,8 +364,7 @@ export function syncFlowEditor(change: StateChange): boolean {
       const turn = conv.turns.find(t => t.turnNumber === turnNumber);
       const node = liveFlow.nodeElements.get(turnNumber);
       if (!turn || !node) continue;
-      node.style.left = `${turn.position.x}px`;
-      node.style.top = `${turn.position.y}px`;
+      setNodePosition(node, turn.position.x, turn.position.y);
     }
     // Edge descriptors are structural (which choice points where, with what
     // bend/highlight); positions don't change them. Reuse the existing array
@@ -348,7 +375,7 @@ export function syncFlowEditor(change: StateChange): boolean {
   }
 
   if (kind === 'text-content') {
-    liveFlow.projectRevision = state.projectRevision;
+    liveFlow.contentRevision = state.flowContentRevision;
     liveFlow.turnLabels = createTurnDisplayLabeler(conv);
     invalidatePortOffsetCache();
     for (const turn of conv.turns) {
@@ -373,6 +400,12 @@ export function syncFlowEditor(change: StateChange): boolean {
     return true;
   }
 
+  // Structural changes (turn/choice add/remove, edge reroute) currently fall
+  // back to a full renderFlowEditor. The memos in renderFlowEditor are now
+  // keyed on flowStructureRevision/flowContentRevision (not projectRevision),
+  // so labeler/bounds/edges caches survive the rebuild when the structure key
+  // is stable. A future PR can add a per-turn incremental rebuild here to
+  // avoid clearing the canvas at all on isolated choice add/remove.
   return false;
 }
 
@@ -447,11 +480,16 @@ let memoEdges: { key: string; edges: EdgeDescriptor[] } | null = null;
 let memoBounds: { key: string; bounds: ContentBounds } | null = null;
 let memoLabeler: { key: string; labeler: ReturnType<typeof createTurnDisplayLabeler> } | null = null;
 
-function memoKey(convId: number, projectRevision: number, density: FlowDensity, branchInlinePanel: BranchInlinePanelState | null): string {
+function memoKey(convId: number, structureRevision: number, contentRevision: number, density: FlowDensity, branchInlinePanel: BranchInlinePanelState | null): string {
+  // Memo is keyed by (structure + content), NOT by overall projectRevision.
+  // Position-only edits don't change layout enough to invalidate edge geometry
+  // — we let the position-sync path patch nodes in place and reuse cached edges.
+  // Content edits affect node widths (label length), so they invalidate bounds
+  // and labeler caches.
   const inlineKey = branchInlinePanel
     ? `${branchInlinePanel.turnNumber}:${branchInlinePanel.choiceIndex ?? 'opener'}:${branchInlinePanel.mode}:${branchInlinePanel.selectedOutcomeIndex ?? 'none'}`
     : 'none';
-  return `${convId}:${projectRevision}:${density}:${inlineKey}`;
+  return `${convId}:${structureRevision}:${contentRevision}:${density}:${inlineKey}`;
 }
 
 function getFlowGraphSize(turnCount: number, edgeCount: number): FlowGraphSize {
@@ -495,7 +533,7 @@ export function renderFlowEditor(container: HTMLElement): void {
   const renderStart = performance.now();
 
   const conversationId = conv.id;
-  const mk = memoKey(conversationId, state.projectRevision, density, state.branchInlinePanel);
+  const mk = memoKey(conversationId, state.flowStructureRevision, state.flowContentRevision, density, state.branchInlinePanel);
 
   const turnLabels = memoLabeler?.key === mk ? memoLabeler.labeler : createTurnDisplayLabeler(conv);
   memoLabeler = { key: mk, labeler: turnLabels };
@@ -1119,16 +1157,41 @@ export function renderFlowEditor(container: HTMLElement): void {
       draw(undefined, undefined, false);
     };
 
+    // Throttle pointermove updates to one per animation frame. Without this,
+    // each move event fires `getHoveredTarget` → `document.elementFromPoint`
+    // (a forced layout) plus `getBoundingClientRect` per candidate port.
+    // At 100+ ports that adds up to thousands of layout reads per second.
+    let pendingMoveX = 0;
+    let pendingMoveY = 0;
+    let pendingMoveFrame = 0;
+    const flushMove = (): void => {
+      pendingMoveFrame = 0;
+      updatePreview(pendingMoveX, pendingMoveY);
+    };
     const onMove = (moveEvent: PointerEvent) => {
-      updatePreview(moveEvent.clientX, moveEvent.clientY);
+      pendingMoveX = moveEvent.clientX;
+      pendingMoveY = moveEvent.clientY;
+      if (pendingMoveFrame === 0) {
+        pendingMoveFrame = requestAnimationFrame(flushMove);
+      }
     };
 
     const onUp = (upEvent: PointerEvent) => {
+      if (pendingMoveFrame !== 0) {
+        cancelAnimationFrame(pendingMoveFrame);
+        pendingMoveFrame = 0;
+      }
       const targetTurnNumber = connectionPreview?.hoveredTargetTurnNumber
         ?? getHoveredTarget(upEvent.clientX, upEvent.clientY).targetTurnNumber;
       finishConnectionDrag(targetTurnNumber);
     };
-    const onCancel = () => finishConnectionDrag();
+    const onCancel = () => {
+      if (pendingMoveFrame !== 0) {
+        cancelAnimationFrame(pendingMoveFrame);
+        pendingMoveFrame = 0;
+      }
+      finishConnectionDrag();
+    };
 
     const onKeyDown = (keyEvent: KeyboardEvent) => {
       if (keyEvent.key !== 'Escape') return;
@@ -1197,7 +1260,9 @@ export function renderFlowEditor(container: HTMLElement): void {
   // Populate live flow state for incremental selection updates
   liveFlow = {
     conversationId,
-    projectRevision: state.projectRevision,
+    structureRevision: state.flowStructureRevision,
+    positionRevision: state.flowPositionRevision,
+    contentRevision: state.flowContentRevision,
     nodeElements,
     edgeElements,
     edges,
@@ -2172,8 +2237,7 @@ function renderLiteTurnNode(options: RenderTurnNodeOptions): HTMLElement {
   node.setAttribute('role', 'button');
   node.setAttribute('aria-label', buildTurnAriaLabel(turn, turnLabels, showOpener));
   node.setAttribute('aria-pressed', selected ? 'true' : 'false');
-  node.style.left = `${turn.position.x}px`;
-  node.style.top = `${turn.position.y}px`;
+  setNodePosition(node, turn.position.x, turn.position.y);
   node.style.width = `${selected ? Math.max(nodeWidth, 220) : nodeWidth}px`;
   node.style.setProperty('--branch-color', branchColor);
   node.style.setProperty('--branch-glow', branchColor + '22');
@@ -2260,8 +2324,7 @@ function renderLiteTurnNode(options: RenderTurnNodeOptions): HTMLElement {
         y: Math.max(0, origY + (moveEvent.clientY - startY) / viewState.zoom),
       };
       dragPosition = nextPosition;
-      node.style.left = `${nextPosition.x}px`;
-      node.style.top = `${nextPosition.y}px`;
+      setNodePosition(node, nextPosition.x, nextPosition.y);
       node.classList.add('is-dragging-node');
       onPreviewPosition(new Map([[turn.turnNumber, nextPosition]]), new Set([turn.turnNumber]), true);
     };
@@ -2384,8 +2447,7 @@ function renderTurnNode(options: RenderTurnNodeOptions): HTMLElement {
   node.setAttribute('aria-label', buildTurnAriaLabel(turn, turnLabels, showOpener));
   node.setAttribute('aria-pressed', selected ? 'true' : 'false');
   setBeginnerTooltip(node, 'flow-turn-node');
-  node.style.left = `${turn.position.x}px`;
-  node.style.top = `${turn.position.y}px`;
+  setNodePosition(node, turn.position.x, turn.position.y);
   node.style.width = selected ? `${Math.max(nodeWidth, 520)}px` : `${nodeWidth}px`;
   node.style.setProperty('--branch-color', branchColor);
   node.style.setProperty('--branch-glow', branchColor + '40');
@@ -2543,8 +2605,7 @@ function renderTurnNode(options: RenderTurnNodeOptions): HTMLElement {
         y: Math.max(0, origY + (ev.clientY - startY) / viewState.zoom),
       };
       dragPosition = nextPosition;
-      node.style.left = `${nextPosition.x}px`;
-      node.style.top = `${nextPosition.y}px`;
+      setNodePosition(node, nextPosition.x, nextPosition.y);
 
       const now = performance.now();
       const elapsed = Math.max(8, now - lastMoveAt);
@@ -3932,7 +3993,7 @@ function drawEdges(options: {
   graphModel?: FlowGraphModel;
 }): void {
   const { svg, conv, edges, nodeElements, edgeElements, positionOverrides, turnLabels, factionColor, onlyTurnNumbers, renderPackets = true, cullViewport, graphModel } = options;
-  const defs = svg.querySelector('defs');
+  const defs = getCachedDefs(svg);
   const turnsByNumber = new Map(conv.turns.map(turn => [turn.turnNumber, turn]));
   const choiceAnchorCache = new Map<string, { x: number; y: number } | null>();
   const turnInputAnchorCache = new Map<number, { x: number; y: number } | null>();
@@ -4520,7 +4581,7 @@ function drawConnectionPreview(options: {
   renderPacket?: boolean;
 }): void {
   const { svg, conv, nodeElements, positionOverrides, preview, factionColor, renderPacket = true } = options;
-  const defs = svg.querySelector('defs');
+  const defs = getCachedDefs(svg);
   const turnsByNumber = new Map(conv.turns.map(turn => [turn.turnNumber, turn]));
   let previewPath = svg.querySelector('.flow-edge-path.edge-preview') as SVGPathElement | null;
   let previewPacket = svg.querySelector('.flow-edge-preview-packet') as SVGPathElement | null;
@@ -4756,35 +4817,58 @@ function hasPauseOutcome(choice: Choice): boolean {
   return choice.outcomes.some(outcome => parseOutcomeResumeTurnNumbers(outcome) != null);
 }
 
+// Memo for buildEdgePath. The Bézier math is pure, so identical inputs always
+// yield identical paths. With many edges per redraw and 60fps drag/pan, this
+// avoids tens of thousands of redundant string-builder calls per second.
+// Bounded to keep memory in check; 4096 is well above any realistic edge count.
+const EDGE_PATH_CACHE_LIMIT = 4096;
+const edgePathCache = new Map<string, string>();
+
 function buildEdgePath(source: { x: number; y: number }, target: { x: number; y: number }, laneOffset: number, bend = 0): string {
-  const dx = target.x - source.x;
-  const dy = target.y - source.y;
-  const lane = laneOffset * 20 + bend;
+  // Round to integer pixels for the cache key so sub-pixel jitter doesn't
+  // poison the cache (and the difference is invisible at this scale).
+  const sx = Math.round(source.x);
+  const sy = Math.round(source.y);
+  const tx = Math.round(target.x);
+  const ty = Math.round(target.y);
+  const lo = laneOffset | 0;
+  const bd = Math.round(bend);
+  const cacheKey = `${sx}|${sy}|${tx}|${ty}|${lo}|${bd}`;
+  const cached = edgePathCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
+  const dx = tx - sx;
+  const dy = ty - sy;
+  const lane = lo * 20 + bd;
   const absDx = Math.abs(dx);
   const absDy = Math.abs(dy);
   const horizontalBias = absDx >= absDy;
 
+  let path: string;
   if (horizontalBias) {
     const forward = dx >= 0 ? 1 : -1;
     const baseSpread = clamp(absDx * 0.34, 34, 120);
     const cross = clamp(absDy * 0.2, 8, 42) * Math.sign(dy || lane || 1);
-    const cp1x = source.x + forward * (baseSpread + Math.max(0, lane * 0.2));
-    const cp2x = target.x - forward * (baseSpread + EDGE_MIN_CLEARANCE);
-    const cp1y = source.y + lane + cross;
-    const cp2y = target.y + lane - cross;
-    return `M${source.x},${source.y} C${cp1x},${cp1y} ${cp2x},${cp2y} ${target.x},${target.y}`;
+    const cp1x = sx + forward * (baseSpread + Math.max(0, lane * 0.2));
+    const cp2x = tx - forward * (baseSpread + EDGE_MIN_CLEARANCE);
+    const cp1y = sy + lane + cross;
+    const cp2y = ty + lane - cross;
+    path = `M${sx},${sy} C${cp1x},${cp1y} ${cp2x},${cp2y} ${tx},${ty}`;
+  } else {
+    const verticalDirection = dy >= 0 ? 1 : -1;
+    const horizontalDirection = dx >= 0 ? 1 : -1;
+    const sideClearance = clamp(absDx * 0.45, EDGE_MIN_CLEARANCE + 12, 76) * horizontalDirection;
+    const arcClearance = clamp(absDy * 0.3, EDGE_MIN_CLEARANCE + 8, 84) * verticalDirection;
+    const cp1x = sx + sideClearance + lane;
+    const cp1y = sy + arcClearance * 0.45;
+    const cp2x = tx - sideClearance;
+    const cp2y = ty - arcClearance * 0.45 + lane;
+    path = `M${sx},${sy} C${cp1x},${cp1y} ${cp2x},${cp2y} ${tx},${ty}`;
   }
 
-  const verticalDirection = dy >= 0 ? 1 : -1;
-  const horizontalDirection = dx >= 0 ? 1 : -1;
-  const sideClearance = clamp(absDx * 0.45, EDGE_MIN_CLEARANCE + 12, 76) * horizontalDirection;
-  const arcClearance = clamp(absDy * 0.3, EDGE_MIN_CLEARANCE + 8, 84) * verticalDirection;
-  const cp1x = source.x + sideClearance + lane;
-  const cp1y = source.y + arcClearance * 0.45;
-  const cp2x = target.x - sideClearance;
-  const cp2y = target.y - arcClearance * 0.45 + lane;
-
-  return `M${source.x},${source.y} C${cp1x},${cp1y} ${cp2x},${cp2y} ${target.x},${target.y}`;
+  if (edgePathCache.size >= EDGE_PATH_CACHE_LIMIT) edgePathCache.clear();
+  edgePathCache.set(cacheKey, path);
+  return path;
 }
 
 function getLabelAnchor(source: { x: number; y: number }, target: { x: number; y: number }, offsetIndex: number, bend = 0): { x: number; y: number } {
@@ -4839,6 +4923,18 @@ function clientToSvgPoint(svg: SVGSVGElement, clientX: number, clientY: number):
 
 function createMarkerDefs(): SVGDefsElement {
   return document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+}
+
+// Cache the <defs> element per <svg> so we don't `querySelector('defs')`
+// every frame during edge redraws — at 100+ edges this was a meaningful
+// chunk of the per-frame budget.
+const svgDefsCache = new WeakMap<SVGSVGElement, SVGDefsElement>();
+function getCachedDefs(svg: SVGSVGElement): SVGDefsElement | null {
+  const cached = svgDefsCache.get(svg);
+  if (cached && cached.isConnected) return cached;
+  const defs = svg.querySelector('defs') as SVGDefsElement | null;
+  if (defs) svgDefsCache.set(svg, defs);
+  return defs;
 }
 
 function createMarker(id: string, color: string): SVGMarkerElement {

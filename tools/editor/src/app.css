@@ -2589,7 +2589,19 @@ body.use-custom-cursor * {
   --branch-color: var(--accent);
   --branch-glow: var(--accent-glow);
   --starter-line-opacity: 0;
+  /* Position is driven by `--node-x` / `--node-y` (set inline from JS via
+     setNodePosition) instead of `left` / `top`. We use the individual
+     `translate` property so the existing `transform` rules below (drag tilt,
+     hover lift) still compose without clobbering position — `translate` and
+     `transform` apply independently in the CSS Transform 2 model.
+     Net effect: GPU-accelerated layer compositing, so moving one node doesn't
+     trigger layout/paint for the whole canvas. Critical for 100+ nodes. */
+  --node-x: 0px;
+  --node-y: 0px;
   position: absolute;
+  top: 0;
+  left: 0;
+  translate: var(--node-x) var(--node-y);
   z-index: 8;
   width: 220px;
   background: linear-gradient(180deg, var(--bg-card) 0%, rgba(16,20,26,0.95) 100%);
@@ -2597,9 +2609,15 @@ body.use-custom-cursor * {
   border-radius: var(--radius-lg);
   cursor: pointer;
   touch-action: none;
-  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+  /* `translate` is intentionally excluded from the transition — animating it
+     would lag drag/pan by 200ms. `transform` is also excluded so the visual
+     state changes (drag tilt, hover lift) don't fight position updates. */
+  transition: border-color 0.2s, box-shadow 0.2s;
   box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,0.03);
-  contain: layout style;
+  /* Promote each node to its own compositor layer so moving one doesn't
+     repaint the rest. `contain` keeps layout/paint scoped to the node. */
+  will-change: translate;
+  contain: layout paint style;
 }
 .turn-node::before {
   content: '';
@@ -2618,7 +2636,9 @@ body.use-custom-cursor * {
 .turn-node:hover {
   border-color: color-mix(in srgb, var(--branch-color) 60%, transparent);
   box-shadow: var(--shadow-lg), 0 0 16px var(--branch-glow);
-  transform: translateY(-1px);
+  /* The 1px hover lift used to ride on `transform: translateY(-1px)`, but the
+     node's transform is now reserved for absolute positioning. The shadow
+     bump above already gives the lift cue without moving the node. */
 }
 .turn-node.selected {
   border-color: var(--branch-color);
@@ -2685,6 +2705,7 @@ body.use-custom-cursor * {
 .turn-node.connection-target-active {
   border-color: color-mix(in srgb, var(--branch-color) 84%, white 16%);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--branch-color) 28%, transparent), 0 0 18px var(--branch-glow), var(--shadow-md);
+  /* `transform` is independent of `translate` — position survives. */
   transform: translateY(-1px) scale(1.01);
 }
 
@@ -2697,7 +2718,11 @@ body.use-custom-cursor * {
 
 
 .turn-node.is-dragging-node {
-  transition: border-color 0.1s, box-shadow 0.1s, transform 0.08s linear;
+  /* `transition: transform` is intentionally omitted; we update `--node-x`/
+     `--node-y` every pointermove and the node must track the cursor instantly.
+     The drag tilt below applies via `transform`, which is independent of the
+     `translate` used for position. */
+  transition: border-color 0.1s, box-shadow 0.1s;
   transform: perspective(500px) rotateX(var(--drag-tilt-x, 1.2deg)) rotateY(var(--drag-tilt-y, 1.8deg)) scale(1.02);
   box-shadow: 0 14px 28px rgba(0,0,0,0.45), 0 0 20px var(--branch-glow), inset 0 1px 0 rgba(255,255,255,0.06);
 }
@@ -5368,6 +5393,8 @@ select option {
 .turn-node.has-inline-panel,
 .turn-node.path-active:not(.selected),
 .turn-node.connection-target-active {
+  /* Soviet theme: skip the modern hover lift. `transform: none` is safe here
+     because position is now driven by `translate`, not `transform`. */
   transform: none;
   border-color: color-mix(in srgb, var(--branch-color, var(--accent)) 72%, #d9bd73 28%);
   box-shadow:
