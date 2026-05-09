@@ -10,6 +10,7 @@ import { trapFocus } from '../lib/focus-trap';
 import { createSmartTerrainPickerEditor } from './CatalogPickerPanel';
 import { createItemPickerPanelEditor } from './ItemPickerPanel';
 import { createUiText } from '../lib/ui-language';
+import type { GameItemCatalogEntry } from '../lib/item-catalog';
 
 function ui(en: string, ru: string): string {
   return createUiText(store.get().uiLanguage)(en, ru);
@@ -34,6 +35,54 @@ const GENDER_OPTIONS = [
   { value: 'male', label: 'Male', labelRu: 'Male' },
   { value: 'female', label: 'Female', labelRu: 'Female' },
 ];
+
+const FEMALE_COMPATIBLE_OUTFITS = new Set([
+  'stalker_outfit',
+  'hybrid_outfit',
+  'dolg_outfit',
+  'dolg_scientific_red_outfit',
+  'cs_scientific_outfit',
+  'svoboda_light_outfit',
+  'merc_outfit',
+  'merc_scientific_outfit',
+  'monolith_scientific_light_outfit',
+  'monolith_scientific_outfit',
+]);
+
+const FEMALE_GEAR_PRESET_OPTIONS = [
+  { value: '', label: 'None' },
+  { value: 'female_loner_sunrise', label: 'Loner Sunrise' },
+  { value: 'female_loner_sci', label: 'Loner Scientific' },
+  { value: 'female_duty_ps5', label: 'Duty PS5' },
+  { value: 'female_duty_sci', label: 'Duty Scientific' },
+  { value: 'female_freedom_sunrise', label: 'Freedom Sunrise' },
+  { value: 'female_freedom_sci', label: 'Freedom Scientific' },
+  { value: 'female_csky_ps5', label: 'Clear Sky PS5' },
+  { value: 'female_csky_sci', label: 'Clear Sky Scientific' },
+  { value: 'female_ecolog_ps5', label: 'Ecologist PS5' },
+  { value: 'female_ecolog_sci', label: 'Ecologist Scientific' },
+  { value: 'female_merc_ps5', label: 'Mercenary PS5' },
+  { value: 'female_merc_sci', label: 'Mercenary Scientific' },
+  { value: 'female_monolith_ps5', label: 'Monolith PS5' },
+  { value: 'female_monolith_sci', label: 'Monolith Scientific' },
+];
+
+const FEMALE_GEAR_PRESET_OUTFITS: Record<string, string> = {
+  female_loner_sunrise: 'stalker_outfit',
+  female_loner_sci: 'hybrid_outfit',
+  female_duty_ps5: 'dolg_outfit',
+  female_duty_sci: 'dolg_scientific_red_outfit',
+  female_freedom_sunrise: 'svoboda_light_outfit',
+  female_freedom_sci: 'hybrid_outfit',
+  female_csky_ps5: 'cs_scientific_outfit',
+  female_csky_sci: 'cs_scientific_outfit',
+  female_ecolog_ps5: 'hybrid_outfit',
+  female_ecolog_sci: 'hybrid_outfit',
+  female_merc_ps5: 'merc_outfit',
+  female_merc_sci: 'merc_scientific_outfit',
+  female_monolith_ps5: 'monolith_scientific_light_outfit',
+  female_monolith_sci: 'monolith_scientific_outfit',
+};
 
 const MOVEMENT_MODE_OPTIONS = [
   { value: 'roam', label: 'Free roam', labelRu: 'Free roam' },
@@ -77,6 +126,7 @@ export function encodeNpcTemplate(t: NpcTemplate): string {
   if (t.outfit) parts.push(`outfit=${t.outfit}`);
   if (t.items) parts.push(`items=${t.items}`);
   if (t.gender && t.gender !== 'male') parts.push(`gender=${t.gender}`);
+  if (t.gearPreset) parts.push(`gear_preset=${t.gearPreset}`);
   if (t.visualPreset) parts.push(`visual_preset=${t.visualPreset}`);
   if (t.visual) parts.push(`visual=${t.visual}`);
   if (t.memberSection) parts.push(`member_section=${t.memberSection}`);
@@ -129,6 +179,14 @@ function buildItemsList(rows: Array<{ section: string; count: string }>): string
   return rows.filter(r => r.section.trim()).map(r => `${r.section.trim()}:${r.count || '1'}`).join(',');
 }
 
+function isFemaleCompatibleOutfitSection(section: string): boolean {
+  return FEMALE_COMPATIBLE_OUTFITS.has(section.trim());
+}
+
+function isFemaleCompatibleOutfitItem(item: GameItemCatalogEntry): boolean {
+  return isFemaleCompatibleOutfitSection(item.section);
+}
+
 function getTemplateSummary(t: NpcTemplate): string {
   const parts: string[] = [];
   const factionLabel = ui(
@@ -139,6 +197,7 @@ function getTemplateSummary(t: NpcTemplate): string {
   if (t.rank) parts.push(t.rank);
   if (t.relation && t.relation !== 'default') parts.push(t.relation);
   if (t.gender === 'female') parts.push(ui('Female', 'Female'));
+  if (t.gearPreset) parts.push(t.gearPreset);
   if (t.visualPreset) parts.push(t.visualPreset);
   if (t.memberSection) parts.push(t.memberSection);
   if (t.movementMode === 'fixed') parts.push(ui('Fixed post', 'Fixed post'));
@@ -194,6 +253,7 @@ function openNpcBuilderPanel(options: {
     outfit: existing?.outfit ?? '',
     items: parseItemsList(existing?.items ?? ''),
     gender: existing?.gender ?? 'male',
+    gearPreset: existing?.gearPreset ?? '',
     visual: existing?.visual ?? '',
     visualPreset: existing?.visualPreset ?? '',
     memberSection: existing?.memberSection ?? '',
@@ -217,6 +277,35 @@ function openNpcBuilderPanel(options: {
     form.secondaryAttachment = s.attachment;
     form.secondaryAmmo = s.ammo;
   }
+
+  let gearPresetRowEl: HTMLElement | null = null;
+  let outfitWarningEl: HTMLElement | null = null;
+  let outfitPickerSetValue: ((value: string) => void) | null = null;
+
+  const setOutfitValue = (value: string): void => {
+    form.outfit = value;
+    outfitPickerSetValue?.(value);
+  };
+
+  const refreshFemaleEquipmentUi = (clearUnsupportedOutfit: boolean): void => {
+    const isFemale = form.gender === 'female';
+    if (gearPresetRowEl) gearPresetRowEl.hidden = !isFemale;
+
+    if (clearUnsupportedOutfit && isFemale && form.outfit && !isFemaleCompatibleOutfitSection(form.outfit)) {
+      const cleared = form.outfit;
+      setOutfitValue('');
+      if (outfitWarningEl) {
+        outfitWarningEl.hidden = false;
+        outfitWarningEl.textContent = ui(
+          `Cleared ${cleared}. Female NPC outfits are limited to Dux-compatible sections.`,
+          `Cleared ${cleared}. Female NPC outfits are limited to Dux-compatible sections.`,
+        );
+      }
+      return;
+    }
+
+    if (outfitWarningEl) outfitWarningEl.hidden = true;
+  };
 
   // ── Overlay ──────────────────────────────────────────────────────────────
 
@@ -451,13 +540,45 @@ function openNpcBuilderPanel(options: {
       opt.selected = form.gender === value;
       sel.appendChild(opt);
     }
-    sel.onchange = () => { form.gender = sel.value as 'male' | 'female'; };
+    sel.onchange = () => {
+      form.gender = sel.value as 'male' | 'female';
+      refreshFemaleEquipmentUi(true);
+    };
     const hint = document.createElement('div');
     hint.className = 'command-description';
     hint.textContent = ui('Female uses woman voice. Set visual preset/model for Dux female meshes; no Hip fallback.', 'Female uses woman voice. Set visual preset/model for Dux female meshes; no Hip fallback.');
     content.append(sel, hint);
     genderRow.appendChild(wrap);
     sec.appendChild(genderRow);
+
+    const gearRow = document.createElement('div');
+    gearRow.className = 'npc-builder-row';
+    gearRow.hidden = form.gender !== 'female';
+    gearPresetRowEl = gearRow;
+    const gearField = makeField(ui('Gear preset', 'Gear preset'));
+    const gearSelect = document.createElement('select');
+    gearSelect.className = 'npc-builder-select';
+    for (const { value, label } of FEMALE_GEAR_PRESET_OPTIONS) {
+      const opt = document.createElement('option');
+      opt.value = value;
+      opt.textContent = label;
+      opt.selected = form.gearPreset === value;
+      gearSelect.appendChild(opt);
+    }
+    gearSelect.onchange = () => {
+      form.gearPreset = gearSelect.value;
+      const presetOutfit = FEMALE_GEAR_PRESET_OUTFITS[form.gearPreset];
+      if (form.gender === 'female' && presetOutfit && (!form.outfit || !isFemaleCompatibleOutfitSection(form.outfit))) {
+        setOutfitValue(presetOutfit);
+      }
+      refreshFemaleEquipmentUi(false);
+    };
+    const gearHint = document.createElement('div');
+    gearHint.className = 'command-description';
+    gearHint.textContent = ui('Dux-backed female visual plus default inventory outfit. Weapons and extra items stay unchanged.', 'Dux-backed female visual plus default inventory outfit. Weapons and extra items stay unchanged.');
+    gearField.content.append(gearSelect, gearHint);
+    gearRow.appendChild(gearField.wrap);
+    sec.appendChild(gearRow);
 
     const appearanceRow = document.createElement('div');
     appearanceRow.className = 'npc-builder-row';
@@ -664,9 +785,18 @@ function openNpcBuilderPanel(options: {
       const { wrap, content } = makeField(ui('Outfit / Armour', 'Костюм / броня'));
       const picker = createItemPickerPanelEditor(form.outfit, (v) => { form.outfit = v; }, `npc-b-outfit-${triggerId}`, {
         allowEmpty: true,
+        itemFilter: (item) => form.gender !== 'female' || isFemaleCompatibleOutfitItem(item),
+        initialGroup: 'Outfits & Gear',
+        pickerSubtitle: ui('Female NPCs show only Dux-compatible outfit items. Male NPCs can still use the full item catalog.', 'Female NPCs show only Dux-compatible outfit items. Male NPCs can still use the full item catalog.'),
         placeholder: ui('None (default stalker look)', 'Нет (вид сталкера по умолчанию)'),
       });
+      outfitPickerSetValue = (picker as HTMLElement & { setPickerValue?: (value: string) => void }).setPickerValue ?? null;
+      const warning = document.createElement('div');
+      warning.className = 'command-description';
+      warning.hidden = true;
+      outfitWarningEl = warning;
       content.appendChild(picker);
+      content.appendChild(warning);
       row.appendChild(wrap);
     }
 
@@ -693,6 +823,7 @@ function openNpcBuilderPanel(options: {
 
     sec.appendChild(row);
     body.appendChild(sec);
+    refreshFemaleEquipmentUi(false);
   }
 
   // ── § 5 — Inventory ──────────────────────────────────────────────────────
@@ -899,6 +1030,10 @@ function openNpcBuilderPanel(options: {
       alert(ui('Smart terrain is required when spawn target is set to smart terrain.', 'Требуется smart terrain, когда цель спавна — smart terrain.'));
       return;
     }
+    if (form.gender === 'female' && form.outfit && !isFemaleCompatibleOutfitSection(form.outfit)) {
+      alert(ui('Selected outfit is not marked female-compatible. Choose a Dux-compatible female outfit or clear Outfit.', 'Selected outfit is not marked female-compatible. Choose a Dux-compatible female outfit or clear Outfit.'));
+      return;
+    }
     const spawnDist = parseInt(form.spawnDist, 10);
 
     const template: NpcTemplate = {
@@ -921,6 +1056,7 @@ function openNpcBuilderPanel(options: {
         : (existing?.spawnDist != null && existing.spawnDist !== 50 ? { spawnDist: existing.spawnDist } : {})),
       ...(form.trader ? { trader: true } : {}),
       ...(form.gender === 'female' ? { gender: 'female' } : {}),
+      ...(form.gearPreset ? { gearPreset: form.gearPreset.trim() } : {}),
       ...(form.visualPreset ? { visualPreset: form.visualPreset.trim() } : {}),
       ...(form.visual ? { visual: form.visual.trim() } : {}),
       ...(form.memberSection ? { memberSection: form.memberSection.trim() } : {}),

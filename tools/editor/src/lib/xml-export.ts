@@ -264,6 +264,7 @@ export function encodeNpcTemplate(t: NpcTemplate): string {
   if (t.outfit) parts.push(`outfit=${t.outfit}`);
   if (t.items) parts.push(`items=${t.items}`);
   if (t.gender && t.gender !== 'male') parts.push(`gender=${t.gender}`);
+  if (t.gearPreset) parts.push(`gear_preset=${t.gearPreset}`);
   if (t.visualPreset) parts.push(`visual_preset=${t.visualPreset}`);
   if (t.visual) parts.push(`visual=${t.visual}`);
   if (t.memberSection) parts.push(`member_section=${t.memberSection}`);

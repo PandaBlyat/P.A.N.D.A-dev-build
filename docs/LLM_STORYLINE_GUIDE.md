@@ -601,12 +601,13 @@ If your storyline spawns a custom NPC, add an `npcTemplates` array to the projec
 | `faction` | Faction ID. |
 | `rank` | Rank name. |
 | `relation` | `"friendly"`, `"neutral"`, or `"hostile"` |
-| `gender` | `"male"` or `"female"`. Female uses woman voice only. Set `visual`/`visualPreset` for real model; no automatic Hip visual fallback. |
+| `gender` | `"male"` or `"female"`. Female uses woman voice only. Set `gearPreset`, `visual`, or `visualPreset` for real model; no automatic Hip/outfit visual fallback. |
+| `gearPreset` | Female Dux gear preset. Exports as `gear_preset`. Supported values: `female_loner_sunrise`, `female_loner_sci`, `female_duty_ps5`, `female_duty_sci`, `female_freedom_sunrise`, `female_freedom_sci`, `female_csky_ps5`, `female_csky_sci`, `female_ecolog_ps5`, `female_ecolog_sci`, `female_merc_ps5`, `female_merc_sci`, `female_monolith_ps5`, `female_monolith_sci`. |
 | `visual` / `visualPreset` | Explicit model path or preset like `dux_loner`, `dux_loner_rookie`, `dux_loner_veteran`, `dux_duty`, `dux_freedom`, `dux_ecolog`, `dux_merc`, `dux_monolith`. Dux presets require Dux female meshes installed. |
 | `memberSection` | Optional NPC spawn section override, for custom/Dux-backed sections. |
 | `primary` | Primary weapon item section. **Leave as placeholder.** |
 | `secondary` | Secondary weapon item section. **Leave as placeholder.** |
-| `outfit` | Armor item section. **Leave as placeholder.** |
+| `outfit` | Armor item section. For female NPCs this is inventory/drop armor only; it does not override female visual. Editor limits female choices to known Dux-compatible outfit items. |
 | `items` | Comma-separated items to carry. **Leave as placeholder.** |
 | `spawnMode` | `"player"` (near player) or `"smart"` (at smart terrain) |
 | `spawnDist` | Meters from player. Only for `spawnMode: "player"`. |

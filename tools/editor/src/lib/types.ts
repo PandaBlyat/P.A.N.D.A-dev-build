@@ -14,6 +14,7 @@ export interface NpcTemplate {
   outfit?: string;
   items?: string;
   gender?: 'male' | 'female';
+  gearPreset?: string;
   visual?: string;
   visualPreset?: string;
   memberSection?: string;

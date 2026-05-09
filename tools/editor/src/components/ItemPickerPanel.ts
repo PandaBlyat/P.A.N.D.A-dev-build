@@ -1,6 +1,5 @@
 import { trapFocus, type FocusTrapController } from '../lib/focus-trap';
 import {
-  GAME_ITEM_CATALOG,
   findGameItem,
   formatGameItemLabel,
   formatGameItemMeta,
@@ -191,6 +190,9 @@ function openItemPickerPanel(options: {
   allowEmpty: boolean;
   onSelect: (value: string) => void;
   onClose?: () => void;
+  itemFilter?: (item: GameItemCatalogEntry) => boolean;
+  initialGroup?: GameItemCategoryGroup;
+  subtitle?: string;
 }): void {
   if (activeCleanup) {
     const shouldToggleClosed = activeTrigger === options.trigger;
@@ -227,7 +229,7 @@ function openItemPickerPanel(options: {
 
   const subtitle = document.createElement('div');
   subtitle.className = 'item-picker-subtitle';
-  subtitle.textContent = ui('Search by display name, raw section id, kind, or category. Pick a vanilla item, or type a custom section id inline.', 'Ищи по названию, ID секции, типу или категории. Выбери ванильный предмет или введи свой ID.');
+  subtitle.textContent = options.subtitle ?? ui('Search by display name, raw section id, kind, or category. Pick a vanilla item, or type a custom section id inline.', 'Ищи по названию, ID секции, типу или категории. Выбери ванильный предмет или введи свой ID.');
   titleWrap.appendChild(subtitle);
 
   const closeButton = document.createElement('button');
@@ -282,7 +284,7 @@ function openItemPickerPanel(options: {
   filterRail.append(groupControl, subgroupControl);
   panel.appendChild(filterRail);
 
-  let activeGroup: GameItemCategoryGroup | null = null;
+  let activeGroup: GameItemCategoryGroup | null = options.initialGroup ?? null;
   let activeSubgroup: GameItemPickerSubgroupId | null = null;
 
   /* ── Selection summary + actions ── */
@@ -557,10 +559,11 @@ function openItemPickerPanel(options: {
   };
 
   /* ── Render the item list ── */
-  const renderList = (filterValue: string, options: { resetScroll?: boolean } = {}): void => {
+  const renderList = (filterValue: string, renderOptions: { resetScroll?: boolean } = {}): void => {
     const filter = normalizeFilter(filterValue);
 
-    const allEntries = getCachedGameItemCatalog();
+    const allEntries = getCachedGameItemCatalog()
+      .filter((entry) => !options.itemFilter || options.itemFilter(entry.item));
     const textFilteredEntries = filter
       ? allEntries.filter((entry) => entry.normalizedSearchText.includes(filter))
       : allEntries;
@@ -611,13 +614,13 @@ function openItemPickerPanel(options: {
 
     filteredItems = orderedEntries.map((entry) => entry.item);
 
-    if (options.resetScroll) {
+    if (renderOptions.resetScroll) {
       activeIndex = 0;
       list.scrollTop = 0;
     }
     if (filteredItems.length === 0) activeIndex = 0;
 
-    totalLabel.textContent = ui(`${filteredItems.length} / ${GAME_ITEM_CATALOG.length} items`, `${filteredItems.length} / ${GAME_ITEM_CATALOG.length} предметов`);
+    totalLabel.textContent = ui(`${filteredItems.length} / ${allEntries.length} items`, `${filteredItems.length} / ${allEntries.length} предметов`);
     rowModel = [];
     rowOffsets = [];
     itemRowIndices = [];
@@ -799,6 +802,9 @@ export function createItemPickerPanelEditor(
   options: {
     allowEmpty: boolean;
     placeholder: string;
+    itemFilter?: (item: GameItemCatalogEntry) => boolean;
+    initialGroup?: GameItemCategoryGroup;
+    pickerSubtitle?: string;
   },
 ): HTMLElement {
   const wrapper = document.createElement('div');
@@ -849,6 +855,9 @@ export function createItemPickerPanelEditor(
       trigger: selectedButton,
       currentValue: rawInput.value,
       allowEmpty: options.allowEmpty,
+      itemFilter: options.itemFilter,
+      initialGroup: options.initialGroup,
+      subtitle: options.pickerSubtitle,
       onSelect: (value) => {
         syncUi(value);
         onChange(value);
@@ -876,6 +885,11 @@ export function createItemPickerPanelEditor(
   launcherRow.append(selectedButton);
   if (maybeClearButton) launcherRow.appendChild(maybeClearButton);
   wrapper.append(launcherRow, rawInput, summary);
+
+  (wrapper as HTMLElement & { setPickerValue?: (value: string) => void }).setPickerValue = (value: string) => {
+    syncUi(value);
+    onChange(value);
+  };
 
   syncUi(currentValue);
   return wrapper;

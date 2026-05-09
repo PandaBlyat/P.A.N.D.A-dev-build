@@ -10,7 +10,7 @@
         <text>name=Slick|faction=freedom|rank=experienced|primary=wpn_ak74|outfit=svoboda_light_outfit|items=device_pda_2:1,cocaine:20|relation=friendly|spawn_mode=smart|smart_ref=st_mil_smart_terrain_2_4_name|roam=0</text>
     </string>
     <string id="st_panda_npc_template_mia">
-        <text>name=Mia|faction=stalker|rank=veteran|gender=female|visual_preset=dux_loner_veteran|spawn_dist=5</text>
+        <text>name=Mia|faction=stalker|rank=veteran|gender=female|gear_preset=female_loner_sci|primary=wpn_ak74:r:r|secondary=wpn_pm|outfit=hybrid_outfit|spawn_dist=5</text>
     </string>
 
 

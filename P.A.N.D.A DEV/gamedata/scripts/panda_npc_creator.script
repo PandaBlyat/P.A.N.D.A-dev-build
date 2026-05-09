@@ -68,6 +68,79 @@ local DUX_FEMALE_VISUAL_PRESETS = {
     dux_merc = "actors\\stalker_merc\\stalker_f_merc_sci_sunrise_1",
     dux_monolith = "actors\\stalker_monolith\\stalker_f_monolith_sci_sunrise_1",
 }
+local FEMALE_GEAR_PRESETS = {
+    female_loner_sunrise = {
+        visual = "actors\\stalker_neutral\\stalker_neutral_fstalker_sun_5",
+        outfit = "stalker_outfit",
+    },
+    female_loner_sci = {
+        visual = "actors\\stalker_neutral\\stalker_f_neutral_sci_sunrise_1",
+        outfit = "hybrid_outfit",
+        helmet = "helm_protective",
+    },
+    female_duty_ps5 = {
+        visual = "actors\\stalker_dolg\\stalker_f_dolg_sci_ps5_1",
+        outfit = "dolg_outfit",
+        helmet = "helm_protective",
+    },
+    female_duty_sci = {
+        visual = "actors\\stalker_dolg\\stalker_f_dolg_sci_sunrise_1",
+        outfit = "dolg_scientific_red_outfit",
+        helmet = "helm_protective",
+    },
+    female_freedom_sunrise = {
+        visual = "actors\\stalker_freedom\\stalker_freedom_fstalker_sun_1",
+        outfit = "svoboda_light_outfit",
+    },
+    female_freedom_sci = {
+        visual = "actors\\stalker_freedom\\stalker_f_freedom_sci_sunrise_1",
+        outfit = "hybrid_outfit",
+        helmet = "helm_protective",
+    },
+    female_csky_ps5 = {
+        visual = "actors\\stalker_nebo\\stalker_f_nebo_sci_ps5_1",
+        outfit = "cs_scientific_outfit",
+        helmet = "helm_protective",
+    },
+    female_csky_sci = {
+        visual = "actors\\stalker_nebo\\stalker_f_nebo_sci_sunrise_1",
+        outfit = "cs_scientific_outfit",
+        helmet = "helm_protective",
+    },
+    female_ecolog_ps5 = {
+        visual = "actors\\stalker_ecologist\\stalker_f_ecolog_sci_ps5_1",
+        outfit = "hybrid_outfit",
+        helmet = "helm_protective",
+    },
+    female_ecolog_sci = {
+        visual = "actors\\stalker_ecologist\\stalker_f_ecolog_sci_sunrise_1",
+        outfit = "hybrid_outfit",
+        helmet = "helm_protective",
+    },
+    female_merc_ps5 = {
+        visual = "actors\\stalker_merc\\stalker_merc_fstalker_ps5_1",
+        outfit = "merc_outfit",
+    },
+    female_merc_sci = {
+        visual = "actors\\stalker_merc\\stalker_f_merc_sci_sunrise_1",
+        outfit = "merc_scientific_outfit",
+        helmet = "helm_protective",
+    },
+    female_monolith_ps5 = {
+        visual = "actors\\stalker_monolith\\stalker_f_monolith_sci_ps5_1",
+        outfit = "monolith_scientific_light_outfit",
+        helmet = "helm_protective",
+    },
+    female_monolith_sci = {
+        visual = "actors\\stalker_monolith\\stalker_f_monolith_sci_sunrise_1",
+        outfit = "monolith_scientific_outfit",
+        helmet = "helm_protective",
+    },
+}
+
+for preset_key, preset in pairs(FEMALE_GEAR_PRESETS) do
+    DUX_FEMALE_VISUAL_PRESETS[preset_key] = preset.visual
+end
 
 local function game_mesh_exists_for_visual(visual_name)
     if not visual_name or visual_name == "" then
@@ -794,6 +867,7 @@ local function parse_template(template_id)
         gender       = "male",
         visual       = nil,
         visual_preset = nil,
+        gear_preset  = nil,
         member_section = nil,
         sound_prefix = nil,
         movement_mode = "roam",
@@ -842,6 +916,8 @@ local function parse_template(template_id)
                 end
             elseif key == "visual_preset" or key == "model_preset" or key == "appearance" then
                 tpl.visual_preset = (v ~= "") and lower_v or nil
+            elseif key == "gear_preset" or key == "gear" or key == "equipment_preset" then
+                tpl.gear_preset = (v ~= "") and lower_v or nil
             elseif key == "member_section" or key == "npc_section" or key == "spawn_section" then
                 tpl.member_section = (v ~= "") and v or nil
             elseif key == "sound_prefix" or key == "snd_config" or key == "voice" then
@@ -891,6 +967,32 @@ local function parse_template(template_id)
         tpl.stationary_job = DEFAULT_STATIONARY_JOB_BEHAVIOR
     end
 
+    if tpl.gear_preset and tpl.gear_preset ~= "" then
+        local preset = FEMALE_GEAR_PRESETS[tpl.gear_preset]
+        if preset then
+            if (not tpl.outfit or tpl.outfit == "") and preset.outfit and preset.outfit ~= "" then
+                tpl.outfit = preset.outfit
+            end
+            if preset.helmet and preset.helmet ~= "" then
+                local has_helmet = false
+                for _, item in ipairs(tpl.items) do
+                    if item.section == preset.helmet then
+                        has_helmet = true
+                        break
+                    end
+                end
+                if not has_helmet then
+                    table.insert(tpl.items, {
+                        section = preset.helmet,
+                        count = 1,
+                    })
+                end
+            end
+        else
+            printf("PANDA_NPC: unknown gear_preset '%s'", tostring(tpl.gear_preset))
+        end
+    end
+
     npc_templates[template_id] = tpl
     return tpl
 end
@@ -936,6 +1038,7 @@ local function resolve_template_visual(tpl, outfit_visual)
     if tpl and tpl.visual and tpl.visual ~= "" then
         return tpl.visual
     end
+    local is_female = tpl and string.lower(tostring(tpl.gender or "")) == "female"
     if tpl and tpl.visual_preset and tpl.visual_preset ~= "" then
         local visual = DUX_FEMALE_VISUAL_PRESETS[string.lower(tostring(tpl.visual_preset))]
         if visual then
@@ -945,14 +1048,44 @@ local function resolve_template_visual(tpl, outfit_visual)
                     tostring(tpl.visual_preset),
                     tostring(visual)
                 )
+                if is_female then
+                    return nil
+                end
                 return outfit_visual
             end
             return visual
         end
-        printf("PANDA_NPC: unknown visual preset '%s'; using outfit/default visual", tostring(tpl.visual_preset))
+        printf(
+            "PANDA_NPC: unknown visual preset '%s'; %s",
+            tostring(tpl.visual_preset),
+            is_female and "not using outfit visual for female template" or "using outfit/default visual"
+        )
     end
-    if tpl and string.lower(tostring(tpl.gender or "")) == "female" then
-        printf("PANDA_NPC: female template has no explicit visual/preset; not using vanilla Hip visual fallback")
+    if tpl and tpl.gear_preset and tpl.gear_preset ~= "" then
+        local preset = FEMALE_GEAR_PRESETS[string.lower(tostring(tpl.gear_preset))]
+        if preset and preset.visual then
+            if not game_mesh_exists_for_visual(preset.visual) then
+                printf(
+                    "PANDA_NPC: gear_preset '%s' needs missing mesh '%s'; install Dux meshes or set explicit visual",
+                    tostring(tpl.gear_preset),
+                    tostring(preset.visual)
+                )
+                if is_female then
+                    return nil
+                end
+                return outfit_visual
+            end
+            return preset.visual
+        end
+        printf(
+            "PANDA_NPC: unknown gear_preset '%s'; %s",
+            tostring(tpl.gear_preset),
+            is_female and "not using outfit visual for female template" or "using outfit/default visual"
+        )
+    end
+    if is_female then
+        printf("PANDA_NPC: female template has no explicit visual/preset/gear_preset; not using vanilla Hip or outfit visual fallback")
+        return nil
     end
     return outfit_visual
 end
@@ -3413,6 +3546,10 @@ function spawn_custom_npc(template_id, context)
 
             local primary_section = parse_weapon_tokens(tpl.primary)
             local secondary_section = parse_weapon_tokens(tpl.secondary)
+            local equip_outfit = tpl.outfit
+            if string.lower(tostring(tpl.gender or "")) == "female" then
+                equip_outfit = nil
+            end
             clear_npc_generated_loadout(se_obj, tpl)
             give_weapon(se_obj, tpl.primary)
             give_weapon(se_obj, tpl.secondary)
@@ -3455,11 +3592,11 @@ function spawn_custom_npc(template_id, context)
                 pending_relation_overrides[member_id] = string.lower(tostring(tpl.relation))
             end
 
-            if primary_section or secondary_section or (tpl.outfit and tpl.outfit ~= "") or (effective_visual and effective_visual ~= "") or (sound_prefix and sound_prefix ~= "") then
+            if primary_section or secondary_section or (equip_outfit and equip_outfit ~= "") or (effective_visual and effective_visual ~= "") or (sound_prefix and sound_prefix ~= "") then
                 pending_loadout_overrides[member_id] = {
                     primary = primary_section,
                     secondary = secondary_section,
-                    outfit = tpl.outfit,
+                    outfit = equip_outfit,
                     visual = effective_visual,
                     sound_prefix = sound_prefix,
                     tries = 0,
