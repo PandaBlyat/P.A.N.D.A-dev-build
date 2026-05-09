@@ -49,41 +49,6 @@ const FEMALE_COMPATIBLE_OUTFITS = new Set([
   'monolith_scientific_outfit',
 ]);
 
-const FEMALE_GEAR_PRESET_OPTIONS = [
-  { value: '', label: 'None' },
-  { value: 'female_loner_sunrise', label: 'Loner Sunrise' },
-  { value: 'female_loner_sci', label: 'Loner Scientific' },
-  { value: 'female_duty_ps5', label: 'Duty PS5' },
-  { value: 'female_duty_sci', label: 'Duty Scientific' },
-  { value: 'female_freedom_sunrise', label: 'Freedom Sunrise' },
-  { value: 'female_freedom_sci', label: 'Freedom Scientific' },
-  { value: 'female_csky_ps5', label: 'Clear Sky PS5' },
-  { value: 'female_csky_sci', label: 'Clear Sky Scientific' },
-  { value: 'female_ecolog_ps5', label: 'Ecologist PS5' },
-  { value: 'female_ecolog_sci', label: 'Ecologist Scientific' },
-  { value: 'female_merc_ps5', label: 'Mercenary PS5' },
-  { value: 'female_merc_sci', label: 'Mercenary Scientific' },
-  { value: 'female_monolith_ps5', label: 'Monolith PS5' },
-  { value: 'female_monolith_sci', label: 'Monolith Scientific' },
-];
-
-const FEMALE_GEAR_PRESET_OUTFITS: Record<string, string> = {
-  female_loner_sunrise: 'stalker_outfit',
-  female_loner_sci: 'hybrid_outfit',
-  female_duty_ps5: 'dolg_outfit',
-  female_duty_sci: 'dolg_scientific_red_outfit',
-  female_freedom_sunrise: 'svoboda_light_outfit',
-  female_freedom_sci: 'hybrid_outfit',
-  female_csky_ps5: 'cs_scientific_outfit',
-  female_csky_sci: 'cs_scientific_outfit',
-  female_ecolog_ps5: 'hybrid_outfit',
-  female_ecolog_sci: 'hybrid_outfit',
-  female_merc_ps5: 'merc_outfit',
-  female_merc_sci: 'merc_scientific_outfit',
-  female_monolith_ps5: 'monolith_scientific_light_outfit',
-  female_monolith_sci: 'monolith_scientific_outfit',
-};
-
 const MOVEMENT_MODE_OPTIONS = [
   { value: 'roam', label: 'Free roam', labelRu: 'Free roam' },
   { value: 'smart', label: 'Roam inside smart terrain', labelRu: 'Smart terrain roam' },
@@ -126,7 +91,6 @@ export function encodeNpcTemplate(t: NpcTemplate): string {
   if (t.outfit) parts.push(`outfit=${t.outfit}`);
   if (t.items) parts.push(`items=${t.items}`);
   if (t.gender && t.gender !== 'male') parts.push(`gender=${t.gender}`);
-  if (t.gearPreset) parts.push(`gear_preset=${t.gearPreset}`);
   if (t.visualPreset) parts.push(`visual_preset=${t.visualPreset}`);
   if (t.visual) parts.push(`visual=${t.visual}`);
   if (t.memberSection) parts.push(`member_section=${t.memberSection}`);
@@ -197,7 +161,6 @@ function getTemplateSummary(t: NpcTemplate): string {
   if (t.rank) parts.push(t.rank);
   if (t.relation && t.relation !== 'default') parts.push(t.relation);
   if (t.gender === 'female') parts.push(ui('Female', 'Female'));
-  if (t.gearPreset) parts.push(t.gearPreset);
   if (t.visualPreset) parts.push(t.visualPreset);
   if (t.memberSection) parts.push(t.memberSection);
   if (t.movementMode === 'fixed') parts.push(ui('Fixed post', 'Fixed post'));
@@ -253,7 +216,6 @@ function openNpcBuilderPanel(options: {
     outfit: existing?.outfit ?? '',
     items: parseItemsList(existing?.items ?? ''),
     gender: existing?.gender ?? 'male',
-    gearPreset: existing?.gearPreset ?? '',
     visual: existing?.visual ?? '',
     visualPreset: existing?.visualPreset ?? '',
     memberSection: existing?.memberSection ?? '',
@@ -278,7 +240,6 @@ function openNpcBuilderPanel(options: {
     form.secondaryAmmo = s.ammo;
   }
 
-  let gearPresetRowEl: HTMLElement | null = null;
   let outfitWarningEl: HTMLElement | null = null;
   let outfitPickerSetValue: ((value: string) => void) | null = null;
 
@@ -289,7 +250,6 @@ function openNpcBuilderPanel(options: {
 
   const refreshFemaleEquipmentUi = (clearUnsupportedOutfit: boolean): void => {
     const isFemale = form.gender === 'female';
-    if (gearPresetRowEl) gearPresetRowEl.hidden = !isFemale;
 
     if (clearUnsupportedOutfit && isFemale && form.outfit && !isFemaleCompatibleOutfitSection(form.outfit)) {
       const cleared = form.outfit;
@@ -550,35 +510,6 @@ function openNpcBuilderPanel(options: {
     content.append(sel, hint);
     genderRow.appendChild(wrap);
     sec.appendChild(genderRow);
-
-    const gearRow = document.createElement('div');
-    gearRow.className = 'npc-builder-row';
-    gearRow.hidden = form.gender !== 'female';
-    gearPresetRowEl = gearRow;
-    const gearField = makeField(ui('Gear preset', 'Gear preset'));
-    const gearSelect = document.createElement('select');
-    gearSelect.className = 'npc-builder-select';
-    for (const { value, label } of FEMALE_GEAR_PRESET_OPTIONS) {
-      const opt = document.createElement('option');
-      opt.value = value;
-      opt.textContent = label;
-      opt.selected = form.gearPreset === value;
-      gearSelect.appendChild(opt);
-    }
-    gearSelect.onchange = () => {
-      form.gearPreset = gearSelect.value;
-      const presetOutfit = FEMALE_GEAR_PRESET_OUTFITS[form.gearPreset];
-      if (form.gender === 'female' && presetOutfit && (!form.outfit || !isFemaleCompatibleOutfitSection(form.outfit))) {
-        setOutfitValue(presetOutfit);
-      }
-      refreshFemaleEquipmentUi(false);
-    };
-    const gearHint = document.createElement('div');
-    gearHint.className = 'command-description';
-    gearHint.textContent = ui('Dux-backed female visual plus default inventory outfit. Weapons and extra items stay unchanged.', 'Dux-backed female visual plus default inventory outfit. Weapons and extra items stay unchanged.');
-    gearField.content.append(gearSelect, gearHint);
-    gearRow.appendChild(gearField.wrap);
-    sec.appendChild(gearRow);
 
     const appearanceRow = document.createElement('div');
     appearanceRow.className = 'npc-builder-row';
@@ -1056,7 +987,6 @@ function openNpcBuilderPanel(options: {
         : (existing?.spawnDist != null && existing.spawnDist !== 50 ? { spawnDist: existing.spawnDist } : {})),
       ...(form.trader ? { trader: true } : {}),
       ...(form.gender === 'female' ? { gender: 'female' } : {}),
-      ...(form.gearPreset ? { gearPreset: form.gearPreset.trim() } : {}),
       ...(form.visualPreset ? { visualPreset: form.visualPreset.trim() } : {}),
       ...(form.visual ? { visual: form.visual.trim() } : {}),
       ...(form.memberSection ? { memberSection: form.memberSection.trim() } : {}),
