@@ -175,6 +175,7 @@ export const SMART_TERRAIN_LEVELS: Record<string, string[]> = {
     'st_esc_smart_terrain_5_7_name', 'st_esc_smart_terrain_3_7_name',
     'st_esc_smart_terrain_5_6_name', 'st_esc_smart_terrain_5_4_name',
     'st_esc_smart_terrain_5_2_name', 'st_esc_smart_terrain_9_10_name',
+    'st_esc_dogs_to_fox_name',
   ],
   darkscape: [
     'st_ds_ptr4_name', 'st_ds2_lager_st_name', 'st_ds2_st_dogs_name',
@@ -208,6 +209,7 @@ export const SMART_TERRAIN_LEVELS: Record<string, string[]> = {
     'st_gar_smart_terrain_5_2_name', 'st_gar_smart_terrain_4_2_name',
     'st_gar_smart_terrain_5_4_name', 'st_gar_smart_terrain_8_3_name',
     'st_gar_smart_terrain_8_5_name', 'st_gar_smart_terrain_5_8_name',
+    'st_gar_boars_nest_name', 'st_gar_dram_name',
   ],
   agroprom: [
     'st_agr_smart_terrain_6_4_name', 'st_agr_smart_terrain_5_3_name',
@@ -218,6 +220,7 @@ export const SMART_TERRAIN_LEVELS: Record<string, string[]> = {
     'st_agr_smart_terrain_4_4_near_3_name', 'st_agr_smart_terrain_4_4_2_name',
     'st_agr_smart_terrain_4_4_near_1_name', 'st_agr_smart_terrain_7_4_name',
     'st_agr_smart_terrain_5_4_name', 'st_agr_smart_terrain_6_6_name',
+    'st_agr_defector_stalker_name',
   ],
   dark_valley: [
     'st_val_smart_terrain_7_4_name', 'st_val_smart_terrain_7_3_name',
@@ -245,10 +248,12 @@ export const SMART_TERRAIN_LEVELS: Record<string, string[]> = {
     'st_ros_smart_snork1_name', 'st_ros_smart_killers1_name',
     'st_ros_smart_stalker1_name', 'st_ros_smart_poltergeist2_name',
     'st_ros_smart_monster5_name', 'st_ros_smart_monster4_name',
+    'st_ros_smart_stalker_bandits1_name',
   ],
   rostok: [
     'st_bar_zastava_2_name', 'st_bar_zastava_dogs_lair_2_name',
     'st_bar_zastava_name', 'st_bar_zastava_dogs_lair_name',
+    'st_bar_arena_monstr_name',
   ],
   truck_cemetery: [
     'st_trc_sim_20_name', 'st_trc_sim_17_name', 'st_trc_sim_7_name',
@@ -362,6 +367,7 @@ export const SMART_TERRAIN_LEVELS: Record<string, string[]> = {
     'st_aes_smart_terrain_monsters2_name',
     'st_aes_smart_terrain_monsters3_name',
     'st_aes_smart_terran_soldier_name',
+    'st_aes_smart_terran_soldier2_name',
     'st_aes_smart_terrain_monsters4_name',
   ],
   north_cnpp: [
