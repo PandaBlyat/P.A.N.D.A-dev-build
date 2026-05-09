@@ -590,16 +590,25 @@ end
 
 handlers["take_item"] = function(parts, cmd_str, cmd)
     local item_sec = parts[2]
+    local count = math.max(1, tonumber(parts[3]) or 1)
     if item_sec then
-        local found_obj = nil
+        local to_remove = {}
+        local removed = 0
         act:iterate_inventory(function(owner, item)
-            if not found_obj and item:section() == item_sec then found_obj = item end
+            if removed < count and item:section() == item_sec then
+                table.insert(to_remove, item:id())
+                removed = removed + 1
+            end
         end, act)
-        if found_obj then
-            alife_release(alife():object(found_obj:id()))
+        for _, item_id in ipairs(to_remove) do
+            local se_obj = alife_object(item_id)
+            if se_obj then alife_release(se_obj) end
+        end
+        if removed > 0 then
+            local msg_key = removed == 1 and "st_pda_ic_outcome_item_taken" or "st_pda_ic_outcome_items_taken"
             local msg = utils_data.parse_string_keys(
-                game.translate_string("st_pda_ic_outcome_item_taken"),
-                {["what"] = ui_item.get_sec_name(item_sec)}
+                game.translate_string(msg_key),
+                {["what"] = ui_item.get_sec_name(item_sec), ["count"] = tostring(removed)}
             )
             dynamic_news_helper.send_tip(msg, "System", 0, 10, FALLBACK_NPC_ICON, "beep_1", "npc")
         end

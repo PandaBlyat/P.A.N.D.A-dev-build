@@ -1447,11 +1447,12 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
   // Items (expanded)
   {
     name: 'take_item',
-    label: 'Take Item',
-    description: 'Remove specific item from player inventory',
+    label: 'Take Item (Multiple)',
+    description: 'Remove one or more copies of an item from player inventory',
     category: 'Items',
     params: [
       { name: 'item', type: 'item_section', required: true, label: 'Item Section', editor: ITEM_PICKER_PANEL_EDITOR },
+      { name: 'count', type: 'number', required: false, label: 'Count', min: 1, placeholder: '1', helpText: 'Leave blank for 1 copy.' },
     ],
   },
   {

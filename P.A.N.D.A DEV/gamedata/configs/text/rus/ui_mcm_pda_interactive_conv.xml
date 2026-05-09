@@ -828,6 +828,9 @@
 	<string id="st_pda_ic_outcome_item_taken">
 		<text>$item was taken.</text>
 	</string>
+	<string id="st_pda_ic_outcome_items_taken">
+		<text>Забрано: $item x$count.</text>
+	</string>
 	<string id="st_pda_ic_outcome_items_given">
 		<text>Items have been delivered to you.</text>
 	</string>

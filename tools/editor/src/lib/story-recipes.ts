@@ -494,7 +494,7 @@ function createDraftTargetRules(draft: StoryWizardDraft): PreconditionEntry[] {
 }
 
 function addDraftStartRules(conversation: Conversation, draft: StoryWizardDraft): void {
-  if (draft.recipeId === 'item_request') conversation.preconditions.push(simpleRule('req_has_item', draft.itemId));
+  if (draft.recipeId === 'item_request') conversation.preconditions.push(simpleRule('req_has_item', draft.itemId, draft.itemCount));
   if (draft.recipeId === 'paid_info' || draft.recipeId === 'paid_stash_lead') conversation.preconditions.push(simpleRule('req_money', draft.priceMoney));
   switch (draft.accessRuleId) {
     case 'player_faction':
@@ -802,7 +802,7 @@ function draftBaseOutcomesFor(draft: StoryWizardDraft, successTurn: string, fail
     case 'artifact_lead':
       return [outcome('give_info', `${draft.infoId}_artifact_lead`)];
     case 'item_request':
-      return [outcome('take_item', draft.itemId), ...draftMoneyReward(draft.rewardMoney)];
+      return [outcome('take_item', draft.itemId, draft.itemCount), ...draftMoneyReward(draft.rewardMoney)];
     case 'go_to_location':
       return [outcome('watch_location', draft.locationId, '85')];
     case 'spawn_ambush': {
@@ -858,7 +858,7 @@ function draftBaseOutcomesFor(draft: StoryWizardDraft, successTurn: string, fail
 }
 
 function draftActionPreconditionsFor(draft: StoryWizardDraft): PreconditionEntry[] {
-  if (draft.recipeId === 'item_request') return [simpleRule('req_has_item', draft.itemId)];
+  if (draft.recipeId === 'item_request') return [simpleRule('req_has_item', draft.itemId, draft.itemCount)];
   if (draft.recipeId === 'paid_info' || draft.recipeId === 'paid_stash_lead') return [simpleRule('req_money', draft.priceMoney)];
   return [];
 }
@@ -949,7 +949,7 @@ function draftLevelToken(level: string): string {
 }
 
 function draftTransitionOpeningFor(draft: StoryWizardDraft): string {
-  if (draft.recipeId === 'item_request') return `I need ${itemLabel(draft.itemId)}. Bring it in person and I pay.`;
+  if (draft.recipeId === 'item_request') return `I need ${describeRequestedItem(draft)}. Bring it in person and I pay.`;
   if (draft.recipeId === 'escort_npc') return 'I need feet on the ground for this. Meet me and we move.';
   if (draft.recipeId === 'meet_in_person') return 'Not over PDA. Meet me and we talk properly.';
   if (draft.recipeId === 'multi_npc_handoff') return 'I am not right contact. I can put you through.';
@@ -958,7 +958,7 @@ function draftTransitionOpeningFor(draft: StoryWizardDraft): string {
 }
 
 function draftTransitionChoiceTextFor(draft: StoryWizardDraft): string {
-  if (draft.recipeId === 'item_request') return 'I can bring it.';
+  if (draft.recipeId === 'item_request') return 'I can bring them.';
   if (draft.recipeId === 'meet_in_person') return 'Where do we meet?';
   if (draft.recipeId === 'multi_npc_handoff') return 'Put them through.';
   return 'Send meeting point.';
@@ -986,7 +986,7 @@ function draftOpeningFor(draft: StoryWizardDraft): string {
     case 'artifact_lead':
       return `${premise} Artifact sign points toward ${locationLabel(draft.locationId)}.`;
     case 'item_request':
-      return `You carrying ${itemLabel(draft.itemId)}? ${premise}`;
+      return `You carrying ${describeRequestedItem(draft)}? ${premise}`;
     case 'go_to_location':
       return `${premise} I marked ${locationLabel(draft.locationId)}.`;
     case 'spawn_ambush':
@@ -1063,7 +1063,11 @@ function draftAcceptTextFor(draft: StoryWizardDraft): string {
   if (isDraftTaskRecipe(draft.recipeId)) return 'I will take the job.';
   if (draft.recipeId === 'paid_info') return 'Pay for information.';
   if (draft.recipeId === 'paid_stash_lead') return 'Buy stash lead.';
-  if (draft.recipeId === 'item_request') return `Hand over ${itemLabel(draft.itemId)}.`;
+  if (draft.recipeId === 'item_request') {
+    return draft.itemCount.trim() !== '1'
+      ? `Hand over ${describeRequestedItem(draft)}.`
+      : `Hand over ${itemLabel(draft.itemId)}.`;
+  }
   if (draft.recipeId === 'go_to_location' || draft.recipeId === 'spawn_ambush' || draft.recipeId === 'marked_threat' || draft.recipeId === 'ambush_warning') return 'Send marker.';
   if (draft.recipeId === 'custom_npc_encounter') return 'Send them out.';
   return 'I am in.';
@@ -1311,7 +1315,7 @@ function nextTurnNumber(conversation: Conversation): number {
 function transitionOpeningFor(recipeId: StoryRecipeId, details: StoryDetailOptions): string {
   switch (recipeId) {
     case 'item_request':
-      return `I need ${articleFor(details.itemId)} ${itemLabel(details.itemId)}. Bring it in person and I will pay.`;
+      return `I need ${describeRequestedItem(details)}. Bring it in person and I will pay.`;
     case 'escort_npc':
       return 'I need feet on the ground for this. Meet me and we move.';
     case 'meet_in_person':
@@ -1324,7 +1328,7 @@ function transitionOpeningFor(recipeId: StoryRecipeId, details: StoryDetailOptio
 }
 
 function transitionChoiceTextFor(recipeId: StoryRecipeId): string {
-  if (recipeId === 'item_request') return 'I can bring it.';
+  if (recipeId === 'item_request') return 'I can bring them.';
   if (recipeId === 'meet_in_person') return 'Where should I meet you?';
   if (recipeId === 'multi_npc_handoff') return 'Put them through.';
   return 'Tell me where.';
@@ -1338,7 +1342,7 @@ function transitionReplyFor(recipeId: StoryRecipeId): string {
 }
 
 function actionOpeningFor(conversation: Conversation, recipeId: StoryRecipeId, faction: FactionId, details: StoryDetailOptions): string {
-  if (conversation.turns.length > 1 && recipeId === 'item_request') return `You brought ${itemLabel(details.itemId)}?`;
+  if (conversation.turns.length > 1 && recipeId === 'item_request') return `You brought ${describeRequestedItem(details)}?`;
   if (conversation.turns.length > 1 && recipeId === 'meet_in_person') return 'You came. Good. Keep your voice down.';
   if (conversation.turns.length > 1 && recipeId === 'multi_npc_handoff') return 'This is Sakharov. I hear you are looking for work.';
   return openingFor(recipeId, faction, details);
@@ -1352,7 +1356,7 @@ function openingFor(recipeId: StoryRecipeId, faction: FactionId, details: StoryD
     case 'faction_warning':
       return `${factionName} patrols saw movement near ${locationLabel(details.locationId)}. Keep your eyes open.`;
     case 'item_request':
-      return `You carrying ${articleFor(details.itemId)} ${itemLabel(details.itemId)}? I can pay.`;
+      return `You carrying ${describeRequestedItem(details)}? I can pay.`;
     case 'go_to_location':
       return `I marked something near ${locationLabel(details.locationId)}. Worth checking.`;
     case 'spawn_ambush':
@@ -1382,7 +1386,9 @@ function openingFor(recipeId: StoryRecipeId, faction: FactionId, details: StoryD
 function actionChoiceTextFor(recipeId: StoryRecipeId, details: StoryDetailOptions): string {
   switch (recipeId) {
     case 'item_request':
-      return `Hand over ${itemLabel(details.itemId)}.`;
+      return details.itemCount.trim() !== '1'
+        ? `Hand over ${describeRequestedItem(details)}.`
+        : `Hand over ${itemLabel(details.itemId)}.`;
     case 'meet_in_person':
       return 'I am here.';
     case 'multi_npc_handoff':
@@ -1409,7 +1415,9 @@ function actionReplyFor(recipeId: StoryRecipeId, details: StoryDetailOptions): s
     case 'job_offer':
       return 'Done. Payment is yours.';
     case 'item_request':
-      return `That ${itemLabel(details.itemId)} helps. Payment is yours.`;
+      return details.itemCount.trim() !== '1'
+        ? `Those ${describeRequestedItem(details)} help. Payment is yours.`
+        : `That ${itemLabel(details.itemId)} helps. Payment is yours.`;
     case 'go_to_location':
       return 'Marker sent. Watch your step.';
     case 'spawn_ambush':
@@ -1433,7 +1441,7 @@ function actionReplyFor(recipeId: StoryRecipeId, details: StoryDetailOptions): s
 }
 
 function actionPreconditionsFor(recipeId: StoryRecipeId, details: StoryDetailOptions): PreconditionEntry[] {
-  if (recipeId === 'item_request') return [simpleRule('req_has_item', details.itemId)];
+  if (recipeId === 'item_request') return [simpleRule('req_has_item', details.itemId, details.itemCount)];
   if (recipeId === 'paid_info') return [simpleRule('req_money', details.rewardMoney)];
   return [];
 }
@@ -1446,7 +1454,7 @@ function actionOutcomesFor(recipeId: StoryRecipeId, faction: FactionId, details:
       return [outcome('reward_gw', '25', faction)];
     case 'item_request':
       return [
-        outcome('take_item', details.itemId),
+        outcome('take_item', details.itemId, details.itemCount),
         ...moneyReward(details.rewardMoney),
       ];
     case 'go_to_location':
@@ -1481,6 +1489,14 @@ function itemReward(itemId: string): Outcome[] {
 
 function itemLabel(itemId: string): string {
   return STORY_ITEM_OPTIONS.find((item) => item.id === itemId)?.title.toLowerCase() ?? itemId;
+}
+
+function describeRequestedItem(details: Pick<StoryDetailOptions, 'itemId' | 'itemCount'>): string {
+  const count = details.itemCount.trim();
+  if (count !== '' && count !== '1') {
+    return `${count} ${itemLabel(details.itemId)}`;
+  }
+  return `${articleFor(details.itemId)} ${itemLabel(details.itemId)}`;
 }
 
 function locationLabel(locationId: string): string {

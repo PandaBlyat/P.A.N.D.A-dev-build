@@ -437,7 +437,7 @@ Three forms:
 | Command | Params | Notes |
 |---|---|---|
 | `give_item` | `[item]` | Spawn item in player inventory. **item = placeholder.** |
-| `take_item` | `[item]` | Remove item from player inventory. **item = placeholder.** |
+| `take_item` | `[item, count?]` | Remove item from player inventory. **item = placeholder.** |
 | `give_item_count` | `[item, count]` | Give multiple copies. **item = placeholder.** |
 
 ### Stash Rewards
