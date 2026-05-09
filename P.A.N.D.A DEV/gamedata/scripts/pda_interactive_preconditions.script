@@ -1,0 +1,1049 @@
+pda_interactive_preconditions = pda_interactive_preconditions or {}
+local M = pda_interactive_preconditions
+
+local PRECONDITION_MACROS = {
+    danger_context = "any(req_time_night|req_weather_fx_active|req_surge_soon:900|req_psi_storm_soon:900)",
+}
+
+local handlers = {}
+
+local function str_explode(str, sep)
+    local t = {}
+    for s in string.gmatch(str or "", "([^" .. sep .. "]+)") do table.insert(t, s) end
+    return t
+end
+
+local function precond_trace(ctx, fmt, ...)
+    local PANDA = ctx and ctx.PANDA or _G.PANDA
+    if PANDA and (PANDA.get_config("debug_logging") or PANDA.get_config("precond_verbose_debug")) then
+        _G.printf("PANDA_IC[precond]: " .. fmt, ...)
+    end
+end
+
+local function split_top_level(str, delimiter)
+    local result = {}
+    local start_idx = 1
+    local depth = 0
+    for i = 1, #str do
+        local ch = string.sub(str, i, i)
+        if ch == "(" then depth = depth + 1
+        elseif ch == ")" then depth = math.max(depth - 1, 0)
+        elseif ch == delimiter and depth == 0 then
+            local chunk = string.sub(str, start_idx, i - 1):match("^%s*(.-)%s*$")
+            if chunk ~= "" then table.insert(result, chunk) end
+            start_idx = i + 1
+        end
+    end
+    local tail = string.sub(str, start_idx):match("^%s*(.-)%s*$")
+    if tail ~= "" then table.insert(result, tail) end
+    return result
+end
+
+local function unwrap_wrapper(token, prefix)
+    local full_prefix = prefix .. "("
+    if string.sub(token, 1, #full_prefix) ~= full_prefix then return nil end
+    if string.sub(token, -1) ~= ")" then return nil end
+    return string.sub(token, #full_prefix + 1, -2)
+end
+
+local function make_env(ctx, parts, entry, npc_se, act, get_goodwill_actor_id)
+    local env = { parts = parts, entry = entry, npc_se = npc_se, act = act, get_goodwill_actor_id = get_goodwill_actor_id, str_explode = ctx.str_explode or str_explode }
+    return setmetatable(env, {
+        __index = function(_, key)
+            local value = ctx and ctx[key]
+            if value ~= nil then return value end
+            return _G[key]
+        end,
+        __newindex = function(t, key, value) rawset(t, key, value) end
+    })
+end
+
+handlers["req_money"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    if act:money() < (tonumber(parts[2]) or 0) then return false, "insufficient money" end
+end
+
+handlers["req_money_max"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    if act:money() >= (tonumber(parts[2]) or 0) then return false, "money above max" end
+
+        -- ========== RANK ==========
+end
+
+handlers["req_rank"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local p_rank = ranks.get_obj_rank_name(act) or "novice"
+    if get_rank_order_value(p_rank) < get_rank_order_value(parts[2]) then return false, "rank below minimum" end
+end
+
+handlers["req_rank_max"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local p_rank = ranks.get_obj_rank_name(act) or "novice"
+    if get_rank_order_value(p_rank) > get_rank_order_value(parts[2]) then return false, "rank above max" end
+end
+
+handlers["req_npc_rank"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local npc_rank = get_npc_rank_name(npc_se)
+    if not npc_rank then return false, "npc rank unavailable" end
+    if get_rank_order_value(npc_rank) < get_rank_order_value(parts[2]) then return false, "npc rank below minimum" end
+end
+
+handlers["req_npc_rank_max"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local npc_rank = get_npc_rank_name(npc_se)
+    if not npc_rank then return false, "npc rank unavailable" end
+    if get_rank_order_value(npc_rank) > get_rank_order_value(parts[2]) then return false, "npc rank above max" end
+
+        -- ========== REPUTATION ==========
+end
+
+handlers["req_rep"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    if act:character_reputation() < (tonumber(parts[2]) or 0) then return false, "reputation below minimum" end
+end
+
+handlers["req_rep_max"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    if act:character_reputation() > (tonumber(parts[2]) or 0) then return false, "reputation above max" end
+
+        -- ========== KILLS ==========
+end
+
+handlers["req_kills"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local kills = 0
+    if act_statistic and act_statistic.get_stat then
+        kills = act_statistic.get_stat("killed_stalkers") or 0
+    elseif game_stats and game_stats.get_actor_stat then
+        kills = game_stats.get_actor_stat("killed_stalkers") or 0
+    end
+    if kills < (tonumber(parts[2]) or 0) then return false, "stalker kills below minimum" end
+end
+
+handlers["req_mutant_kills"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local kills = 0
+    if act_statistic and act_statistic.get_stat then
+        kills = act_statistic.get_stat("killed_monsters") or 0
+    elseif game_stats and game_stats.get_actor_stat then
+        kills = game_stats.get_actor_stat("killed_monsters") or 0
+    end
+    if kills < (tonumber(parts[2]) or 0) then return false, "mutant kills below minimum" end
+
+        -- ========== FACTION ==========
+end
+
+handlers["req_faction"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local player_comm = get_actor_true_community() or "stalker"
+    local required_fac = normalize_faction(parts[2])
+    if player_comm ~= required_fac then return false, "player faction mismatch" end
+end
+
+handlers["req_not_faction"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local player_comm = get_actor_true_community() or "stalker"
+    local excluded_fac = normalize_faction(parts[2])
+    if player_comm == excluded_fac then return false, "player faction excluded" end
+end
+
+handlers["req_npc_faction"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local npc_fac = get_npc_faction(npc_se)
+    local required_fac = normalize_faction(parts[2])
+    if not npc_fac or npc_fac ~= required_fac then return false, "npc faction mismatch" end
+end
+
+handlers["req_npc_not_faction"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local npc_fac = get_npc_faction(npc_se)
+    local excluded_fac = normalize_faction(parts[2])
+    if npc_fac and npc_fac == excluded_fac then return false, "npc faction excluded" end
+
+        -- ========== NPC RELATION ==========
+end
+
+handlers["req_npc_friendly"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    if not npc_se then return false, "npc missing" end
+    local npc_fac = get_npc_faction(npc_se)
+    if not npc_fac then return false, "npc faction unavailable" end
+    if parts[2] and parts[2] ~= "" then
+        local required_fac = normalize_faction(parts[2])
+        if npc_fac ~= required_fac then return false, "npc faction mismatch" end
+    end
+    local actor_id = get_goodwill_actor_id("req_npc_friendly")
+    if actor_id == nil then return false, "actor id unavailable" end
+    local gw = 0
+    if relation_registry and relation_registry.community_goodwill then
+        gw = relation_registry.community_goodwill(npc_fac, actor_id) or 0
+    end
+    if gw < 0 then return false, "npc goodwill hostile" end
+    local npc_obj = level.object_by_id(npc_se.id)
+    if npc_obj and npc_obj:relation(db.actor) == game_object.enemy then return false, "npc personal relation hostile" end
+end
+
+handlers["req_npc_hostile"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    if not npc_se then return false, "npc missing" end
+    local npc_fac = get_npc_faction(npc_se)
+    if not npc_fac then return false, "npc faction unavailable" end
+    if parts[2] and parts[2] ~= "" then
+        local required_fac = normalize_faction(parts[2])
+        if npc_fac ~= required_fac then return false, "npc faction mismatch" end
+    end
+    local actor_id = get_goodwill_actor_id("req_npc_hostile")
+    if actor_id == nil then return false, "actor id unavailable" end
+    local gw = 0
+    if relation_registry and relation_registry.community_goodwill then
+        gw = relation_registry.community_goodwill(npc_fac, actor_id) or 0
+    end
+    if gw >= 0 then return false, "npc goodwill not hostile" end
+    local npc_obj = level.object_by_id(npc_se.id)
+    if npc_obj and npc_obj:relation(db.actor) < game_object.enemy then return false, "npc personal relation not hostile" end
+
+        -- ========== LEVEL / LOCATION ==========
+end
+
+handlers["req_level"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local cur_level = level and level.name and level.name() or "unknown"
+    if cur_level ~= parts[2] then return false, "wrong level" end
+end
+
+handlers["req_not_level"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local cur_level = level and level.name and level.name() or "unknown"
+    if cur_level == parts[2] then return false, "excluded level" end
+end
+
+handlers["req_actor_near_smart"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local smart_ref = parts[2]
+    if not smart_ref or smart_ref == "" then return false, "missing smart ref" end
+    local dist = tonumber(parts[3]) or 50
+    local actor_pos = act:position()
+    local smart_pos = resolve_smart_position_from_reference(smart_ref)
+    if not smart_pos or actor_pos:distance_to(smart_pos) >= dist then return false, "actor too far from smart" end
+end
+
+handlers["req_npc_near_smart"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    if not npc_se then return false, "npc missing" end
+    local smart_ref = parts[2]
+    if not smart_ref or smart_ref == "" then return false, "missing smart ref" end
+    local dist = tonumber(parts[3]) or 50
+    local npc_pos = get_npc_position(npc_se)
+    local smart_pos = resolve_smart_position_from_reference(smart_ref)
+    if not npc_pos or not smart_pos or npc_pos:distance_to(smart_pos) >= dist then return false, "npc too far from smart" end
+end
+
+handlers["req_actor_in_zone"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local zone_name = parts[2]
+    if not zone_name or zone_name == "" then return false, "missing zone" end
+    local zone = db.zone_by_name and db.zone_by_name[zone_name] or nil
+    if not zone or not zone:inside(act:position()) then return false, "actor not in zone" end
+end
+
+handlers["req_detector_tier"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local required_tier = parts[2] or "basic"
+    local adapter = get_anomaly_artifact_adapter()
+    if not adapter or not adapter.require_detector_tier then
+        return false, "anomaly adapter unavailable"
+    end
+    local ok = adapter.require_detector_tier(required_tier)
+    if not ok then
+        return false, "detector tier below requirement"
+    end
+
+        -- ========== COMPANIONS ==========
+end
+
+handlers["req_companions"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local comps = 0
+    if axr_companions and axr_companions.companion_squads then
+        for _ in pairs(axr_companions.companion_squads) do comps = comps + 1 end
+    end
+    if comps < (tonumber(parts[2]) or 0) then return false, "companions below minimum" end
+end
+
+handlers["req_companions_max"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local comps = 0
+    if axr_companions and axr_companions.companion_squads then
+        for _ in pairs(axr_companions.companion_squads) do comps = comps + 1 end
+    end
+    if comps > (tonumber(parts[2]) or 0) then return false, "companions above max" end
+
+        -- ========== FACTION GOODWILL ==========
+end
+
+handlers["req_goodwill"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local amount = tonumber(parts[2]) or 0
+    local fac = normalize_faction(parts[3] or "stalker")
+    local actor_id = get_goodwill_actor_id("req_goodwill")
+    if actor_id == nil then return false, "actor id unavailable" end
+    local gw = 0
+    if relation_registry and relation_registry.community_goodwill then
+        gw = relation_registry.community_goodwill(fac, actor_id) or 0
+    end
+    if gw < amount then return false, "goodwill below minimum" end
+end
+
+handlers["req_goodwill_max"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local amount = tonumber(parts[2]) or 0
+    local fac = normalize_faction(parts[3] or "stalker")
+    local actor_id = get_goodwill_actor_id("req_goodwill_max")
+    if actor_id == nil then return false, "actor id unavailable" end
+    local gw = 0
+    if relation_registry and relation_registry.community_goodwill then
+        gw = relation_registry.community_goodwill(fac, actor_id) or 0
+    end
+    if gw > amount then return false, "goodwill above max" end
+
+        -- ========== ITEMS ==========
+end
+
+handlers["req_has_item"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local item_sec = parts[2]
+    local required = tonumber(parts[3]) or 1
+    if not item_sec then return false, "missing item section" end
+    local count = 0
+    act:iterate_inventory(function(owner, item)
+        if item:section() == item_sec then count = count + 1 end
+    end, act)
+    if count < required then return false, "item count below minimum" end
+end
+
+handlers["req_equipped"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local item_sec = parts[2]
+    if not item_sec then return false, "missing item section" end
+    local found = false
+    for slot = 0, 12 do
+        local slot_item = act:item_in_slot(slot)
+        if slot_item and slot_item:section() == item_sec then
+            found = true
+            break
+        end
+    end
+    if not found then return false, "item not equipped" end
+end
+
+handlers["req_equipped_slot"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local slot = tonumber(parts[2]) or 0
+    if not act:item_in_slot(slot) then return false, "slot empty" end
+
+        -- ========== ACHIEVEMENTS ==========
+end
+
+handlers["req_achievement"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local ach_name = parts[2]
+    if not ach_name then return false, "missing achievement" end
+    local has_ach = false
+    if game_achievements and game_achievements.has_achievement then
+        has_ach = game_achievements.has_achievement(ach_name)
+    elseif achieved then
+        has_ach = achieved[ach_name] == true
+    end
+    if not has_ach then return false, "achievement missing" end
+
+        -- ========== TIME ==========
+end
+
+handlers["req_time_day"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local gt = game.get_game_time()
+    local Y, M, D, h = 0, 0, 0, 0
+    Y, M, D, h = gt:get(Y, M, D, h, 0, 0, 0)
+    if h < 6 or h >= 20 then return false, "outside day window" end
+end
+
+handlers["req_time_night"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local gt = game.get_game_time()
+    local Y, M, D, h = 0, 0, 0, 0
+    Y, M, D, h = gt:get(Y, M, D, h, 0, 0, 0)
+    if h >= 6 and h < 20 then return false, "outside night window" end
+
+        -- ========== EVENT TIMING / WEATHER FX ==========
+end
+
+handlers["req_surge_soon"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local threshold = tonumber(parts[2]) or 0
+    local remaining = get_manager_remaining_seconds(surge_manager, "get_surge_manager", "_delta", "last_surge_time")
+    printf("Precondition req_surge_soon: threshold=%s, remaining=%s", tostring(threshold), tostring(remaining))
+    if not remaining or remaining > threshold then return false, "surge not soon enough" end
+end
+
+handlers["req_not_surge_soon"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local threshold = tonumber(parts[2]) or 0
+    local remaining = get_manager_remaining_seconds(surge_manager, "get_surge_manager", "_delta", "last_surge_time")
+    printf("Precondition req_not_surge_soon: threshold=%s, remaining=%s", tostring(threshold), tostring(remaining))
+    if not remaining or remaining <= threshold then return false, "surge too soon" end
+end
+
+handlers["req_psi_storm_soon"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local threshold = tonumber(parts[2]) or 0
+    local remaining = get_manager_remaining_seconds(psi_storm_manager, "get_psi_storm_manager", "_delta", "last_psi_storm_time")
+    printf("Precondition req_psi_storm_soon: threshold=%s, remaining=%s", tostring(threshold), tostring(remaining))
+    if not remaining or remaining > threshold then return false, "psi storm not soon enough" end
+end
+
+handlers["req_weather_fx_active"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local active = is_weather_fx_active_now()
+    printf("Precondition req_weather_fx_active: active=%s", tostring(active))
+    if not active then return false, "weather fx inactive" end
+end
+
+handlers["req_weather_fx_not_active"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local active = is_weather_fx_active_now()
+    printf("Precondition req_weather_fx_not_active: active=%s", tostring(active))
+    if active then return false, "weather fx active" end
+
+        -- ========== HEALTH ==========
+end
+
+handlers["req_health_min"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    if act.health < (tonumber(parts[2]) or 0) then return false, "health below minimum" end
+end
+
+handlers["req_health_max"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    if act.health > (tonumber(parts[2]) or 0) then return false, "health above max" end
+
+        -- ========== PLAYER CONDITION ==========
+end
+
+handlers["req_radiation_min"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local rad = act:get_radiation() * 100
+    if rad < (tonumber(parts[2]) or 0) then return false, "radiation below minimum" end
+end
+
+handlers["req_radiation_max"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local rad = act:get_radiation() * 100
+    if rad > (tonumber(parts[2]) or 0) then return false, "radiation above max" end
+end
+
+handlers["req_hunger"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local satiety = 1
+    if actor_status and actor_status.get_satienty then
+        satiety = actor_status.get_satienty()
+    end
+    if satiety < 2 then return false, "player not hungry" end
+end
+
+handlers["req_not_hungry"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local satiety = 1
+    if actor_status and actor_status.get_satienty then
+        satiety = actor_status.get_satienty()
+    end
+    if satiety >= 2 then return false, "player hungry" end
+end
+
+handlers["req_bleeding"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    if act.bleeding <= 0 then return false, "player not bleeding" end
+end
+
+handlers["req_overweight"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local max_weight = (db.actor.get_actor_max_weight and db.actor:get_actor_max_weight()) or 60
+    local cur_weight = (db.actor.get_total_weight and db.actor:get_total_weight()) or 0
+    if cur_weight <= max_weight then return false, "player not overweight" end
+
+        -- ========== HAS ITEM TYPE ==========
+end
+
+handlers["req_has_item_type"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local item_type = parts[2]
+    if not item_type then return false, "missing item type" end
+    local TYPE_CHECKERS = {
+        weapon = IsWeapon, outfit = IsOutfit, artefact = IsArtefact,
+        headgear = IsHeadgear, pistol = IsPistol, rifle = IsRifle,
+        shotgun = IsShotgun, sniper = IsSniper, melee = IsMelee,
+        explosive = IsExplosive,
+    }
+    local checker = TYPE_CHECKERS[item_type:lower()]
+    if not checker then return false, "unknown item type: " .. tostring(item_type) end
+    local found = false
+    act:iterate_inventory(function(owner, item)
+        if not found and checker(item) then found = true end
+    end, act)
+    if not found then return false, "no item of type " .. item_type end
+
+        -- ========== ARTEFACTS / FACTION KILLS ==========
+end
+
+handlers["req_artefacts_found"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local found = 0
+    if act_statistic and act_statistic.get_stat then
+        found = act_statistic.get_stat("artefacts_found") or 0
+    elseif game_stats and game_stats.get_actor_stat then
+        found = game_stats.get_actor_stat("artefacts_found") or 0
+    end
+    if found < (tonumber(parts[2]) or 0) then return false, "artefacts found below minimum" end
+end
+
+handlers["req_faction_kills"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local required_count = tonumber(parts[2]) or 0
+    local target_faction = normalize_faction(parts[3] or "bandit")
+    local kills = 0
+    if act_statistic and act_statistic.get_stat then
+        kills = act_statistic.get_stat("killed_" .. target_faction) or 0
+    elseif game_stats and game_stats.get_actor_stat then
+        kills = game_stats.get_actor_stat("killed_" .. target_faction) or 0
+    end
+    if kills < required_count then return false, "faction kills below minimum" end
+end
+
+handlers["req_enemy_kills"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local required_count = tonumber(parts[2]) or 0
+    local kills = 0
+    if act_statistic and act_statistic.get_stat then
+        kills = act_statistic.get_stat("killed_stalkers_e") or act_statistic.get_stat("killed_stalkers") or 0
+    elseif game_stats and game_stats.get_actor_stat then
+        kills = game_stats.get_actor_stat("killed_stalkers_e") or game_stats.get_actor_stat("killed_stalkers") or 0
+    end
+    if kills < required_count then return false, "enemy kills below minimum" end
+
+        -- ========== NOT HAS ITEM / ITEM COUNT ==========
+end
+
+handlers["req_not_has_item"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local item_sec = parts[2]
+    if not item_sec then return false, "missing item section" end
+    local found = false
+    act:iterate_inventory(function(owner, item)
+        if item:section() == item_sec then found = true end
+    end, act)
+    if found then return false, "item present (should not be)" end
+end
+
+handlers["req_has_item_count"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local item_sec = parts[2]
+    local required = tonumber(parts[3]) or 1
+    if not item_sec then return false, "missing item section" end
+    local count = 0
+    act:iterate_inventory(function(owner, item)
+        if item:section() == item_sec then count = count + 1 end
+    end, act)
+    if count < required then return false, "item count below minimum" end
+
+        -- ========== KNOWLEDGE / INFO PORTIONS ==========
+end
+
+handlers["req_has_info"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local info_id = parts[2]
+    if not info_id or info_id == "" then return false, "missing info id" end
+    if not has_alife_info(info_id) then return false, "info portion missing" end
+end
+
+handlers["req_not_has_info"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local info_id = parts[2]
+    if not info_id or info_id == "" then return false, "missing info id" end
+    if has_alife_info(info_id) then return false, "info portion present (should not be)" end
+end
+
+handlers["req_completed_storyline"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local sid = parts[2]
+    if not sid or sid == "" then return false, "missing storyline id" end
+    if not completed_storylines[sid] then return false, "storyline not completed" end
+end
+
+handlers["req_not_completed_storyline"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local sid = parts[2]
+    if not sid or sid == "" then return false, "missing storyline id" end
+    if completed_storylines[sid] then return false, "storyline already completed" end
+
+        -- ========== RELATIONSHIP SCORE ==========
+end
+
+handlers["req_relationship_min"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local min_score = tonumber(parts[2]) or 0
+    local rel_score = 0
+    if npc_se and relationship_scores then
+        rel_score = relationship_scores[npc_se.id] or 0
+    end
+    if rel_score < min_score then return false, "relationship below minimum" end
+end
+
+handlers["req_relationship_max"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local max_score = tonumber(parts[2]) or 0
+    local rel_score = 0
+    if npc_se and relationship_scores then
+        rel_score = relationship_scores[npc_se.id] or 0
+    end
+    if rel_score > max_score then return false, "relationship above max" end
+
+        -- ========== TIME HOUR ==========
+end
+
+handlers["req_time_hour_min"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local gt = game.get_game_time()
+    local Y, M, D, h = 0, 0, 0, 0
+    Y, M, D, h = gt:get(Y, M, D, h, 0, 0, 0)
+    if h < (tonumber(parts[2]) or 0) then return false, "hour below minimum" end
+end
+
+handlers["req_time_hour_max"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local gt = game.get_game_time()
+    local Y, M, D, h = 0, 0, 0, 0
+    Y, M, D, h = gt:get(Y, M, D, h, 0, 0, 0)
+    if h > (tonumber(parts[2]) or 23) then return false, "hour above max" end
+
+        -- ========== NPC STATE ==========
+end
+
+handlers["req_npc_alive"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    if not npc_se then return false, "npc missing" end
+    local se_obj = alife_object(npc_se.id)
+    if not se_obj then return false, "npc dead or released" end
+end
+
+handlers["req_npc_on_level"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    if not npc_se then return false, "npc missing" end
+    local required_level = parts[2]
+    if not required_level then return false, "missing level" end
+    local npc_level = alife():level_name(game_graph():vertex(npc_se.m_game_vertex_id):level_id())
+    if npc_level ~= required_level then return false, "npc on wrong level" end
+
+        -- ========== GAME PROGRESS ==========
+end
+
+handlers["req_game_days_min"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local days = level.get_time_days and level.get_time_days() or 0
+    if days < (tonumber(parts[2]) or 0) then return false, "game days below minimum" end
+end
+
+handlers["req_game_days_max"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local days = level.get_time_days and level.get_time_days() or 0
+    if days > (tonumber(parts[2]) or 9999) then return false, "game days above max" end
+end
+
+handlers["req_visited_level"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local lvl = parts[2]
+    if not lvl then return false, "missing level" end
+    local visited = false
+    if game_statistics and game_statistics.has_actor_visited_level then
+        visited = game_statistics.has_actor_visited_level(lvl)
+    end
+    if not visited then return false, "level not visited" end
+end
+
+handlers["req_not_visited_level"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local lvl = parts[2]
+    if not lvl then return false, "missing level" end
+    local visited = false
+    if game_statistics and game_statistics.has_actor_visited_level then
+        visited = game_statistics.has_actor_visited_level(lvl)
+    end
+    if visited then return false, "level already visited" end
+
+        -- ─── NEW PRECONDITIONS ──────────────────────────────────────────────────
+
+        -- Player Condition: satiety
+end
+
+handlers["req_satiety_min"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local threshold = (tonumber(parts[2]) or 0) / 100
+    local satiety = 1
+    if act.cast_Actor and act:cast_Actor() and act:cast_Actor().conditions then
+        local cond = act:cast_Actor():conditions()
+        if cond and cond.GetSatiety then satiety = cond:GetSatiety() end
+    end
+    if satiety < threshold then return false, "satiety below minimum" end
+end
+
+handlers["req_satiety_max"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local threshold = (tonumber(parts[2]) or 100) / 100
+    local satiety = 1
+    if act.cast_Actor and act:cast_Actor() and act:cast_Actor().conditions then
+        local cond = act:cast_Actor():conditions()
+        if cond and cond.GetSatiety then satiety = cond:GetSatiety() end
+    end
+    if satiety > threshold then return false, "satiety above maximum" end
+end
+
+handlers["req_thirsty"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local thirsty = false
+    if act.cast_Actor and act:cast_Actor() and act:cast_Actor().conditions then
+        local cond = act:cast_Actor():conditions()
+        if cond and cond.GetThirsty then
+            thirsty = cond:GetThirsty() > 0
+        elseif cond and cond.GetSatiety then
+            thirsty = cond:GetSatiety() < 0.3
+        end
+    end
+    if not thirsty then return false, "player not thirsty" end
+end
+
+handlers["req_not_thirsty"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local thirsty = false
+    if act.cast_Actor and act:cast_Actor() and act:cast_Actor().conditions then
+        local cond = act:cast_Actor():conditions()
+        if cond and cond.GetThirsty then
+            thirsty = cond:GetThirsty() > 0
+        elseif cond and cond.GetSatiety then
+            thirsty = cond:GetSatiety() < 0.3
+        end
+    end
+    if thirsty then return false, "player is thirsty" end
+
+        -- Equipment checks
+end
+
+handlers["req_weapon_equipped"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local has_weapon = (act:item_in_slot(1) ~= nil) or (act:item_in_slot(2) ~= nil)
+    if not has_weapon then return false, "no weapon equipped" end
+end
+
+handlers["req_no_weapon_equipped"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local has_weapon = (act:item_in_slot(1) ~= nil) or (act:item_in_slot(2) ~= nil)
+    if has_weapon then return false, "weapon is equipped" end
+end
+
+handlers["req_outfit_equipped"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    if act:item_in_slot(6) == nil then return false, "no outfit equipped" end
+
+        -- World state: emission active
+end
+
+handlers["req_surge_active"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local active = false
+    if surge_manager and surge_manager.is_started then
+        active = surge_manager.is_started()
+    elseif xr_conditions and xr_conditions.is_surge_started then
+        active = xr_conditions.is_surge_started()
+    end
+    if not active then return false, "no emission active" end
+end
+
+handlers["req_not_surge_active"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local active = false
+    if surge_manager and surge_manager.is_started then
+        active = surge_manager.is_started()
+    elseif xr_conditions and xr_conditions.is_surge_started then
+        active = xr_conditions.is_surge_started()
+    end
+    if active then return false, "emission is active" end
+
+        -- Weather check
+end
+
+handlers["req_weather"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local required = parts[2]
+    if not required then return false, "missing weather type" end
+    local current = level.get_weather and level.get_weather() or ""
+    if tostring(current) ~= required then return false, "weather mismatch" end
+
+        -- Hour range with midnight wrap
+end
+
+handlers["req_game_hour_between"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local h_min = tonumber(parts[2]) or 0
+    local h_max = tonumber(parts[3]) or 23
+    local cur_h = level.get_time_hours and level.get_time_hours() or 0
+    local in_range
+    if h_min <= h_max then
+        in_range = (cur_h >= h_min and cur_h <= h_max)
+    else
+        in_range = (cur_h >= h_min or cur_h <= h_max)
+    end
+    if not in_range then return false, "hour not in range" end
+
+        -- Game month
+end
+
+handlers["req_game_month"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local req_month = tonumber(parts[2]) or 1
+    local gt = game.get_game_time()
+    local Y, M, D, h, mi = 0, 0, 0, 0, 0
+    Y, M, D, h, mi = gt:get(Y, M, D, h, mi, 0, 0)
+    if M ~= req_month then return false, "month mismatch" end
+
+        -- Faction relations
+end
+
+handlers["req_factions_enemies"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local f1 = normalize_faction(parts[2] or "stalker")
+    local f2 = normalize_faction(parts[3] or "bandit")
+    local enemies = false
+    if game_relations and game_relations.is_factions_enemies then
+        enemies = game_relations.is_factions_enemies(f1, f2)
+    end
+    if not enemies then return false, "factions not enemies" end
+end
+
+handlers["req_factions_friends"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local f1 = normalize_faction(parts[2] or "stalker")
+    local f2 = normalize_faction(parts[3] or "stalker")
+    local friends = false
+    if game_relations and game_relations.is_factions_friends then
+        friends = game_relations.is_factions_friends(f1, f2)
+    end
+    if not friends then return false, "factions not friends" end
+
+        -- NPC rank name match
+end
+
+handlers["req_npc_rank_name"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local required_rank = parts[2]
+    if not required_rank then return false, "missing rank" end
+    if not npc_se then return false, "npc missing" end
+    local npc_obj = level.object_by_id(npc_se.id)
+    local npc_rank = "unknown"
+    if npc_obj and ranks and ranks.get_obj_rank_name then
+        npc_rank = ranks.get_obj_rank_name(npc_obj) or "unknown"
+    end
+    if npc_rank ~= required_rank then return false, "npc rank mismatch" end
+
+        -- Carry weight
+end
+
+handlers["req_total_weight_min"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local w = act:get_total_weight() or 0
+    if w < (tonumber(parts[2]) or 0) then return false, "weight below minimum" end
+end
+
+handlers["req_total_weight_max"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local w = act:get_total_weight() or 0
+    if w > (tonumber(parts[2]) or 9999) then return false, "weight above maximum" end
+
+        -- Visited smart terrain
+end
+
+handlers["req_visited_smart"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local smart_name = parts[2]
+    if not smart_name then return false, "missing smart terrain" end
+    local visited = false
+    if game_statistics and game_statistics.has_actor_visited_smart then
+        visited = game_statistics.has_actor_visited_smart(smart_name)
+    end
+    if not visited then return false, "smart terrain not visited" end
+
+        -- Distance from NPC
+end
+
+handlers["req_distance_min"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local min_dist = tonumber(parts[2]) or 0
+    if not npc_se then return false, "npc missing" end
+    local npc_obj = level.object_by_id(npc_se.id)
+    if npc_obj then
+        local dist = npc_obj:position():distance_to(act:position())
+        if dist < min_dist then return false, "too close to npc" end
+    end
+end
+
+handlers["req_distance_max"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local max_dist = tonumber(parts[2]) or 9999
+    if not npc_se then return false, "npc missing" end
+    local npc_obj = level.object_by_id(npc_se.id)
+    if npc_obj then
+        local dist = npc_obj:position():distance_to(act:position())
+        if dist > max_dist then return false, "too far from npc" end
+    end
+
+        -- ========== STORY NPC ==========
+end
+
+handlers["req_story_npc"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local required_sid = parts[2]
+    if not required_sid then return false, "missing story id" end
+    if not npc_se then return false, "npc missing" end
+
+    local canonical_required = tostring(required_sid):lower()
+    local runtime_candidates = {}
+    local seen_candidates = {}
+    local function push_candidate(value)
+        if value == nil then
+            return
+        end
+        local normalized = tostring(value):lower()
+        if normalized == "" or seen_candidates[normalized] then
+            return
+        end
+        seen_candidates[normalized] = true
+        runtime_candidates[#runtime_candidates + 1] = normalized
+    end
+
+    if PANDA_CONV_API and type(PANDA_CONV_API.get_npc_canonical_id) == "function" then
+        push_candidate(PANDA_CONV_API.get_npc_canonical_id(npc_se))
+    end
+
+    local sid = tonumber(npc_se.id)
+    if not sid and type(npc_se.id) == "function" then
+        local ok_sid, sid_from_fn = pcall(function() return npc_se:id() end)
+        if ok_sid then
+            sid = tonumber(sid_from_fn)
+        end
+    end
+    if sid and sid > 0 and type(get_object_story_id) == "function" then
+        local ok_story, raw_story_id = pcall(function() return get_object_story_id(math.floor(sid)) end)
+        if ok_story then
+            push_candidate(raw_story_id)
+        end
+    end
+
+    if npc_se.name then
+        local ok_name, runtime_name = pcall(function() return npc_se:name() end)
+        if ok_name then
+            push_candidate(runtime_name)
+        end
+    end
+    if npc_se.character_name then
+        local ok_char_name, character_name = pcall(function() return npc_se:character_name() end)
+        if ok_char_name then
+            push_candidate(character_name)
+        end
+    end
+
+    local matched = false
+    for _, candidate in ipairs(runtime_candidates) do
+        if candidate == canonical_required then
+            matched = true
+            break
+        end
+    end
+
+    if not matched then
+        local checked = (#runtime_candidates > 0 and table.concat(runtime_candidates, "|") or "<none>")
+        if #checked > 128 then
+            checked = checked:sub(1, 128) .. "..."
+        end
+        return false, "story npc mismatch (need " .. required_sid .. "; checked " .. checked .. ")"
+    end
+end
+
+handlers["req_custom_story_npc"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local tpl_id = parts[2]
+    local smart_ref = parts[3]
+    if not tpl_id or tpl_id == "" then return false, "missing template_id" end
+    if not npc_se then return false, "npc missing" end
+    if not panda_npc_creator or type(panda_npc_creator.get_active_npc_se) ~= "function" then
+        return false, "custom npc creator unavailable"
+    end
+
+    local target_se = panda_npc_creator.get_active_npc_se(tpl_id)
+    if not target_se
+        and smart_ref and smart_ref ~= ""
+        and type(panda_npc_creator.ensure_story_target_spawned) == "function"
+    then
+        local ok_spawn, spawned_se = pcall(panda_npc_creator.ensure_story_target_spawned, tpl_id, smart_ref)
+        if ok_spawn then
+            target_se = spawned_se
+        end
+    end
+    if not target_se then
+        return false, "custom story npc '" .. tpl_id .. "' not available"
+    end
+
+    local function resolve_server_id(se_obj)
+        if not se_obj then
+            return nil
+        end
+
+        local sid = tonumber(se_obj.id)
+        if not sid and type(se_obj.id) == "function" then
+            local ok_sid, sid_from_fn = pcall(function() return se_obj:id() end)
+            if ok_sid then
+                sid = tonumber(sid_from_fn)
+            end
+        end
+        return sid
+    end
+
+    local required_id = resolve_server_id(target_se)
+    local current_id = resolve_server_id(npc_se)
+    if not required_id or not current_id or required_id ~= current_id then
+        return false, "custom story npc mismatch (" .. tostring(tpl_id) .. ")"
+    end
+
+        -- ========== CUSTOM NPC TEMPLATE PRECONDITIONS ==========
+end
+
+handlers["req_custom_npc_alive"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local tpl_id = parts[2]
+    if not tpl_id or tpl_id == "" then return false, "missing template_id" end
+    result = panda_npc_creator.is_template_npc_alive(tpl_id)
+    if not result then return false, "custom npc '" .. tpl_id .. "' not alive" end
+end
+
+handlers["req_custom_npc_dead"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local tpl_id = parts[2]
+    if not tpl_id or tpl_id == "" then return false, "missing template_id" end
+    result = panda_npc_creator.is_template_npc_dead(tpl_id)
+    if not result then return false, "custom npc '" .. tpl_id .. "' still alive" end
+end
+
+handlers["req_custom_npc_near"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local tpl_id = parts[2]
+    local dist   = tonumber(parts[3]) or 50
+    if not tpl_id or tpl_id == "" then return false, "missing template_id" end
+    result = panda_npc_creator.is_template_npc_near(tpl_id, dist)
+    if not result then return false, "custom npc '" .. tpl_id .. "' not within " .. dist .. "m" end
+end
+
+local function evaluate_precondition_entry(ctx, entry, npc_se, act, get_goodwill_actor_id)
+    local parts = (ctx.str_explode or str_explode)(entry, ":")
+    local cmd = parts[1]
+    local handler = handlers[cmd]
+    if not handler then return nil, "unknown command" end
+    local env = make_env(ctx, parts, entry, npc_se, act, get_goodwill_actor_id)
+    setfenv(handler, env)
+    local passed, reason = handler(parts, entry, npc_se, act, get_goodwill_actor_id)
+    if passed ~= nil then return passed, reason end
+    return true, "ok"
+end
+
+function M.check(precond_key, npc_se, ctx)
+    ctx = ctx or {}
+    local val = game.translate_string(precond_key)
+    if val == precond_key then return true end
+    local act = db.actor
+    if not act then return false end
+    local PANDA = ctx.PANDA or _G.PANDA
+    local unknown_policy = tostring(PANDA.get_config("precond_unknown_policy") or "strict")
+    local goodwill_actor_id = nil
+    local function get_goodwill_actor_id(context)
+        if goodwill_actor_id ~= nil then return goodwill_actor_id end
+        goodwill_actor_id = ctx.resolve_actor_id_for_goodwill(context)
+        return goodwill_actor_id
+    end
+    local function eval_expr(expr, depth, macro_stack)
+        depth = depth or 0
+        macro_stack = macro_stack or {}
+        local token = (expr or ""):match("^%s*(.-)%s*$")
+        if token == "" then precond_trace(ctx, "%sEmpty expression -> pass", string.rep("  ", depth)); return true end
+        local indent = string.rep("  ", depth)
+        local macro_name = token:match("^macro:(.+)$")
+        if macro_name then
+            macro_name = macro_name:match("^%s*(.-)%s*$")
+            local macro_expr = PRECONDITION_MACROS[macro_name]
+            if not macro_expr then
+                precond_trace(ctx, "%sMacro '%s' not found", indent, tostring(macro_name))
+                if unknown_policy == "warn-and-skip" then return true end
+                return false
+            end
+            if macro_stack[macro_name] then precond_trace(ctx, "%sMacro recursion detected for '%s'", indent, tostring(macro_name)); return false end
+            precond_trace(ctx, "%sMacro '%s' -> %s", indent, tostring(macro_name), tostring(macro_expr))
+            macro_stack[macro_name] = true
+            local passed = eval_expr(macro_expr, depth + 1, macro_stack)
+            macro_stack[macro_name] = nil
+            precond_trace(ctx, "%sMacro '%s' result=%s", indent, tostring(macro_name), tostring(passed))
+            return passed
+        end
+        local any_inner = unwrap_wrapper(token, "any")
+        if any_inner then
+            local options = split_top_level(any_inner, "|")
+            precond_trace(ctx, "%sOR block start (%d options): %s", indent, #options, token)
+            for idx, option in ipairs(options) do
+                local passed = eval_expr(option, depth + 1, macro_stack)
+                precond_trace(ctx, "%sOR option %d -> %s", indent, idx, tostring(passed))
+                if passed then precond_trace(ctx, "%sOR block PASS via option %d", indent, idx); return true end
+            end
+            precond_trace(ctx, "%sOR block FAIL", indent); return false
+        end
+        local not_inner = unwrap_wrapper(token, "not")
+        if not_inner then
+            local inner_passed = eval_expr(not_inner, depth + 1, macro_stack)
+            precond_trace(ctx, "%sNOT block inner=%s final=%s", indent, tostring(inner_passed), tostring(not inner_passed))
+            return not inner_passed
+        end
+        local and_terms = split_top_level(token, ",")
+        if #and_terms > 1 then
+            precond_trace(ctx, "%sAND block start (%d terms): %s", indent, #and_terms, token)
+            for idx, term in ipairs(and_terms) do
+                local passed = eval_expr(term, depth + 1, macro_stack)
+                precond_trace(ctx, "%sAND term %d -> %s", indent, idx, tostring(passed))
+                if not passed then precond_trace(ctx, "%sAND block FAIL at term %d", indent, idx); return false end
+            end
+            precond_trace(ctx, "%sAND block PASS", indent); return true
+        end
+        local passed, reason = evaluate_precondition_entry(ctx, token, npc_se, act, get_goodwill_actor_id)
+        if passed == nil then
+            precond_trace(ctx, "%sUnknown precondition token '%s' (policy=%s)", indent, token, unknown_policy)
+            if unknown_policy == "warn-and-skip" then return true end
+            return false
+        end
+        precond_trace(ctx, "%sLeaf '%s' -> %s (%s)", indent, token, tostring(passed), tostring(reason))
+        return passed
+    end
+    return eval_expr(val, 0, {})
+end
+
+return M

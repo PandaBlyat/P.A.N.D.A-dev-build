@@ -1,0 +1,1944 @@
+pda_interactive_outcomes = pda_interactive_outcomes or {}
+local M = pda_interactive_outcomes
+
+local handlers = {}
+
+local function str_explode(str, sep)
+    local t = {}
+    for s in string.gmatch(str or "", "([^" .. sep .. "]+)") do table.insert(t, s) end
+    return t
+end
+
+local function runtime_get(key)
+    _panda_ic_runtime = _panda_ic_runtime or {}
+    return _panda_ic_runtime[key]
+end
+
+local function runtime_set(key, value)
+    _panda_ic_runtime = _panda_ic_runtime or {}
+    _panda_ic_runtime[key] = value
+end
+
+local function make_env(ctx, parts, cmd_str, cmd)
+    local env = { parts = parts, cmd_str = cmd_str, cmd = cmd, str_explode = ctx.str_explode or str_explode }
+    return setmetatable(env, {
+        __index = function(_, key)
+            if key == "task_given" then return ctx.task_given end
+            if key == "task_author_meta" then return ctx.task_author_meta end
+            if key == "job_spawn_collector" then return runtime_get("job_spawn_collector") end
+            if key == "pending_job_params" then return runtime_get("pending_job_params") end
+            local value = ctx and ctx[key]
+            if value ~= nil then return value end
+            return _G[key]
+        end,
+        __newindex = function(t, key, value)
+            if key == "task_given" then ctx.task_given = value; return end
+            if key == "task_author_meta" then ctx.task_author_meta = value; return end
+            if key == "job_spawn_collector" then runtime_set("job_spawn_collector", value); return end
+            if key == "pending_job_params" then runtime_set("pending_job_params", value); return end
+            rawset(t, key, value)
+        end
+    })
+end
+
+handlers["start_anomaly_scan_task"] = function(parts, cmd_str, cmd)
+    local bridge = ensure_panda_task_bridge()
+    if bridge then
+        local slot_id, err = bridge.start_scan_task(
+            parts[2],
+            parts[3],
+            parts[4] or "basic",
+            tonumber(parts[5]) or 0,
+            sender_npc_id,
+            build_bridge_task_params("scan", {
+                external_task_id = parts[2],
+                zone_name = parts[3],
+                zone_label = parts[3],
+                location_label = parts[3],
+            })
+        )
+        if not slot_id then
+            printf("PANDA_IC: start_anomaly_scan_task failed (%s)", tostring(err))
+        else
+            task_given = true
+        end
+    else
+        printf("PANDA_IC: start_anomaly_scan_task ignored (bridge unavailable)")
+    end
+end
+
+handlers["start_artifact_retrieval_task"] = function(parts, cmd_str, cmd)
+    local bridge = ensure_panda_task_bridge()
+    if bridge then
+        local slot_id, err = bridge.start_artifact_task(
+            parts[2],
+            parts[3],
+            parts[4],
+            parts[5] or "basic",
+            tonumber(parts[6]) or 0,
+            sender_npc_id,
+            build_bridge_task_params("artifact", {
+                external_task_id = parts[2],
+                item_section = parts[3],
+                zone_name = parts[4],
+                zone_label = parts[4],
+                location_label = parts[4],
+                detector_tier = parts[5] or "basic",
+                manual_turn_in = true,
+                fail_if_artifact_lost = true,
+            })
+        )
+        if not slot_id then
+            printf("PANDA_IC: start_artifact_retrieval_task failed (%s)", tostring(err))
+        else
+            task_given = true
+        end
+    else
+        printf("PANDA_IC: start_artifact_retrieval_task ignored (bridge unavailable)")
+    end
+end
+
+handlers["spawn_artifact_on_npc"] = function(parts, cmd_str, cmd)
+    -- Syntax: spawn_artifact_on_npc:<task_id>:<artifact_section>:<target_npc_id>
+    local bridge = ensure_panda_task_bridge()
+    if bridge then
+        local artifact_sec = parts[3]
+        local target_npc_id = tonumber(parts[4]) or sender_npc_id
+        local ok, err = bridge.spawn_artifact_on_npc(parts[2], artifact_sec, target_npc_id)
+        if not ok then
+            printf("PANDA_IC: spawn_artifact_on_npc failed (%s)", tostring(err))
+        end
+    end
+end
+
+handlers["spawn_artifact_in_zone"] = function(parts, cmd_str, cmd)
+    local bridge = ensure_panda_task_bridge()
+    if bridge then
+        local ok, err = bridge.spawn_artifact_in_zone(parts[2], parts[3], parts[4])
+        if not ok then
+            printf("PANDA_IC: spawn_artifact_in_zone failed (%s)", tostring(err))
+        end
+    end
+end
+
+handlers["require_detector_tier"] = function(parts, cmd_str, cmd)
+    local adapter = get_anomaly_artifact_adapter()
+    if adapter then
+        printf("PANDA_IC: require_detector_tier outcome is legacy; prefer req_detector_tier preconditions for gating")
+        local ok = adapter.require_detector_tier(parts[2] or "basic")
+        if not ok then
+            printf("PANDA_IC: detector requirement failed for tier '%s'", tostring(parts[2]))
+        end
+    end
+end
+
+handlers["turn_in_artifact"] = function(parts, cmd_str, cmd)
+    local bridge = ensure_panda_task_bridge()
+    if bridge then
+        local ok, err = bridge.turn_in_artifact(parts[2], parts[3])
+        if not ok then
+            printf("PANDA_IC: turn_in_artifact failed (%s)", tostring(err))
+        end
+    end
+end
+
+handlers["set_anomaly_target"] = function(parts, cmd_str, cmd)
+    local bridge = ensure_panda_task_bridge()
+    if bridge then
+        local ok, err = bridge.set_anomaly_target(parts[2], parts[3])
+        if not ok then
+            printf("PANDA_IC: set_anomaly_target failed (%s)", tostring(err))
+        end
+    end
+end
+
+handlers["fail_if_artifact_lost"] = function(parts, cmd_str, cmd)
+    local bridge = ensure_panda_task_bridge()
+    if bridge then
+        local enabled = tostring(parts[3] or "true") ~= "false"
+        local ok, err = bridge.set_fail_if_artifact_lost(parts[2], enabled)
+        if not ok then
+            printf("PANDA_IC: fail_if_artifact_lost failed (%s)", tostring(err))
+        end
+    end
+end
+
+handlers["give_task_cat"] = function(parts, cmd_str, cmd)
+    if panda_give_task(pre_found_task_id, sender_npc_id) then
+        task_given = true
+        dynamic_news_helper.send_tip(
+            game.translate_string("st_pda_ic_outcome_task_given"),
+            sender_npc_name, 0, 10,
+            level.object_by_id(sender_npc_id):character_icon(),
+            "beep_2", "npc"
+        )
+    else
+        dynamic_news_helper.send_tip(
+            "Error assigning task protocol.",
+            sender_npc_name, 0, 5,
+            level.object_by_id(sender_npc_id):character_icon(),
+            "beep_1", "npc"
+        )
+    end
+end
+
+handlers["reward_money"] = function(parts, cmd_str, cmd)
+    local reward = tonumber(parts[2]) or 0
+    db.actor:give_money(reward)
+    push_money_notification(reward)
+end
+
+handlers["punish_money"] = function(parts, cmd_str, cmd)
+    local amt = tonumber(parts[2]) or 0
+    local removed = 0
+    if db.actor:money() >= amt then
+        db.actor:give_money(-amt)
+        removed = amt
+    else
+        removed = db.actor:money()
+        db.actor:give_money(-removed)
+    end
+    push_money_notification(-removed)
+
+            -- Custom NPC spawn (replaces spawn_hostile / spawn_friendly / spawn_npc / spawn_companion).
+            -- Template defined in XML: st_panda_npc_template_<id>
+            -- Examples:
+            --   spawn_custom_npc:informant              (near player, immediate)
+            --   spawn_custom_npc:hired_guns:5           (near player, 5s delay)
+            --   spawn_custom_npc_at:dealer:bar_arena_base
+            --   spawn_custom_npc_at:bouncer:esc_smart:3
+            --   spawn_npc_squad:army_sim_squad_novice:50:10
+            --   spawn_npc_squad_at_smart:army_sim_squad_novice:esc_smart
+end
+
+handlers["spawn_custom_npc"] = function(parts, cmd_str, cmd)
+    local tpl_id = parts[2]
+    local delay  = tonumber(parts[3]) or 0
+    if not tpl_id or tpl_id == "" then
+        printf("PANDA_IC: spawn_custom_npc missing template_id in '%s'", tostring(cmd_str))
+    elseif delay > 0 then
+        local ev_key = "panda_cnpc_" .. tostring(math.random(100000))
+        CreateTimeEvent("panda_cnpc_spawn", ev_key, delay, function()
+            if not db.actor then return true end
+            panda_npc_creator.spawn_custom_npc(tpl_id, { use_player_pos = true, conv_data = conv_data })
+            return true
+        end)
+    else
+        panda_npc_creator.spawn_custom_npc(tpl_id, { use_player_pos = true, conv_data = conv_data })
+    end
+end
+
+handlers["spawn_custom_npc_at"] = function(parts, cmd_str, cmd)
+    local tpl_id    = parts[2]
+    local smart_ref = parts[3]
+    local delay     = tonumber(parts[4]) or 0
+    if not tpl_id or tpl_id == "" then
+        printf("PANDA_IC: spawn_custom_npc_at missing template_id in '%s'", tostring(cmd_str))
+    elseif not smart_ref or smart_ref == "" then
+        printf("PANDA_IC: spawn_custom_npc_at missing smart_ref in '%s'", tostring(cmd_str))
+    elseif delay > 0 then
+        local ev_key = "panda_cnpc_at_" .. tostring(math.random(100000))
+        CreateTimeEvent("panda_cnpc_spawn", ev_key, delay, function()
+            if not db.actor then return true end
+            panda_npc_creator.spawn_custom_npc(tpl_id, { smart_ref = smart_ref, conv_data = conv_data })
+            return true
+        end)
+    else
+        panda_npc_creator.spawn_custom_npc(tpl_id, { smart_ref = smart_ref, conv_data = conv_data })
+    end
+end
+
+handlers["spawn_dead_custom_npc"] = function(parts, cmd_str, cmd)
+    -- spawn_dead_custom_npc:<template_id>:<distance>[:<items_plus_separated>][:<delay>]
+    local tpl_id = parts[2]
+    local distance = tonumber(parts[3])
+    local items = parts[4]
+    local delay = tonumber(parts[5]) or 0
+    if tonumber(items) and not parts[5] then
+        delay = tonumber(items) or 0
+        items = nil
+    end
+    if not tpl_id or tpl_id == "" then
+        printf("PANDA_IC: spawn_dead_custom_npc missing template_id in '%s'", tostring(cmd_str))
+    else
+        spawn_dead_custom_npc(tpl_id, nil, distance, items, delay, conv_data)
+    end
+end
+
+handlers["spawn_dead_custom_npc_at"] = function(parts, cmd_str, cmd)
+    -- spawn_dead_custom_npc_at:<template_id>:<smart>[:<items_plus_separated>][:<delay>]
+    local tpl_id = parts[2]
+    local smart_ref = parts[3]
+    local items = parts[4]
+    local delay = tonumber(parts[5]) or 0
+    if tonumber(items) and not parts[5] then
+        delay = tonumber(items) or 0
+        items = nil
+    end
+    if not tpl_id or tpl_id == "" then
+        printf("PANDA_IC: spawn_dead_custom_npc_at missing template_id in '%s'", tostring(cmd_str))
+    elseif not smart_ref or smart_ref == "" then
+        printf("PANDA_IC: spawn_dead_custom_npc_at missing smart reference in '%s'", tostring(cmd_str))
+    else
+        spawn_dead_custom_npc(tpl_id, smart_ref, nil, items, delay, conv_data)
+    end
+end
+
+handlers["spawn_mutant"] = function(parts, cmd_str, cmd)
+    -- spawn_mutant:<mutant>:<distance>:<delay>[:<count>]
+    local distance = tonumber(parts[3])
+    local delay = tonumber(parts[4]) or 90
+    local count = math.max(1, tonumber(parts[5]) or 1)
+    for _ = 1, count do
+        spawn_hunting_squad(parts[2] or "random", distance, true, delay)
+    end
+end
+
+handlers["spawn_npc_squad"] = function(parts, cmd_str, cmd)
+    -- spawn_npc_squad:<squad>:<distance>:<delay>[:<count>][:<state>]
+    local squad_section = parts[2]
+    local distance = tonumber(parts[3])
+    local delay = tonumber(parts[4]) or 0
+    local count = math.max(1, tonumber(parts[5]) or 1)
+    local state = parts[6]
+    if state == nil or state == "" then state = "default" end
+    if not squad_section or squad_section == "" then
+        printf("PANDA_IC: spawn_npc_squad missing squad section in '%s'", tostring(cmd_str))
+    else
+        for _ = 1, count do
+            spawn_npc_squad_near_player(squad_section, distance, delay, state, sender_contact_id)
+        end
+    end
+end
+
+handlers["spawn_mutant_at_smart"] = function(parts, cmd_str, cmd)
+    -- spawn_mutant_at_smart:<mutant>:<smart>:<delay>[:<count>]
+    local mutant_type = parts[2] or "random"
+    local smart_ref = parts[3]
+    local delay = tonumber(parts[4]) or 0
+    local count = math.max(1, tonumber(parts[5]) or 1)
+    if smart_ref and smart_ref ~= "" then
+        for _ = 1, count do
+            spawn_squad_at_smart_terrain(mutant_type, smart_ref, true, delay, sender_contact_id)
+        end
+    else
+        printf("PANDA_IC: spawn_mutant_at_smart missing smart reference in '%s'", tostring(cmd_str))
+    end
+end
+
+handlers["spawn_npc_squad_at_smart"] = function(parts, cmd_str, cmd)
+    -- spawn_npc_squad_at_smart:<squad>:<smart>:<delay>[:<count>][:<state>]
+    local squad_section = parts[2]
+    local smart_ref = parts[3]
+    local delay = tonumber(parts[4]) or 0
+    local count = math.max(1, tonumber(parts[5]) or 1)
+    local state = parts[6]
+    if state == nil or state == "" then state = "default" end
+    if not squad_section or squad_section == "" then
+        printf("PANDA_IC: spawn_npc_squad_at_smart missing squad section in '%s'", tostring(cmd_str))
+    elseif not smart_ref or smart_ref == "" then
+        printf("PANDA_IC: spawn_npc_squad_at_smart missing smart reference in '%s'", tostring(cmd_str))
+    else
+        for _ = 1, count do
+            spawn_squad_at_smart_terrain(squad_section, smart_ref, false, delay, sender_contact_id, state)
+        end
+    end
+end
+
+handlers["spawn_dead_npcs_at_smart"] = function(parts, cmd_str, cmd)
+    -- spawn_dead_npcs_at_smart:<faction>:<smart>:<count>[:<items_plus_separated>][:<delay>]
+    local faction = parts[2]
+    local smart_ref = parts[3]
+    local count = math.max(1, tonumber(parts[4]) or 1)
+    local items = parts[5]
+    local delay = tonumber(parts[6]) or 0
+    if tonumber(items) and not parts[6] then
+        delay = tonumber(items) or 0
+        items = nil
+    end
+    if not faction or faction == "" then
+        printf("PANDA_IC: spawn_dead_npcs_at_smart missing faction in '%s'", tostring(cmd_str))
+    elseif not smart_ref or smart_ref == "" then
+        printf("PANDA_IC: spawn_dead_npcs_at_smart missing smart reference in '%s'", tostring(cmd_str))
+    else
+        spawn_dead_npcs_at_smart(faction, smart_ref, count, items, delay)
+    end
+end
+
+handlers["spawn_dead_npcs_near_player"] = function(parts, cmd_str, cmd)
+    -- spawn_dead_npcs_near_player:<faction>:<distance>:<count>[:<items_plus_separated>][:<delay>]
+    local faction = parts[2]
+    local distance = tonumber(parts[3])
+    local count = math.max(1, tonumber(parts[4]) or 1)
+    local items = parts[5]
+    local delay = tonumber(parts[6]) or 0
+    if tonumber(items) and not parts[6] then
+        delay = tonumber(items) or 0
+        items = nil
+    end
+    if not faction or faction == "" then
+        printf("PANDA_IC: spawn_dead_npcs_near_player missing faction in '%s'", tostring(cmd_str))
+    else
+        spawn_dead_npcs_near_player(faction, distance, count, items, delay)
+    end
+end
+
+handlers["reward_rep"] = function(parts, cmd_str, cmd)
+    db.actor:change_character_reputation(tonumber(parts[2]) or 0)
+end
+
+handlers["punish_rep"] = function(parts, cmd_str, cmd)
+    db.actor:change_character_reputation(-(tonumber(parts[2]) or 0))
+end
+
+handlers["reward_gw"] = function(parts, cmd_str, cmd)
+    local amount = tonumber(parts[2]) or 0
+    local faction = parts[3] or "stalker"
+    change_faction_goodwill(faction, amount)
+end
+
+handlers["punish_gw"] = function(parts, cmd_str, cmd)
+    local amount = tonumber(parts[2]) or 0
+    local faction = parts[3] or "stalker"
+    change_faction_goodwill(faction, -amount)
+end
+
+handlers["give_item"] = function(parts, cmd_str, cmd)
+    local item_sec = parts[2]
+    if item_sec and ini_sys:section_exist(item_sec) then
+        alife_create_item(item_sec, db.actor)
+        local msg = utils_data.parse_string_keys(
+            game.translate_string("st_pda_ic_outcome_item_gain"),
+            {["what"] = ui_item.get_sec_name(item_sec)}
+        )
+        dynamic_news_helper.send_tip(msg, "System", 0, 10, FALLBACK_NPC_ICON, "beep_1", "npc")
+    end
+end
+
+handlers["reward_stash"] = function(parts, cmd_str, cmd)
+    queue_stash_attachment_reward(sender_npc_name, sender_npc_id, sender_contact_id)
+
+            -- INTERNAL: deferred spawn for panda_task_eliminate. Not author-facing —
+            -- emitted by the eliminate handler into a watch zone trigger so the squad
+            -- is created only when the player approaches the marker.
+end
+
+handlers["_panda_eliminate_spawn_internal"] = function(parts, cmd_str, cmd)
+    local target_type = parts[2]
+    local smart_ref = parts[3]
+    local task_slot_id = parts[4]
+    local relation_mode = parts[5]
+    if relation_mode == nil or relation_mode == "" then relation_mode = "hostile" end
+    if not target_type or not smart_ref or not task_slot_id then
+        printf("PANDA_IC: _panda_eliminate_spawn_internal malformed in '%s'", tostring(cmd_str))
+    else
+        local bridge = ensure_panda_task_bridge()
+        local rec = bridge and bridge.get_record and bridge.get_record(task_slot_id) or nil
+        if not bridge then
+            printf("PANDA_IC: _panda_eliminate_spawn_internal bridge unavailable")
+        elseif not rec then
+            printf("PANDA_IC: _panda_eliminate_spawn_internal task %s missing", tostring(task_slot_id))
+        elseif rec.active == false then
+            -- Task already finished (player completed/failed before squad spawned). Skip.
+        else
+            -- NOTE: don't gate on rec.spawn_pending — rescue tasks register multiple
+            -- trigger commands (one per squad_count) and only the first attach call
+            -- clears spawn_pending. The watcher already removes its entry after the
+            -- batch fires, so duplicate spawns across ticks aren't a concern.
+            local is_mutant = is_mutant_squad_key(target_type)
+            local collector_start = (job_spawn_collector and #job_spawn_collector) or 0
+            local local_collector = false
+            if not job_spawn_collector then
+                job_spawn_collector = {}
+                local_collector = true
+                collector_start = 0
+            end
+
+            spawn_squad_at_smart_terrain(target_type, smart_ref, is_mutant, 0, sender_contact_id, relation_mode)
+
+            local spawned_squad_ids = {}
+            if job_spawn_collector then
+                for i = collector_start + 1, #job_spawn_collector do
+                    table.insert(spawned_squad_ids, job_spawn_collector[i])
+                end
+            end
+            if local_collector then
+                job_spawn_collector = nil
+            end
+
+            if #spawned_squad_ids == 0 then
+                printf("PANDA_IC: _panda_eliminate_spawn_internal failed to spawn '%s'", tostring(target_type))
+            elseif bridge.attach_target_squads then
+                bridge.attach_target_squads(task_slot_id, spawned_squad_ids)
+            end
+        end
+    end
+end
+
+handlers["watch_location"] = function(parts, cmd_str, cmd)
+    local location_ref = parts[2]
+    if location_ref and location_ref ~= "" then
+        local radius = tonumber(parts[3]) or (PANDA.get_config("location_watch_radius") or 85)
+        register_location_reference(location_ref, sender_npc_name, sender_npc_id, radius, sender_contact_id)
+    else
+        printf("PANDA_IC: watch_location missing location reference in '%s'", tostring(cmd_str))
+    end
+end
+
+handlers["watch_location_trigger"] = function(parts, cmd_str, cmd)
+    local location_ref = parts[2]
+    local delayed_cmd = nil
+    local radius = PANDA.get_config("location_watch_radius") or 85
+
+    if #parts >= 3 then
+        local maybe_radius = tonumber(parts[#parts])
+        local cmd_end = #parts
+        if maybe_radius then
+            radius = maybe_radius
+            cmd_end = #parts - 1
+        end
+
+        if cmd_end >= 3 then
+            delayed_cmd = table.concat(parts, ":", 3, cmd_end)
+        end
+    end
+
+    if location_ref and location_ref ~= "" then
+        local ref = register_location_reference(location_ref, sender_npc_name, sender_npc_id, radius, sender_contact_id)
+        if delayed_cmd and delayed_cmd ~= "" then
+            -- Support multiple trigger commands separated by "+"
+            -- Example: teleport_npc_to_smart:loc+spawn_mutant_at_smart:snork:loc
+            for sub_cmd in string.gmatch(delayed_cmd, "([^+]+)") do
+                sub_cmd = sub_cmd:match("^%s*(.-)%s*$")
+                if sub_cmd ~= "" then
+                    table.insert(ref.trigger_cmds, sub_cmd)
+                end
+            end
+        else
+            -- No trigger command supplied: behave like plain watch_location
+            -- (map marker only). Authors who left the trigger blank in the editor
+            -- still get a map spot instead of the malformed warning spam.
+            printf("PANDA_IC: watch_location_trigger has no trigger command, registering as plain watch_location for '%s'", tostring(location_ref))
+        end
+    else
+        printf("PANDA_IC: watch_location_trigger missing smart terrain in '%s'", tostring(cmd_str))
+    end
+
+            -- ========== TELEPORT NPC (to smart terrain) ==========
+end
+
+handlers["teleport_npc_to_smart"] = function(parts, cmd_str, cmd)
+    local smart_ref = parts[2]
+    local delay = tonumber(parts[3]) or 0
+    if smart_ref and smart_ref ~= "" and sender_npc_id then
+        teleport_npc_to_smart_terrain(sender_npc_id, smart_ref, sender_npc_name, delay)
+    else
+        printf("PANDA_IC: teleport_npc_to_smart missing smart reference or npc_id in '%s'", tostring(cmd_str))
+    end
+
+            -- ========== TELEPORT NPC (near player) ==========
+end
+
+handlers["teleport_npc_to_player"] = function(parts, cmd_str, cmd)
+    local delay = tonumber(parts[2]) or 0
+    if sender_npc_id then
+        teleport_npc_near_player(sender_npc_id, sender_npc_name, delay)
+    else
+        printf("PANDA_IC: teleport_npc_to_player missing npc_id in '%s'", tostring(cmd_str))
+    end
+
+            -- ========== RECRUIT COMPANION (convert conversation NPC) ==========
+end
+
+handlers["recruit_companion"] = function(parts, cmd_str, cmd)
+    local cannot_dismiss = parts[2] == "no_dismiss"
+    if sender_npc_id then
+        recruit_npc_as_companion(sender_npc_id, sender_npc_name, cannot_dismiss)
+    else
+        printf("PANDA_IC: recruit_companion missing npc_id in '%s'", tostring(cmd_str))
+    end
+
+            -- ========== PAUSE JOB (wait for spawned hostiles to die) ==========
+            -- Syntax: pause_job:<timeout_seconds>:<success_turn>:<fail_turn>
+            -- Must be in the same outcome string as spawn commands.
+            -- Pauses the conversation until all squads spawned in this outcome batch are dead.
+end
+
+handlers["pause_job"] = function(parts, cmd_str, cmd)
+    local timeout = tonumber(parts[2]) or 600
+    local success_turn = tonumber(parts[3])
+    local fail_turn = tonumber(parts[4])
+    if not success_turn then
+        printf("PANDA_IC: pause_job missing success_turn in '%s'", tostring(cmd_str))
+    else
+        -- Defer actual job creation to after all commands in this batch finish.
+        -- Store params so the post-batch handler can create the job.
+        pending_job_params = {
+            timeout = timeout,
+            success_turn = success_turn,
+            fail_turn = fail_turn,
+            sender_npc_id = sender_npc_id,
+            sender_npc_name = sender_npc_name,
+            sender_contact_id = sender_contact_id,
+            sender_faction = sender_faction,
+            conv_data = conv_data,
+        }
+    end
+
+            -- ========== TAKE ITEM ==========
+end
+
+handlers["take_item"] = function(parts, cmd_str, cmd)
+    local item_sec = parts[2]
+    if item_sec then
+        local found_obj = nil
+        act:iterate_inventory(function(owner, item)
+            if not found_obj and item:section() == item_sec then found_obj = item end
+        end, act)
+        if found_obj then
+            alife_release(alife():object(found_obj:id()))
+            local msg = utils_data.parse_string_keys(
+                game.translate_string("st_pda_ic_outcome_item_taken"),
+                {["what"] = ui_item.get_sec_name(item_sec)}
+            )
+            dynamic_news_helper.send_tip(msg, "System", 0, 10, FALLBACK_NPC_ICON, "beep_1", "npc")
+        end
+    end
+
+            -- ========== GIVE ITEM COUNT ==========
+end
+
+handlers["give_item_count"] = function(parts, cmd_str, cmd)
+    local item_sec = parts[2]
+    local count = tonumber(parts[3]) or 1
+    if item_sec and ini_sys:section_exist(item_sec) then
+        for i = 1, count do
+            alife_create_item(item_sec, db.actor)
+        end
+        local msg = string.format(
+            game.translate_string("st_pda_ic_outcome_items_given"),
+            count, ui_item.get_sec_name(item_sec)
+        )
+        dynamic_news_helper.send_tip(msg, "System", 0, 10, FALLBACK_NPC_ICON, "beep_1", "npc")
+    end
+
+            -- ========== REWARD STASH WITH SPECIFIC ITEMS ==========
+end
+
+handlers["reward_stash_items"] = function(parts, cmd_str, cmd)
+    local items_str = parts[2]
+    if items_str and items_str ~= "" then
+        local bonus_items = {}
+        for item_sec in string.gmatch(items_str, "([^+]+)") do
+            item_sec = item_sec:match("^%s*(.-)%s*$")
+            if item_sec ~= "" and ini_sys:section_exist(item_sec) then
+                table.insert(bonus_items, item_sec)
+            end
+        end
+        if #bonus_items > 0 then
+            queue_stash_attachment_reward_custom(sender_npc_name, sender_npc_id, sender_contact_id, bonus_items)
+        else
+            queue_stash_attachment_reward(sender_npc_name, sender_npc_id, sender_contact_id)
+        end
+    else
+        queue_stash_attachment_reward(sender_npc_name, sender_npc_id, sender_contact_id)
+    end
+
+            -- ========== REWARD SPECIFIC STASH (RANDOM LOOT) ==========
+            -- Syntax: reward_stash_at:<stash_name>
+            -- <stash_name> is the vanilla inventory box name from st_treasures.xml, e.g. dark_valley_treasure_1
+end
+
+handlers["reward_stash_at"] = function(parts, cmd_str, cmd)
+    local stash_name = parts[2]
+    if stash_name and stash_name ~= "" then
+        queue_stash_attachment_at(stash_name, sender_npc_name, sender_npc_id, sender_contact_id)
+    else
+        printf("PANDA_IC: reward_stash_at missing stash_name in '%s'", tostring(cmd_str))
+        queue_stash_attachment_reward(sender_npc_name, sender_npc_id, sender_contact_id)
+    end
+
+            -- ========== REWARD SPECIFIC STASH WITH CUSTOM ITEMS ==========
+            -- Syntax: reward_stash_items_at:<stash_name>:<item1+item2+...>
+end
+
+handlers["reward_stash_items_at"] = function(parts, cmd_str, cmd)
+    local stash_name = parts[2]
+    local items_str = parts[3]
+    local bonus_items = {}
+    if items_str and items_str ~= "" then
+        for item_sec in string.gmatch(items_str, "([^+]+)") do
+            item_sec = item_sec:match("^%s*(.-)%s*$")
+            if item_sec ~= "" and ini_sys:section_exist(item_sec) then
+                table.insert(bonus_items, item_sec)
+            end
+        end
+    end
+    if stash_name and stash_name ~= "" then
+        queue_stash_items_attachment_at(stash_name, #bonus_items > 0 and bonus_items or nil, sender_npc_name, sender_npc_id, sender_contact_id)
+    else
+        printf("PANDA_IC: reward_stash_items_at missing stash_name in '%s'", tostring(cmd_str))
+        queue_stash_attachment_reward_custom(sender_npc_name, sender_npc_id, sender_contact_id, #bonus_items > 0 and bonus_items or nil)
+    end
+
+            -- ========== KNOWLEDGE / INFO PORTIONS ==========
+end
+
+handlers["give_info"] = function(parts, cmd_str, cmd)
+    local info_id = parts[2]
+    if info_id and info_id ~= "" then
+        give_info(info_id)
+        dynamic_news_helper.send_tip(
+            game.translate_string("st_pda_ic_outcome_info_gained"),
+            "System", 0, 10, FALLBACK_NPC_ICON, "beep_1", "npc"
+        )
+    end
+end
+
+handlers["disable_info"] = function(parts, cmd_str, cmd)
+    local info_id = parts[2]
+    if info_id and info_id ~= "" then
+        disable_info(info_id)
+        dynamic_news_helper.send_tip(
+            game.translate_string("st_pda_ic_outcome_info_removed"),
+            "System", 0, 10, FALLBACK_NPC_ICON, "beep_1", "npc"
+        )
+    end
+
+            -- ========== PLAYER EFFECTS ==========
+end
+
+handlers["heal_player"] = function(parts, cmd_str, cmd)
+    local amount = (tonumber(parts[2]) or 0) / 100
+    amount = math.max(0, math.min(1, amount))
+    db.actor.health = amount
+end
+
+handlers["damage_player"] = function(parts, cmd_str, cmd)
+    local amount = (tonumber(parts[2]) or 0) / 100
+    amount = math.max(0, math.min(0.99, amount))
+    db.actor.health = -amount
+end
+
+handlers["give_radiation"] = function(parts, cmd_str, cmd)
+    local amount = (tonumber(parts[2]) or 0) / 100
+    amount = math.max(0, math.min(1, amount))
+    db.actor:change_radiation(amount)
+end
+
+handlers["cure_radiation"] = function(parts, cmd_str, cmd)
+    local cur_rad = db.actor:get_radiation()
+    if cur_rad > 0 then
+        db.actor:change_radiation(-cur_rad)
+    end
+
+            -- ========== NPC RELATION CHANGES ==========
+end
+
+handlers["dismiss_companion"] = function(parts, cmd_str, cmd)
+    if sender_npc_id then
+        local npc_obj = level.object_by_id(sender_npc_id)
+        if npc_obj and axr_companions then
+            axr_companions.dismiss_companion(npc_obj)
+            dynamic_news_helper.send_tip(
+                game.translate_string("st_pda_ic_outcome_npc_dismissed"),
+                sender_npc_name or "System", 0, 10, FALLBACK_NPC_ICON, "beep_1", "npc"
+            )
+        end
+    end
+end
+
+handlers["set_npc_hostile"] = function(parts, cmd_str, cmd)
+    if sender_npc_id then
+        local npc_obj = level.object_by_id(sender_npc_id)
+        if npc_obj then
+            npc_obj:set_relation(game_object.enemy, db.actor)
+            npc_obj:force_set_goodwill(-5000, db.actor)
+            dynamic_news_helper.send_tip(
+                game.translate_string("st_pda_ic_outcome_npc_hostile"),
+                sender_npc_name or "System", 0, 10, FALLBACK_NPC_ICON, "danger", "npc"
+            )
+        end
+    end
+end
+
+handlers["set_npc_friendly"] = function(parts, cmd_str, cmd)
+    if sender_npc_id then
+        local npc_obj = level.object_by_id(sender_npc_id)
+        if npc_obj then
+            npc_obj:set_relation(game_object.friend, db.actor)
+            npc_obj:force_set_goodwill(5000, db.actor)
+            dynamic_news_helper.send_tip(
+                game.translate_string("st_pda_ic_outcome_npc_friendly"),
+                sender_npc_name or "System", 0, 10, FALLBACK_NPC_ICON, "beep_1", "npc"
+            )
+        end
+    end
+end
+
+handlers["set_npc_state"] = function(parts, cmd_str, cmd)
+    -- Unified replacement for set_npc_hostile/friendly/neutral.
+    -- Syntax: set_npc_state:<state>     state = hostile|friendly|neutral
+    local state = (parts[2] or "neutral"):lower()
+    if sender_npc_id then
+        local npc_obj = level.object_by_id(sender_npc_id)
+        if npc_obj then
+            if state == "hostile" or state == "enemy" or state == "aggressive" then
+                npc_obj:set_relation(game_object.enemy, db.actor)
+                npc_obj:force_set_goodwill(-5000, db.actor)
+                dynamic_news_helper.send_tip(
+                    game.translate_string("st_pda_ic_outcome_npc_hostile"),
+                    sender_npc_name or "System", 0, 10, FALLBACK_NPC_ICON, "danger", "npc"
+                )
+            elseif state == "friendly" or state == "friend" then
+                npc_obj:set_relation(game_object.friend, db.actor)
+                npc_obj:force_set_goodwill(5000, db.actor)
+                dynamic_news_helper.send_tip(
+                    game.translate_string("st_pda_ic_outcome_npc_friendly"),
+                    sender_npc_name or "System", 0, 10, FALLBACK_NPC_ICON, "beep_1", "npc"
+                )
+            else
+                npc_obj:set_relation(game_object.neutral, db.actor)
+                npc_obj:force_set_goodwill(0, db.actor)
+                local notify_key = "st_pda_ic_outcome_npc_neutral"
+                local notify = game.translate_string(notify_key)
+                if notify == notify_key then
+                    notify = "NPC is now neutral."
+                end
+                dynamic_news_helper.send_tip(
+                    notify,
+                    sender_npc_name or "System", 0, 10, FALLBACK_NPC_ICON, "beep_1", "npc"
+                )
+            end
+        end
+    end
+end
+
+handlers["kill_npc"] = function(parts, cmd_str, cmd)
+    if sender_npc_id then
+        local npc_obj = level.object_by_id(sender_npc_id)
+        if npc_obj and npc_obj.alive and npc_obj:alive() then
+            npc_obj:kill(npc_obj)
+        else
+            local se_obj = alife_object(sender_npc_id)
+            if se_obj then
+                alife_release(se_obj)
+            end
+        end
+        dynamic_news_helper.send_tip(
+            game.translate_string("st_pda_ic_outcome_npc_killed"),
+            sender_npc_name or "System", 0, 10, FALLBACK_NPC_ICON, "danger", "npc"
+        )
+    end
+end
+
+handlers["change_npc_faction"] = function(parts, cmd_str, cmd)
+    local new_faction = normalize_faction(parts[2] or "stalker")
+    if sender_npc_id then
+        local se_npc = alife_object(sender_npc_id)
+        if se_npc then
+            if SIMBOARD and SIMBOARD.change_faction then
+                SIMBOARD:change_faction(se_npc, new_faction)
+            elseif se_npc.community then
+                se_npc:community(new_faction)
+            end
+            dynamic_news_helper.send_tip(
+                game.translate_string("st_pda_ic_outcome_npc_faction_change"),
+                sender_npc_name or "System", 0, 10, FALLBACK_NPC_ICON, "beep_1", "npc"
+            )
+        end
+    end
+
+            -- ─── NEW OUTCOME HANDLERS ────────────────────────────────────────────
+
+            -- Player Effects: hunger
+end
+
+handlers["give_hunger"] = function(parts, cmd_str, cmd)
+    local amount = (tonumber(parts[2]) or 10) / 100
+    if act.cast_Actor and act:cast_Actor() and act:cast_Actor().conditions then
+        local cond = act:cast_Actor():conditions()
+        if cond and cond.ChangeSatiety then
+            cond:ChangeSatiety(-amount)
+        end
+    end
+end
+
+handlers["cure_hunger"] = function(parts, cmd_str, cmd)
+    local amount = (tonumber(parts[2]) or 50) / 100
+    if act.cast_Actor and act:cast_Actor() and act:cast_Actor().conditions then
+        local cond = act:cast_Actor():conditions()
+        if cond and cond.ChangeSatiety then
+            cond:ChangeSatiety(amount)
+        end
+    end
+
+            -- Player Effects: speed
+end
+
+handlers["boost_speed"] = function(parts, cmd_str, cmd)
+    local mult = tonumber(parts[2]) or 1.5
+    local dur = tonumber(parts[3]) or 60
+    act:set_actor_run_coef(mult)
+    act:set_actor_sprint_koef(mult)
+    CreateTimeEvent(0, "panda_speed_reset_" .. tostring(time_global()), dur, function()
+        if db.actor then
+            db.actor:set_actor_run_coef(0)
+            db.actor:set_actor_sprint_koef(0)
+        end
+        return true
+    end)
+end
+
+handlers["slow_speed"] = function(parts, cmd_str, cmd)
+    local mult = tonumber(parts[2]) or 0.5
+    local dur = tonumber(parts[3]) or 60
+    act:set_actor_run_coef(mult)
+    act:set_actor_sprint_koef(mult)
+    CreateTimeEvent(0, "panda_speed_reset_" .. tostring(time_global()), dur, function()
+        if db.actor then
+            db.actor:set_actor_run_coef(0)
+            db.actor:set_actor_sprint_koef(0)
+        end
+        return true
+    end)
+
+            -- Player Effects: rank
+end
+
+handlers["change_rank"] = function(parts, cmd_str, cmd)
+    local amount = tonumber(parts[2]) or 0
+    if game_statistics and game_statistics.increment_rank then
+        game_statistics.increment_rank(amount)
+    else
+        local cur = act:character_rank()
+        act:set_character_rank(cur + amount)
+    end
+
+            -- Player Effects: teleport player
+end
+
+handlers["teleport_player_to_smart"] = function(parts, cmd_str, cmd)
+    local smart_ref = parts[2]
+    local delay = tonumber(parts[3]) or 0
+    if smart_ref and smart_ref ~= "" then
+        local smart_pos = resolve_smart_position_from_reference(smart_ref)
+        if smart_pos then
+            if delay > 0 then
+                CreateTimeEvent(0, "panda_tp_player_" .. tostring(time_global()), delay, function()
+                    if db.actor then
+                        db.actor:set_actor_position(smart_pos)
+                    end
+                    return true
+                end)
+            else
+                act:set_actor_position(smart_pos)
+            end
+        end
+    end
+
+            -- NPC: change rank
+end
+
+handlers["change_npc_rank"] = function(parts, cmd_str, cmd)
+    local amount = tonumber(parts[2]) or 0
+    if sender_npc_id then
+        local npc_obj = level.object_by_id(sender_npc_id)
+        if npc_obj then
+            local cur = npc_obj:character_rank()
+            npc_obj:set_character_rank(cur + amount)
+        end
+    end
+
+            -- NPC: give item
+end
+
+handlers["equip_npc_item"] = function(parts, cmd_str, cmd)
+    local item_sec = parts[2]
+    if item_sec and sender_npc_id then
+        local se_npc = alife_object(sender_npc_id)
+        if se_npc and ini_sys:section_exist(item_sec) then
+            alife_create_item(item_sec, se_npc)
+        end
+    end
+
+            -- NPC: companion behavior state
+end
+
+handlers["set_companion_state"] = function(parts, cmd_str, cmd)
+    local state = parts[2] or "follow"
+    if sender_npc_id and axr_companions then
+        local npc_obj = level.object_by_id(sender_npc_id)
+        if npc_obj then
+            if state == "follow" and axr_companions.set_companion_to_follow_state then
+                axr_companions.set_companion_to_follow_state(npc_obj)
+            elseif state == "wait" and axr_companions.set_companion_to_wait_state then
+                axr_companions.set_companion_to_wait_state(npc_obj)
+            elseif state == "patrol" and axr_companions.set_companion_to_patrol_state then
+                axr_companions.set_companion_to_patrol_state(npc_obj)
+            elseif state == "attack" and axr_companions.set_companion_to_attack_state then
+                axr_companions.set_companion_to_attack_state(npc_obj)
+            elseif state == "stealth" and axr_companions.set_companion_to_stealth_substate then
+                axr_companions.set_companion_to_stealth_substate(npc_obj)
+            elseif state == "ignore_combat" and axr_companions.set_companion_to_ignore_combat_state then
+                axr_companions.set_companion_to_ignore_combat_state(npc_obj)
+            end
+        end
+    end
+
+            -- NPC: set neutral
+end
+
+handlers["set_npc_neutral"] = function(parts, cmd_str, cmd)
+    if sender_npc_id then
+        local npc_obj = level.object_by_id(sender_npc_id)
+        if npc_obj then
+            npc_obj:set_relation(game_object.neutral, db.actor)
+            npc_obj:force_set_goodwill(0, db.actor)
+        end
+    end
+
+            -- NPC: invulnerability
+end
+
+handlers["make_npc_invulnerable"] = function(parts, cmd_str, cmd)
+    local dur = tonumber(parts[2]) or 300
+    if sender_npc_id then
+        if not _panda_invulnerable_npcs then _panda_invulnerable_npcs = {} end
+        _panda_invulnerable_npcs[sender_npc_id] = true
+        CreateTimeEvent(0, "panda_invuln_" .. tostring(sender_npc_id), dur, function()
+            if _panda_invulnerable_npcs then
+                _panda_invulnerable_npcs[sender_npc_id] = nil
+            end
+            return true
+        end)
+    end
+end
+
+handlers["set_npc_animation"] = function(parts, cmd_str, cmd)
+    if sender_npc_id then
+        request_dialog_npc_animation(sender_npc_id, parts[2], parts[3], {
+            channel = resolved_channel,
+            source = "outcome:set_npc_animation",
+            session_token = conv_data and (conv_data.f2f_session_token or conv_data.session_token) or nil,
+        })
+    else
+        printf("PANDA_IC: set_npc_animation missing npc_id in '%s'", tostring(cmd_str))
+    end
+end
+
+handlers["clear_npc_animation"] = function(parts, cmd_str, cmd)
+    if sender_npc_id then
+        request_dialog_npc_animation_clear(sender_npc_id, {
+            channel = resolved_channel,
+            source = "outcome:clear_npc_animation",
+            session_token = conv_data and (conv_data.f2f_session_token or conv_data.session_token) or nil,
+        })
+    else
+        printf("PANDA_IC: clear_npc_animation missing npc_id in '%s'", tostring(cmd_str))
+    end
+
+            -- Faction relations
+end
+
+handlers["change_faction_relations"] = function(parts, cmd_str, cmd)
+    local f1 = normalize_faction(parts[2] or "stalker")
+    local f2 = normalize_faction(parts[3] or "bandit")
+    local amount = tonumber(parts[4]) or 0
+    if game_relations and game_relations.change_faction_relations then
+        game_relations.change_faction_relations(f1, f2, amount, false)
+    end
+
+            -- Change player faction
+end
+
+handlers["change_player_faction"] = function(parts, cmd_str, cmd)
+    local new_fac = normalize_faction(parts[2] or "stalker")
+    if act.set_character_community then
+        act:set_character_community(new_fac, 0, 0)
+    end
+
+            -- Ceasefire
+end
+
+handlers["ceasefire"] = function(parts, cmd_str, cmd)
+    local radius = tonumber(parts[2]) or 100
+    local actor_pos = act:position()
+    for id = 1, 65535 do
+        local obj = level.object_by_id(id)
+        if obj and obj:alive() and IsStalker(obj) and obj:id() ~= act:id() then
+            local dist = obj:position():distance_to(actor_pos)
+            if dist <= radius then
+                obj:set_relation(game_object.neutral, db.actor)
+                obj:force_set_goodwill(0, db.actor)
+            end
+        end
+    end
+
+            -- World: weather
+end
+
+handlers["set_weather"] = function(parts, cmd_str, cmd)
+    local weather = parts[2] or "w_clear1"
+    if level.set_weather then
+        level.set_weather(weather, true)
+    end
+
+            -- World: game news
+end
+
+handlers["give_game_news"] = function(parts, cmd_str, cmd)
+    local title = parts[2] or "News"
+    local message = parts[3] or ""
+    local dur = tonumber(parts[4]) or 5
+    act:give_game_news(title, message, "ui_inGame2_PDA", 0, dur * 1000)
+
+            -- Knowledge: tasks
+end
+
+handlers["give_task"] = function(parts, cmd_str, cmd)
+    local task_id = parts[2]
+    if task_id and task_manager and task_manager.get_task_manager then
+        local tm = task_manager.get_task_manager()
+        if tm and tm.give_task then
+            tm:give_task(task_id)
+        end
+    end
+end
+
+handlers["complete_task"] = function(parts, cmd_str, cmd)
+    local task_id = parts[2]
+    if task_id and task_manager and task_manager.task_complete then
+        task_manager.task_complete(task_id)
+    end
+end
+
+handlers["fail_task"] = function(parts, cmd_str, cmd)
+    local task_id = parts[2]
+    if task_id and task_manager and task_manager.task_fail then
+        task_manager.task_fail(task_id)
+    end
+
+            -- ========== CUSTOM TASKS ==========
+            -- Each panda_task_* command creates real vanilla task-manager task slots.
+
+            -- Delivery: player receives an auto package and delivers it to a randomly chosen NPC.
+            -- Destination smart terrain is OPTIONAL — if omitted (or empty), engine picks any
+            -- eligible online stalker anywhere as the recipient and tracks them on the map.
+            -- Syntax: panda_task_delivery:<timeout>:<success_turn>:<fail_turn>
+            -- Legacy: panda_task_delivery:<destination_smart>:<timeout>:<success_turn>:<fail_turn>
+            -- Legacy: panda_task_delivery:<item_section>:<destination_smart>:<timeout>:<success_turn>:<fail_turn>
+end
+
+handlers["panda_task_delivery"] = function(parts, cmd_str, cmd)
+    local item_sec = "quest_package_" .. tostring(math.random(1, 8))
+    local dest_smart, timeout, s_turn, f_turn
+
+    if tonumber(parts[2]) and tonumber(parts[3]) and tonumber(parts[4]) and not parts[5] then
+        -- New no-destination form: panda_task_delivery:<timeout>:<s>:<f>
+        dest_smart = nil
+        timeout = tonumber(parts[2]) or 600
+        s_turn = tonumber(parts[3])
+        f_turn = tonumber(parts[4])
+    elseif parts[3] and not tonumber(parts[3]) then
+        -- Oldest legacy: panda_task_delivery:<item_section>:<destination_smart>:<timeout>:<s>:<f>
+        item_sec = parts[2] or item_sec
+        dest_smart = parts[3]
+        timeout = tonumber(parts[4]) or 600
+        s_turn = tonumber(parts[5])
+        f_turn = tonumber(parts[6])
+    else
+        -- Legacy: panda_task_delivery:<destination_smart>:<timeout>:<s>:<f>
+        dest_smart = parts[2]
+        timeout = tonumber(parts[3]) or 600
+        s_turn = tonumber(parts[4])
+        f_turn = tonumber(parts[5])
+    end
+
+    if not item_sec or not s_turn then
+        printf("PANDA_IC: panda_task_delivery missing params in '%s'", tostring(cmd_str))
+    else
+        local radius = PANDA.get_config("location_watch_radius") or 50
+        local destination_map_id, destination_label
+        if dest_smart and dest_smart ~= "" then
+            destination_map_id, destination_label = get_smart_task_target(dest_smart)
+        end
+
+        local bridge = ensure_panda_task_bridge()
+        if not bridge then
+            printf("PANDA_IC: panda_task_delivery ignored (bridge unavailable)")
+        else
+            local delivery_target
+            if dest_smart and dest_smart ~= "" then
+                delivery_target = pick_delivery_target_near_smart(dest_smart, math.max(radius * 2, 150))
+            end
+            if not delivery_target then
+                delivery_target = pick_random_delivery_target()
+            end
+
+            local delivery_target_id = delivery_target and delivery_target.se and delivery_target.se.id or nil
+            local delivery_target_label = get_delivery_target_label(delivery_target)
+            local task_map_id = delivery_target_id or destination_map_id
+            local task_label = delivery_target_label or destination_label
+
+            if not task_map_id then
+                printf("PANDA_IC: panda_task_delivery could not pick a recipient NPC")
+            else
+                if type(spawn_native_courier) == "function" then
+                    spawn_native_courier(item_sec)
+                elseif db.actor and alife_create_item then
+                    alife_create_item(item_sec, db.actor)
+                end
+                local slot_id, err = bridge.create_task(build_bridge_task_params("delivery", {
+                    item_section = item_sec,
+                    item_count = 1,
+                    destination_ref = dest_smart,
+                    destination_map_id = task_map_id,
+                    destination_label = task_label,
+                    location_label = destination_label or task_label,
+                    target_npc_id = delivery_target_id,
+                    target_label = delivery_target_label,
+                    target_radius = radius,
+                    timeout_seconds = timeout,
+                    success_turn = s_turn,
+                    fail_turn = f_turn,
+                }))
+                if not slot_id then
+                    printf("PANDA_IC: panda_task_delivery failed (%s)", tostring(err))
+                else
+                    task_given = true
+                    push_task_start_message("st_pda_ic_task_delivery_start")
+                end
+            end
+        end
+    end
+
+            -- Fetch: player must find/collect items (periodic inventory check)
+            -- Syntax: panda_task_fetch:<item_section>:<count>:<timeout>:<success_turn>:<fail_turn>
+end
+
+handlers["panda_task_fetch"] = function(parts, cmd_str, cmd)
+    local item_sec = parts[2]
+    local count = tonumber(parts[3]) or 1
+    local timeout = tonumber(parts[4]) or 600
+    local s_turn = tonumber(parts[5])
+    local f_turn = tonumber(parts[6])
+    if not item_sec or not s_turn then
+        printf("PANDA_IC: panda_task_fetch missing params in '%s'", tostring(cmd_str))
+    else
+        local bridge = ensure_panda_task_bridge()
+        if not bridge then
+            printf("PANDA_IC: panda_task_fetch ignored (bridge unavailable)")
+        else
+            local slot_id, err = bridge.create_task(build_bridge_task_params("fetch", {
+                item_section = item_sec,
+                item_count = count,
+                timeout_seconds = timeout,
+                success_turn = s_turn,
+                fail_turn = f_turn,
+            }))
+            if not slot_id then
+                printf("PANDA_IC: panda_task_fetch failed (%s)", tostring(err))
+            else
+                task_given = true
+                push_task_start_message("st_pda_ic_task_fetch_start")
+            end
+        end
+    end
+
+            -- Bounty: spawn target NPC at location, track kill
+            -- Syntax: panda_task_bounty:<faction>:<smart_terrain>:<timeout>:<success_turn>:<fail_turn>
+            -- Legacy: panda_task_bounty:<faction>:<rank>:<smart_terrain>:<timeout>:<success_turn>:<fail_turn>
+end
+
+handlers["panda_task_bounty"] = function(parts, cmd_str, cmd)
+    local target_fac = parts[2]
+    local target_rank = parts[3]
+    local smart_ref = parts[4]
+    local timeout = tonumber(parts[5]) or 900
+    local s_turn = tonumber(parts[6])
+    local f_turn = tonumber(parts[7])
+    if parts[3] and (parts[3]:find("^st_") or parts[3]:find("^%%") or tonumber(parts[4])) then
+        target_rank = nil
+        smart_ref = parts[3]
+        timeout = tonumber(parts[4]) or 900
+        s_turn = tonumber(parts[5])
+        f_turn = tonumber(parts[6])
+    end
+    if not target_fac or not smart_ref or not s_turn then
+        printf("PANDA_IC: panda_task_bounty missing params in '%s'", tostring(cmd_str))
+    else
+        local target_id = nil
+        local sec = find_squad_section(target_fac)
+        if sec then
+            local smart = resolve_smart_from_reference(smart_ref)
+            if smart then
+                local spos = get_position_from_object(smart)
+                local slvid = smart.m_level_vertex_id
+                local sgvid = smart.m_game_vertex_id
+                if spos then
+                    local sp, sl, sg = find_spawn_point_near_smart(10, 20, spos, slvid, sgvid)
+                    local sq = create_squad_safely(sec, sp or spos, sl or slvid, sg or sgvid)
+                    if sq then
+                        -- Set hostile
+                        sq.scripted_target = smart:name()
+                        for k in sq:squad_members() do
+                            if not target_id then target_id = k.id end
+                        end
+                    end
+                end
+            end
+        end
+        local radius = PANDA.get_config("location_watch_radius") or 85
+        local destination_map_id, destination_label = get_smart_task_target(smart_ref)
+        local target_label = nil
+        if target_id then
+            local target_obj = level.object_by_id(target_id)
+            if target_obj and target_obj.character_name then
+                local ok_name, resolved_name = pcall(function() return target_obj:character_name() end)
+                if ok_name and resolved_name and resolved_name ~= "" then
+                    target_label = resolved_name
+                end
+            end
+            if (not target_label or target_label == "") and alife_object then
+                local target_se = alife_object(target_id)
+                if target_se and target_se.character_name then
+                    local ok_name, resolved_name = pcall(function() return target_se:character_name() end)
+                    if ok_name and resolved_name and resolved_name ~= "" then
+                        target_label = resolved_name
+                    end
+                end
+            end
+        end
+
+        if not target_id then
+            printf("PANDA_IC: panda_task_bounty failed to spawn target in '%s'", tostring(cmd_str))
+        else
+            local bridge = ensure_panda_task_bridge()
+            if not bridge then
+                printf("PANDA_IC: panda_task_bounty ignored (bridge unavailable)")
+            else
+                local slot_id, err = bridge.create_task(build_bridge_task_params("bounty", {
+                    target_npc_id = target_id,
+                    target_label = target_label,
+                    destination_ref = smart_ref,
+                    destination_map_id = destination_map_id,
+                    destination_label = destination_label,
+                    location_label = destination_label,
+                    target_radius = radius,
+                    timeout_seconds = timeout,
+                    success_turn = s_turn,
+                    fail_turn = f_turn,
+                }))
+                if not slot_id then
+                    printf("PANDA_IC: panda_task_bounty failed (%s)", tostring(err))
+                else
+                    task_given = true
+                    push_task_start_message("st_pda_ic_task_bounty_start")
+                end
+            end
+        end
+    end
+
+            -- Rescue: keep survivor alive while hostile squads are cleared.
+            -- Survivor spawns immediately at the smart terrain (kneeling, hostage,
+            -- invulnerable, ignores combat). Hostiles spawn ON ARRIVAL when the player
+            -- enters the watch radius — they don't wander off and they don't kill the
+            -- hostage while the player heads over.
+            -- Syntax: panda_task_rescue:<enemy_squad>:<smart_terrain>:<squad_count>:<survivor_template|random>:<timeout>:<success_turn>:<fail_turn>[:<state>]
+            --   state (optional, default "hostile") sets enemy squad relation: hostile|friendly|neutral|default.
+end
+
+handlers["panda_task_rescue"] = function(parts, cmd_str, cmd)
+    local enemy_squad = parts[2]
+    local smart_ref = parts[3]
+    local squad_count = 1
+    local survivor_template = "random"
+    local timeout = 900
+    local s_turn = nil
+    local f_turn = nil
+    local param_index = 4
+
+    if parts[param_index] and tonumber(parts[param_index]) and tonumber(parts[param_index]) <= 10 then
+        if parts[param_index + 1] and not tonumber(parts[param_index + 1]) then
+            squad_count = math.max(1, tonumber(parts[param_index]) or 1)
+            survivor_template = parts[param_index + 1]
+            param_index = param_index + 2
+        elseif parts[param_index + 3] then
+            squad_count = math.max(1, tonumber(parts[param_index]) or 1)
+            param_index = param_index + 1
+        end
+    elseif parts[param_index] and not tonumber(parts[param_index]) then
+        survivor_template = parts[param_index]
+        param_index = param_index + 1
+    end
+
+    timeout = tonumber(parts[param_index]) or timeout
+    s_turn = tonumber(parts[param_index + 1])
+    f_turn = tonumber(parts[param_index + 2])
+
+    local enemy_state = parts[param_index + 3]
+    if enemy_state == nil or enemy_state == "" then enemy_state = "hostile" end
+
+    if not enemy_squad or not smart_ref or not s_turn then
+        printf("PANDA_IC: panda_task_rescue missing params in '%s'", tostring(cmd_str))
+    else
+        -- Spawn the survivor IMMEDIATELY so they're at the location when the
+        -- player arrives (matches vanilla rescue setpiece pacing).
+        local survivor_id = nil
+        local survivor_squad_obj = nil
+        local survivor_label = game.translate_string("st_panda_task_rescue_survivor")
+        if survivor_template and survivor_template ~= "" and survivor_template ~= "random" and panda_npc_creator and panda_npc_creator.spawn_custom_npc then
+            panda_npc_creator.spawn_custom_npc(survivor_template, { smart_ref = smart_ref, conv_data = conv_data })
+            if panda_npc_creator.get_active_npc_id then
+                survivor_id = panda_npc_creator.get_active_npc_id(survivor_template)
+            end
+            survivor_label = survivor_template
+        else
+            local smart = resolve_smart_from_reference(smart_ref)
+            if smart then
+                local spos = get_position_from_object(smart)
+                local slvid = smart.m_level_vertex_id
+                local sgvid = smart.m_game_vertex_id
+                local sec = find_squad_section("stalker")
+                if spos and sec then
+                    local sp, sl, sg = find_spawn_point_near_smart(2, 4, spos, slvid, sgvid)
+                    local survivor_squad = create_squad_safely(sec, sp or spos, sl or slvid, sg or sgvid)
+                    if survivor_squad and survivor_squad.clsid and survivor_squad:clsid() == clsid.online_offline_group_s then
+                        survivor_squad_obj = survivor_squad
+                        -- Pin the survivor squad to the smart terrain so they
+                        -- don't wander while the player heads over.
+                        survivor_squad.scripted_target = tostring(smart.id)
+                        survivor_squad.rush_to_target = false
+                        if type(survivor_squad.squad_members) == "function" then
+                            for member in survivor_squad:squad_members() do
+                                if not survivor_id then survivor_id = member.id end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
+        -- Vanilla-style hostage: keep them out of combat with the captors.
+        -- Friendly relation made the captors and survivor enemies of each
+        -- other and they fought instead of holding. Apply hostage state
+        -- (neutral, invulnerable, ignores combat) so they sit in prisoner
+        -- pose until the player clears the area.
+        if survivor_squad_obj then
+            apply_spawned_faction_relation(survivor_squad_obj, "hostage")
+        end
+        apply_rescue_survivor_animation(survivor_id)
+        mark_npc_as_hostage(survivor_id, smart_ref)
+
+        local destination_map_id, destination_label = get_smart_task_target(smart_ref)
+        local bridge = ensure_panda_task_bridge()
+        if not destination_map_id then
+            printf("PANDA_IC: panda_task_rescue destination resolve failed for '%s'", tostring(smart_ref))
+        elseif not bridge then
+            printf("PANDA_IC: panda_task_rescue ignored (bridge unavailable)")
+        else
+            local spawn_radius = PANDA.get_config("location_watch_radius") or 85
+            local slot_id, err = bridge.create_task(build_bridge_task_params("rescue", {
+                destination_ref = smart_ref,
+                destination_map_id = destination_map_id,
+                destination_label = destination_label,
+                location_label = destination_label,
+                target_radius = spawn_radius,
+                timeout_seconds = timeout,
+                success_turn = s_turn,
+                fail_turn = f_turn,
+                target_squad_ids = {},
+                target_npc_id = survivor_id,
+                target_label = survivor_label,
+                spawn_pending = true,
+            }))
+            if not slot_id then
+                printf("PANDA_IC: panda_task_rescue failed (%s)", tostring(err))
+            else
+                task_given = true
+                push_task_start_message("st_pda_ic_task_rescue_start")
+
+                -- Defer hostile spawn until the player enters the smart terrain
+                -- watch radius. Mirrors panda_task_eliminate. The internal trigger
+                -- spawns one squad per registered command, so we register `squad_count`
+                -- copies. skip_map_spot=true so the rescue task's destination
+                -- marker isn't duplicated by a primary_object spot.
+                local ref = register_location_reference(
+                    smart_ref, sender_npc_name, sender_npc_id, spawn_radius, sender_contact_id,
+                    { skip_map_spot = true }
+                )
+                if ref then
+                    for _ = 1, squad_count do
+                        table.insert(ref.trigger_cmds, table.concat({
+                            "_panda_eliminate_spawn_internal",
+                            tostring(enemy_squad),
+                            tostring(smart_ref),
+                            tostring(slot_id),
+                            tostring(enemy_state),
+                        }, ":"))
+                    end
+                end
+            end
+        end
+    end
+
+            -- Dead Drop: deposit item at marked stash location
+            -- Syntax: panda_task_dead_drop:<item_section>:<destination_smart>:<timeout>:<success_turn>:<fail_turn>
+end
+
+handlers["panda_task_dead_drop"] = function(parts, cmd_str, cmd)
+    local item_sec = parts[2]
+    local dest_smart = parts[3]
+    local timeout = tonumber(parts[4]) or 600
+    local s_turn = tonumber(parts[5])
+    local f_turn = tonumber(parts[6])
+    if not item_sec or not dest_smart or not s_turn then
+        printf("PANDA_IC: panda_task_dead_drop missing params in '%s'", tostring(cmd_str))
+    else
+        local radius = PANDA.get_config("location_watch_radius") or 50
+        local destination_map_id, destination_label = get_smart_task_target(dest_smart)
+        local bridge = ensure_panda_task_bridge()
+        if not destination_map_id then
+            printf("PANDA_IC: panda_task_dead_drop destination resolve failed for '%s'", tostring(dest_smart))
+        elseif not bridge then
+            printf("PANDA_IC: panda_task_dead_drop ignored (bridge unavailable)")
+        else
+            local slot_id, err = bridge.create_task(build_bridge_task_params("dead_drop", {
+                item_section = item_sec,
+                item_count = 1,
+                destination_ref = dest_smart,
+                destination_map_id = destination_map_id,
+                destination_label = destination_label,
+                location_label = destination_label,
+                target_radius = radius,
+                timeout_seconds = timeout,
+                success_turn = s_turn,
+                fail_turn = f_turn,
+            }))
+            if not slot_id then
+                printf("PANDA_IC: panda_task_dead_drop failed (%s)", tostring(err))
+            else
+                task_given = true
+                push_task_start_message("st_pda_ic_task_dead_drop_start")
+            end
+        end
+    end
+
+            -- Dead Drop (specific stash box): player must physically put the item inside the named stash box.
+            -- The item is deleted from the box immediately and the success branch fires.
+            -- Syntax: panda_task_dead_drop_stash:<stash_name>:<item_section>:<timeout>:<success_turn>:<fail_turn>
+end
+
+handlers["panda_task_dead_drop_stash"] = function(parts, cmd_str, cmd)
+    local stash_name = parts[2]
+    local item_sec = parts[3]
+    local timeout = tonumber(parts[4]) or 600
+    local s_turn = tonumber(parts[5])
+    local f_turn = tonumber(parts[6])
+    if not stash_name or not item_sec or not s_turn then
+        printf("PANDA_IC: panda_task_dead_drop_stash missing params in '%s'", tostring(cmd_str))
+    else
+        local stash_box_id = find_stash_id_by_name(stash_name)
+        local bridge = ensure_panda_task_bridge()
+        if not stash_box_id then
+            printf("PANDA_IC: panda_task_dead_drop_stash stash '%s' not found in caches", tostring(stash_name))
+        elseif not bridge then
+            printf("PANDA_IC: panda_task_dead_drop_stash ignored (bridge unavailable)")
+        else
+            local label_key = "st_" .. stash_name .. "_name"
+            local stash_label = game.translate_string(label_key)
+            if not stash_label or stash_label == "" or stash_label == label_key then
+                stash_label = stash_name
+            end
+            local slot_id, err = bridge.create_task(build_bridge_task_params("dead_drop_stash", {
+                item_section = item_sec,
+                item_count = 1,
+                stash_box_id = stash_box_id,
+                stash_name = stash_name,
+                destination_label = stash_label,
+                location_label = stash_label,
+                timeout_seconds = timeout,
+                success_turn = s_turn,
+                fail_turn = f_turn,
+            }))
+            if not slot_id then
+                printf("PANDA_IC: panda_task_dead_drop_stash failed (%s)", tostring(err))
+            else
+                task_given = true
+                push_task_start_message("st_pda_ic_task_dead_drop_start")
+            end
+        end
+    end
+
+            -- Fetch from Stash: item pre-spawned inside named stash box; player retrieves it (keeps it).
+            -- Syntax: panda_task_fetch_from_stash:<stash_name>:<item_section>:<timeout>:<success_turn>:<fail_turn>
+end
+
+handlers["panda_task_fetch_from_stash"] = function(parts, cmd_str, cmd)
+    local stash_name = parts[2]
+    local item_sec = parts[3]
+    local timeout = tonumber(parts[4]) or 600
+    local s_turn = tonumber(parts[5])
+    local f_turn = tonumber(parts[6])
+    if not stash_name or not item_sec or not s_turn then
+        printf("PANDA_IC: panda_task_fetch_from_stash missing params in '%s'", tostring(cmd_str))
+    else
+        local stash_box_id = find_stash_id_by_name(stash_name)
+        local bridge = ensure_panda_task_bridge()
+        if not stash_box_id then
+            printf("PANDA_IC: panda_task_fetch_from_stash stash '%s' not found in caches", tostring(stash_name))
+        elseif not bridge then
+            printf("PANDA_IC: panda_task_fetch_from_stash ignored (bridge unavailable)")
+        else
+            local label_key = "st_" .. stash_name .. "_name"
+            local stash_label = game.translate_string(label_key)
+            if not stash_label or stash_label == "" or stash_label == label_key then
+                stash_label = stash_name
+            end
+            -- Pre-spawn item inside the stash box so the player can loot it.
+            local stash_se = alife() and alife():object(stash_box_id) or nil
+            if stash_se and alife_create_item then
+                alife_create_item(item_sec, stash_se)
+            else
+                printf("PANDA_IC: panda_task_fetch_from_stash could not spawn '%s' in stash '%s'", tostring(item_sec), tostring(stash_name))
+            end
+            local slot_id, err = bridge.create_task(build_bridge_task_params("fetch_stash", {
+                item_section = item_sec,
+                item_count = 1,
+                stash_box_id = stash_box_id,
+                stash_name = stash_name,
+                destination_label = stash_label,
+                location_label = stash_label,
+                timeout_seconds = timeout,
+                success_turn = s_turn,
+                fail_turn = f_turn,
+            }))
+            if not slot_id then
+                printf("PANDA_IC: panda_task_fetch_from_stash failed (%s)", tostring(err))
+            else
+                task_given = true
+                push_task_start_message("st_pda_ic_task_fetch_start")
+            end
+        end
+    end
+
+            -- Escort: NPC becomes companion, escort to destination
+            -- Syntax: panda_task_escort:<destination_smart>:<timeout>:<success_turn>:<fail_turn>
+            -- Optional target: ...:<target_kind>:<target_id>[:<spawn_distance>]
+            -- target_kind: sender|story_npc|custom_npc|spawn_faction|new_npc
+            -- spawn_distance: meters from player; story_npc gets teleported in,
+            -- custom_npc / spawn_faction spawn at this distance.
+end
+
+handlers["panda_task_escort"] = function(parts, cmd_str, cmd)
+    local dest_smart = parts[2]
+    local timeout = tonumber(parts[3]) or 900
+    local s_turn = tonumber(parts[4])
+    local f_turn = tonumber(parts[5])
+    if not dest_smart or not s_turn then
+        printf("PANDA_IC: panda_task_escort missing params in '%s'", tostring(cmd_str))
+    else
+        local target_kind = parts[6] or "sender"
+        local target_value = parts[7]
+        local target_spawn_distance = tonumber(parts[8])
+        local escort_npc_id, escort_label, escort_squad_id = resolve_escort_target(
+            target_kind,
+            target_value,
+            target_spawn_distance,
+            sender_npc_id,
+            sender_npc_name
+        )
+        local radius = PANDA.get_config("location_watch_radius") or 50
+        local destination_map_id, destination_label = get_smart_task_target(dest_smart)
+        if not escort_npc_id then
+            printf("PANDA_IC: panda_task_escort missing escort npc id in '%s'", tostring(cmd_str))
+        elseif not destination_map_id then
+            printf("PANDA_IC: panda_task_escort destination resolve failed for '%s'", tostring(dest_smart))
+        else
+            local bridge = ensure_panda_task_bridge()
+            if not bridge then
+                printf("PANDA_IC: panda_task_escort ignored (bridge unavailable)")
+            else
+                local recruited, recruit_err, recruited_squad_id = recruit_escort_companion(escort_npc_id, escort_label, escort_squad_id)
+                if not recruited then
+                    printf("PANDA_IC: panda_task_escort companion recruit failed (%s)", tostring(recruit_err))
+                end
+                local slot_id, err = bridge.create_task(build_bridge_task_params("escort", {
+                    target_npc_id = escort_npc_id,
+                    target_squad_id = recruited_squad_id or escort_squad_id,
+                    target_label = escort_label,
+                    destination_ref = dest_smart,
+                    destination_map_id = destination_map_id,
+                    destination_label = destination_label,
+                    location_label = destination_label,
+                    target_radius = radius,
+                    timeout_seconds = timeout,
+                    success_turn = s_turn,
+                    fail_turn = f_turn,
+                }))
+                if not slot_id then
+                    printf("PANDA_IC: panda_task_escort failed (%s)", tostring(err))
+                else
+                    task_given = true
+                    push_task_start_message("st_pda_ic_task_escort_start")
+                end
+            end
+        end
+    end
+
+            -- Elimination: spawn enemies at location WHEN player approaches, player clears them
+            -- Syntax: panda_task_eliminate:<target_type>:<smart_terrain>:<radius>:<timeout>:<success_turn>:<fail_turn>[:<squad_count>][:<state>]
+            -- squad_count (optional, default 1) controls how many copies of the squad spawn.
+            -- state (optional, default "hostile") sets relation: hostile|friendly|neutral|default.
+            -- Squad spawn is deferred until the player enters the marker radius around the smart
+            -- terrain. The PDA task creates its own map marker via the task system, so the
+            -- watch zone skips its duplicate spot.
+end
+
+handlers["panda_task_eliminate"] = function(parts, cmd_str, cmd)
+    local target_type = parts[2]
+    local smart_ref = parts[3]
+    local spawn_radius = tonumber(parts[4]) or 100
+    local timeout = tonumber(parts[5]) or 900
+    local s_turn = tonumber(parts[6])
+    local f_turn = tonumber(parts[7])
+    local squad_count = math.max(1, tonumber(parts[8]) or 1)
+    local spawn_state = parts[9]
+    if spawn_state == nil or spawn_state == "" then spawn_state = "hostile" end
+    if not target_type or not smart_ref or not s_turn then
+        printf("PANDA_IC: panda_task_eliminate missing params in '%s'", tostring(cmd_str))
+    else
+        local destination_map_id, destination_label = get_smart_task_target(smart_ref)
+        local bridge = ensure_panda_task_bridge()
+        if not destination_map_id then
+            printf("PANDA_IC: panda_task_eliminate destination resolve failed for '%s'", tostring(smart_ref))
+        elseif not bridge then
+            printf("PANDA_IC: panda_task_eliminate ignored (bridge unavailable)")
+        else
+            local slot_id, err = bridge.create_task(build_bridge_task_params("eliminate", {
+                destination_ref = smart_ref,
+                destination_map_id = destination_map_id,
+                destination_label = destination_label,
+                location_label = destination_label,
+                target_radius = spawn_radius,
+                timeout_seconds = timeout,
+                success_turn = s_turn,
+                fail_turn = f_turn,
+                target_squad_ids = {},
+                spawn_pending = true,
+            }))
+            if not slot_id then
+                printf("PANDA_IC: panda_task_eliminate failed (%s)", tostring(err))
+            else
+                task_given = true
+                push_task_start_message("st_pda_ic_task_eliminate_start")
+
+                -- Register a watch zone that fires the deferred squad spawn.
+                -- skip_map_spot=true so the task system's destination marker isn't
+                -- duplicated by a second primary_object spot at the same smart.
+                local ref = register_location_reference(
+                    smart_ref, sender_npc_name, sender_npc_id, spawn_radius, sender_contact_id,
+                    { skip_map_spot = true }
+                )
+                if ref then
+                    for _ = 1, squad_count do
+                        table.insert(ref.trigger_cmds, table.concat({
+                            "_panda_eliminate_spawn_internal",
+                            tostring(target_type),
+                            tostring(smart_ref),
+                            tostring(slot_id),
+                            tostring(spawn_state),
+                        }, ":"))
+                    end
+                end
+            end
+        end
+    end
+
+            -- Artifact retrieval: player must find and return a specific artifact
+            -- Syntax:          panda_task_artifact:<artifact_section>:<detector_tier>:<timeout>:<success_turn>:<fail_turn>
+            -- Syntax (legacy): panda_task_artifact:<artifact_section>:<zone_name|any>:<detector_tier>:<timeout>:<success_turn>:<fail_turn>
+            -- Syntax (v2):     panda_task_artifact:<artifact_section>:<zone_mode>:<zone_name>:<detector_tier>:<timeout>:<success_turn>:<fail_turn>
+            -- zone_name supports deterministic level tokens like level:gar / level:esc.
+end
+
+handlers["panda_task_artifact"] = function(parts, cmd_str, cmd)
+    local artifact_sec = parts[2]
+    local zone_mode = "legacy"
+    local zone_name = parts[3]
+    local detector_tier_meta
+    local timeout
+    local s_turn
+    local f_turn
+
+    local detector_arg = parts[3]
+    if (detector_arg == "basic" or detector_arg == "advanced" or detector_arg == "elite" or detector_arg == "scientific") and tonumber(parts[4]) then
+        zone_mode = "natural"
+        zone_name = nil
+        detector_tier_meta = detector_arg
+        timeout = tonumber(parts[4]) or 900
+        s_turn = tonumber(parts[5])
+        f_turn = tonumber(parts[6])
+    elseif tonumber(parts[3]) then
+        zone_mode = "natural"
+        zone_name = nil
+        detector_tier_meta = "basic"
+        timeout = tonumber(parts[3]) or 900
+        s_turn = tonumber(parts[4])
+        f_turn = tonumber(parts[5])
+    elseif parts[3] == "specific" or parts[3] == "any" or parts[3] == "random_level" then
+        zone_mode = parts[3]
+        zone_name = parts[4]
+        local detector_index = 5
+        local timeout_index = 6
+        local success_index = 7
+        local fail_index = 8
+
+        if zone_name == "level" and parts[5] then
+            zone_name = "level:" .. tostring(parts[5])
+            detector_index = 6
+            timeout_index = 7
+            success_index = 8
+            fail_index = 9
+        end
+
+        detector_tier_meta = parts[detector_index] or "basic"
+        timeout = tonumber(parts[timeout_index]) or 900
+        s_turn = tonumber(parts[success_index])
+        f_turn = tonumber(parts[fail_index])
+    else
+        detector_tier_meta = parts[4] or "basic"
+        timeout = tonumber(parts[5]) or 900
+        s_turn = tonumber(parts[6])
+        f_turn = tonumber(parts[7])
+    end
+
+    if not s_turn then
+        printf("PANDA_IC: panda_task_artifact missing params in '%s'", tostring(cmd_str))
+    else
+        local bridge = ensure_panda_task_bridge()
+        local task_runtime_id = make_artifact_runtime_task_id(conv_data)
+        local resolved_zone = nil
+
+        if zone_name and zone_name ~= "" and zone_name ~= "any" then
+            local zone_err = nil
+            resolved_zone, zone_err = resolve_artifact_zone_target(zone_name)
+            if not resolved_zone then
+                printf("PANDA_IC: panda_task_artifact zone resolve failed (%s), using natural-find mode", tostring(zone_err))
+            end
+        end
+
+        if zone_name and zone_name ~= "" and zone_name ~= "any" and not resolved_zone then
+            printf("PANDA_IC: panda_task_artifact no resolved zone, player must find naturally")
+        end
+
+        if not artifact_sec or artifact_sec == "" then
+            if not resolved_zone then
+                printf("PANDA_IC: panda_task_artifact requires explicit artifact_section when zone spawn is unavailable")
+                return
+            end
+        end
+
+        if not bridge then
+            printf("PANDA_IC: panda_task_artifact ignored (bridge unavailable)")
+            return
+        end
+
+        local slot_id, record_or_err = bridge.start_auto_artifact_task(build_bridge_task_params("artifact", {
+            external_task_id = task_runtime_id,
+            item_section = artifact_sec,
+            zone_name = resolved_zone,
+            zone_label = resolved_zone or zone_name,
+            location_label = resolved_zone or zone_name,
+            detector_tier = detector_tier_meta,
+            timeout_seconds = timeout,
+            success_turn = s_turn,
+            fail_turn = f_turn,
+            manual_turn_in = false,
+            fail_if_artifact_lost = false,
+        }))
+        if not slot_id then
+            printf("PANDA_IC: panda_task_artifact failed (%s)", tostring(record_or_err))
+            return
+        end
+
+        local task_record = nil
+        if type(record_or_err) == "table" then
+            task_record = record_or_err
+        elseif type(bridge.get_record) == "function" then
+            task_record = bridge.get_record(task_runtime_id)
+        end
+
+        local spawned_artifact_section = task_record and task_record.item_section or artifact_sec
+        if not spawned_artifact_section or spawned_artifact_section == "" then
+            printf("PANDA_IC: panda_task_artifact requires explicit artifact_section when zone spawn is unavailable")
+            return
+        end
+
+        task_given = true
+        push_task_start_message("st_pda_ic_task_artifact_start")
+    end
+end
+
+handlers["change_dialogue_stat"] = function(parts, cmd_str, cmd)
+    local key = parts[2]
+    local delta = tonumber(parts[3]) or 0
+    change_dialogue_stat(key, delta)
+end
+
+handlers["give_skill_level"] = function(parts, cmd_str, cmd)
+    local key = parts[2]
+    local amount = math.abs(tonumber(parts[3]) or 0)
+    change_dialogue_stat(key, amount)
+end
+
+handlers["take_skill_level"] = function(parts, cmd_str, cmd)
+    local key = parts[2]
+    local amount = math.abs(tonumber(parts[3]) or 0)
+    change_dialogue_stat(key, -amount)
+end
+
+handlers["set_dialogue_stat"] = function(parts, cmd_str, cmd)
+    local key = parts[2]
+    local value = tonumber(parts[3]) or 0
+    set_dialogue_stat(key, value)
+end
+
+handlers["dialogue_skill_check"] = function(parts, cmd_str, cmd)
+    -- Resolved inline before continuation; dispatcher entry kept so
+    -- apply_outcome doesn't log "Unknown outcome command" warnings.
+end
+
+handlers["random_chance_check"] = function(parts, cmd_str, cmd)
+    -- Resolved inline before continuation; dispatcher entry kept so
+    -- apply_outcome doesn't log "Unknown outcome command" warnings.
+end
+
+function M.process_command(ctx, cmd_str)
+    local chance_val, rest = string.match(cmd_str, "^chance:(%d+):(.+)$")
+    if chance_val and rest then
+        local spawn_mult = ctx.spawn_mult or 1
+        local adjusted = math.floor(tonumber(chance_val) * spawn_mult)
+        adjusted = math.max(0, math.min(100, adjusted))
+        if math.random(100) <= adjusted then M.process_command(ctx, rest) end
+        return
+    end
+    local parts = (ctx.str_explode or str_explode)(cmd_str, ":")
+    local cmd = parts[1]
+    if cmd and (cmd:sub(1, 11) == "panda_task_" or cmd == "start_anomaly_scan_task" or cmd == "start_artifact_retrieval_task") then
+        ctx.task_author_meta = ctx.extract_trailing_task_meta(parts)
+    else
+        ctx.task_author_meta = {}
+    end
+    local handler = handlers[cmd]
+    if not handler then
+        printf("Unknown outcome command: %s", cmd_str)
+        return
+    end
+    local env = make_env(ctx, parts, cmd_str, cmd)
+    setfenv(handler, env)
+    return handler(parts, cmd_str, cmd)
+end
+
+return M
