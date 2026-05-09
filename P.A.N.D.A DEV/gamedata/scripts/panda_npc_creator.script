@@ -40,6 +40,7 @@ local story_target_retry_scheduled = false
 local xr_visual_ini_cache = false
 local xr_visual_lookup_cache = {}
 local death_outfits_ini_cache = false
+local mesh_exists_cache = {}
 local configure_stationary_squad
 local attach_stationary_squad_to_smart
 local engine_guard_bootstrap = {
@@ -53,8 +54,53 @@ local STATIONARY_TELEPORT_THRESHOLD = 0.35
 local LOADOUT_RETRY_INTERVAL = 0.25
 local LOADOUT_RETRY_LIMIT = 24
 local STORY_SQUAD_IDLE_TIME = 31536000
-local FEMALE_VISUAL = "actors\\mnp_npc_remeik\\girl"
 local FEMALE_SOUND_PREFIX = "characters_voice\\human\\woman\\"
+local DUX_FEMALE_VISUAL_PRESETS = {
+    dux_loner = "actors\\stalker_neutral\\stalker_neutral_fstalker_sun_5",
+    dux_loner_rookie = "actors\\stalker_neutral\\stalker_neutral_fstalker_sun_1",
+    dux_loner_experienced = "actors\\stalker_neutral\\stalker_neutral_fstalker_sun_5",
+    dux_loner_veteran = "actors\\stalker_neutral\\stalker_f_neutral_sci_sunrise_1",
+    dux_loner_sci = "actors\\stalker_neutral\\stalker_f_neutral_sci_sunrise_1",
+    dux_csky = "actors\\stalker_nebo\\stalker_f_nebo_sci_sunrise_1",
+    dux_duty = "actors\\stalker_dolg\\stalker_f_dolg_sci_sunrise_1",
+    dux_freedom = "actors\\stalker_freedom\\stalker_f_freedom_sci_sunrise_1",
+    dux_ecolog = "actors\\stalker_ecologist\\stalker_f_ecolog_sci_sunrise_1",
+    dux_merc = "actors\\stalker_merc\\stalker_f_merc_sci_sunrise_1",
+    dux_monolith = "actors\\stalker_monolith\\stalker_f_monolith_sci_sunrise_1",
+}
+
+local function game_mesh_exists_for_visual(visual_name)
+    if not visual_name or visual_name == "" then
+        return false
+    end
+
+    local rel = tostring(visual_name)
+    rel = string.gsub(rel, "/", "\\")
+    rel = string.gsub(rel, "%.ogf$", "")
+    rel = rel .. ".ogf"
+
+    if mesh_exists_cache[rel] ~= nil then
+        return mesh_exists_cache[rel]
+    end
+
+    local exists = true
+    if getFS and io and io.open then
+        exists = false
+        local ok_path, base = pcall(function()
+            return getFS():update_path("$game_meshes$", "")
+        end)
+        if ok_path and base and base ~= "" then
+            local ok_file, handle = pcall(io.open, base .. rel, "rb")
+            if ok_file and handle then
+                handle:close()
+                exists = true
+            end
+        end
+    end
+
+    mesh_exists_cache[rel] = exists
+    return exists
+end
 local STATIONARY_JOB_PRIORITY_BOOST = 250
 local STATIONARY_CUSTOM_JOB_PREFIX = "panda_stationary_"
 local DEFAULT_STATIONARY_JOB_BEHAVIOR = "auto"
@@ -747,6 +793,8 @@ local function parse_template(template_id)
         allow_roam   = true,
         gender       = "male",
         visual       = nil,
+        visual_preset = nil,
+        member_section = nil,
         sound_prefix = nil,
         movement_mode = "roam",
         stationary_job = DEFAULT_STATIONARY_JOB_BEHAVIOR,
@@ -786,7 +834,16 @@ local function parse_template(template_id)
                     tpl.gender = "male"
                 end
             elseif key == "visual" then
-                tpl.visual = (v ~= "") and v or nil
+                if DUX_FEMALE_VISUAL_PRESETS[lower_v] then
+                    tpl.visual_preset = lower_v
+                    tpl.visual = nil
+                else
+                    tpl.visual = (v ~= "") and v or nil
+                end
+            elseif key == "visual_preset" or key == "model_preset" or key == "appearance" then
+                tpl.visual_preset = (v ~= "") and lower_v or nil
+            elseif key == "member_section" or key == "npc_section" or key == "spawn_section" then
+                tpl.member_section = (v ~= "") and v or nil
             elseif key == "sound_prefix" or key == "snd_config" or key == "voice" then
                 tpl.sound_prefix = (v ~= "") and v or nil
             elseif key == "movement" or key == "movement_mode" or key == "move_mode" or key == "behavior_mode" then
@@ -857,15 +914,45 @@ local function template_uses_stationary_smart_job(tpl, needs_smart)
 end
 
 local function template_uses_fixed_anchor(tpl, needs_smart)
-    return tpl and needs_smart and normalize_template_movement_mode(tpl) == "fixed"
+    return tpl and normalize_template_movement_mode(tpl) == "fixed"
+end
+
+local function resolve_template_member_section(tpl, squad_section)
+    local requested = tpl and tpl.member_section
+    if requested and requested ~= "" then
+        if ini_sys and ini_sys.section_exist and ini_sys:section_exist(requested) then
+            return requested
+        end
+        printf(
+            "PANDA_NPC: template requested member_section '%s' but section is missing; using squad default",
+            tostring(requested)
+        )
+    end
+
+    return get_single_member_spawn_section(squad_section)
 end
 
 local function resolve_template_visual(tpl, outfit_visual)
     if tpl and tpl.visual and tpl.visual ~= "" then
         return tpl.visual
     end
+    if tpl and tpl.visual_preset and tpl.visual_preset ~= "" then
+        local visual = DUX_FEMALE_VISUAL_PRESETS[string.lower(tostring(tpl.visual_preset))]
+        if visual then
+            if not game_mesh_exists_for_visual(visual) then
+                printf(
+                    "PANDA_NPC: visual preset '%s' needs missing mesh '%s'; install Dux meshes or set explicit visual",
+                    tostring(tpl.visual_preset),
+                    tostring(visual)
+                )
+                return outfit_visual
+            end
+            return visual
+        end
+        printf("PANDA_NPC: unknown visual preset '%s'; using outfit/default visual", tostring(tpl.visual_preset))
+    end
     if tpl and string.lower(tostring(tpl.gender or "")) == "female" then
-        return FEMALE_VISUAL
+        printf("PANDA_NPC: female template has no explicit visual/preset; not using vanilla Hip visual fallback")
     end
     return outfit_visual
 end
@@ -3138,8 +3225,11 @@ function spawn_custom_npc(template_id, context)
     local needs_smart = context_smart_ref ~= nil or template_smart_ref ~= nil
     local resolved_smart_ref = context_smart_ref or template_smart_ref
     local movement_mode = normalize_template_movement_mode(tpl)
+    local context_requests_fixed_anchor = context.stationary_anchor == true
+        or context.continuation_target == true
+        or (type(context.conv_data) == "table" and context.conv_data.continuation_target == true)
     local wants_stationary_smart_job = template_uses_stationary_smart_job(tpl, needs_smart)
-    local wants_fixed_anchor = template_uses_fixed_anchor(tpl, needs_smart)
+    local wants_fixed_anchor = template_uses_fixed_anchor(tpl, needs_smart) or context_requests_fixed_anchor
     local wants_stationary_anchor = wants_stationary_smart_job or wants_fixed_anchor
     local stationary_behavior = normalize_stationary_job_behavior(tpl and tpl.stationary_job)
     if not tpl then
@@ -3154,7 +3244,7 @@ function spawn_custom_npc(template_id, context)
         printf("PANDA_NPC: template '%s' requested smart-terrain spawn but no smart_ref is set", tostring(template_id))
         return
     end
-    if not needs_smart and movement_mode ~= "roam" then
+    if not needs_smart and movement_mode == "smart" then
         printf(
             "PANDA_NPC: template '%s' requested movement mode '%s', but near-player spawns always roam; ignoring stationary flag",
             tostring(template_id),
@@ -3203,7 +3293,7 @@ function spawn_custom_npc(template_id, context)
 
     -- Create squad
     local sec = get_squad_section(tpl.faction)
-    local single_member_section = get_single_member_spawn_section(sec)
+    local single_member_section = resolve_template_member_section(tpl, sec)
     local squad = nil
     local squad_id = nil
     local member_ids = {}
@@ -3350,9 +3440,9 @@ function spawn_custom_npc(template_id, context)
                 end
                 pending_rank_overrides[member_id] = tpl.rank
                 printf(
-                    "PANDA_NPC: queued rank '%s' for npc_id=%d points=%s server=%s online=%s",
+                    "PANDA_NPC: queued rank '%s' for npc_id=%s points=%s server=%s online=%s",
                     tostring(tpl.rank),
-                    member_id,
+                    tostring(member_id),
                     tostring(rank_points or "nil"),
                     tostring(applied_server),
                     tostring(applied_online)
@@ -3742,7 +3832,7 @@ local function on_npc_net_spawn(obj, se_obj)
             pcall(function() se:set_character_name(name) end)
         end
         pending_name_overrides[npc_id] = nil
-        printf("PANDA_NPC: applied name '%s' to npc_id=%d (deferred)", tostring(name), npc_id)
+        printf("PANDA_NPC: applied name '%s' to npc_id=%s (deferred)", tostring(name), tostring(npc_id))
     end
 
     if pending_rank_overrides[npc_id] then
@@ -3758,9 +3848,9 @@ local function on_npc_net_spawn(obj, se_obj)
             pending_rank_overrides[npc_id] = nil
         end
         printf(
-            "PANDA_NPC: applied deferred rank '%s' to npc_id=%d points=%s server=%s online=%s",
+            "PANDA_NPC: applied deferred rank '%s' to npc_id=%s points=%s server=%s online=%s",
             tostring(rank_name),
-            npc_id,
+            tostring(npc_id),
             tostring(rank_points or "nil"),
             tostring(applied_server),
             tostring(applied_online)
@@ -3813,7 +3903,7 @@ local function mark_custom_npc_dead(npc_id)
         for _, e in ipairs(entries) do
             if e.npc_id == npc_id and e.alive then
                 e.alive = false
-                printf("PANDA_NPC: npc_id=%d (template '%s') marked dead", npc_id, tostring(tpl_id))
+                printf("PANDA_NPC: npc_id=%s (template '%s') marked dead", tostring(npc_id), tostring(tpl_id))
                 return true
             end
         end

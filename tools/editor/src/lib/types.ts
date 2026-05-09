@@ -14,6 +14,9 @@ export interface NpcTemplate {
   outfit?: string;
   items?: string;
   gender?: 'male' | 'female';
+  visual?: string;
+  visualPreset?: string;
+  memberSection?: string;
   movementMode?: 'roam' | 'smart' | 'fixed';
   spawnMode?: 'player' | 'smart';
   smartTerrain?: string;

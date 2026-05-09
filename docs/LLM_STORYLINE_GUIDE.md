@@ -601,7 +601,9 @@ If your storyline spawns a custom NPC, add an `npcTemplates` array to the projec
 | `faction` | Faction ID. |
 | `rank` | Rank name. |
 | `relation` | `"friendly"`, `"neutral"`, or `"hostile"` |
-| `gender` | `"male"` or `"female"`. Female uses vanilla Hip-style woman voice and girl visual. |
+| `gender` | `"male"` or `"female"`. Female uses woman voice only. Set `visual`/`visualPreset` for real model; no automatic Hip visual fallback. |
+| `visual` / `visualPreset` | Explicit model path or preset like `dux_loner`, `dux_loner_rookie`, `dux_loner_veteran`, `dux_duty`, `dux_freedom`, `dux_ecolog`, `dux_merc`, `dux_monolith`. Dux presets require Dux female meshes installed. |
+| `memberSection` | Optional NPC spawn section override, for custom/Dux-backed sections. |
 | `primary` | Primary weapon item section. **Leave as placeholder.** |
 | `secondary` | Secondary weapon item section. **Leave as placeholder.** |
 | `outfit` | Armor item section. **Leave as placeholder.** |

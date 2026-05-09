@@ -214,6 +214,206 @@ local function get_conv_api()
     return nil
 end
 
+local function is_custom_npc_ref(value)
+    return type(value) == "string" and value:sub(1, 4) == "npc:" and value:sub(5) ~= ""
+end
+
+local function resolve_or_spawn_custom_npc_se(template_id, context)
+    if not template_id or template_id == "" or not panda_npc_creator then
+        return nil
+    end
+
+    if type(panda_npc_creator.get_active_npc_se) == "function" then
+        local ok_existing, existing = pcall(panda_npc_creator.get_active_npc_se, template_id)
+        if ok_existing and existing then
+            return existing
+        end
+    end
+
+    if type(panda_npc_creator.spawn_custom_npc) == "function" then
+        pcall(panda_npc_creator.spawn_custom_npc, template_id, context or {})
+    end
+
+    if type(panda_npc_creator.get_active_npc_se) == "function" then
+        local ok_spawned, spawned = pcall(panda_npc_creator.get_active_npc_se, template_id)
+        if ok_spawned and spawned then
+            return spawned
+        end
+    end
+
+    return nil
+end
+
+local function resolve_continuation_npc_se(npc_ref, context)
+    if not npc_ref or npc_ref == "" then
+        return nil
+    end
+
+    if is_custom_npc_ref(npc_ref) then
+        return resolve_or_spawn_custom_npc_se(npc_ref:sub(5), context)
+    end
+
+    if type(get_story_se_object) == "function" then
+        local ok_story, story_se = pcall(get_story_se_object, npc_ref)
+        if ok_story and story_se then
+            return story_se
+        end
+    end
+
+    return nil
+end
+
+local function register_pending_handoff_via_api(contact_id, handoff_row)
+    local api = get_conv_api()
+    if api and type(api.register_f2f_handoff) == "function" then
+        local ok_api, registered = pcall(api.register_f2f_handoff, contact_id, handoff_row)
+        if ok_api and registered == true then
+            return true
+        end
+    end
+
+    local contact_key = tostring(contact_id or handoff_row and handoff_row.contact_id or "")
+    local npc_sid = tonumber(handoff_row and handoff_row.npc_id)
+    if contact_key == "" or not npc_sid or npc_sid <= 0 then
+        return false
+    end
+
+    local handoffs = rawget(_G, "pda_f2f_handoffs")
+    if type(handoffs) ~= "table" then
+        handoffs = {}
+        _G.pda_f2f_handoffs = handoffs
+    end
+
+    handoff_row.contact_id = contact_key
+    handoffs[contact_key] = handoff_row
+    return true
+end
+
+local function make_bridge_handoff_token(npc_id, conv_id, turn, set_at)
+    return string.format(
+        "f2f_handoff_%s_%s_%s_%s",
+        tostring(tonumber(npc_id) or 0),
+        tostring(tonumber(conv_id) or 0),
+        tostring(tonumber(turn) or 0),
+        tostring(tonumber(set_at) or 0)
+    )
+end
+
+local function register_f2f_continuation_handoff(active_state, active_npc_id, branch)
+    if type(active_state) ~= "table" or type(branch) ~= "table" then
+        return false
+    end
+    if branch.next_channel ~= "f2f" or not branch.next_turn or not branch.next_npc_id or branch.next_npc_id == "" then
+        return false
+    end
+
+    local target_se = resolve_continuation_npc_se(branch.next_npc_id, {
+        conv_data = {
+            conv_id = active_state.conv_id,
+            turn = branch.next_turn,
+            faction = active_state.faction,
+            prefix = active_state.prefix,
+            continuation_target = true,
+        },
+    })
+    local target_id = resolve_server_npc_id(target_se, "register_f2f_continuation_handoff:target")
+    if not target_id then
+        bridge_warn(
+            "register_f2f_continuation_handoff failed reason=target_unresolved conv_id=%s turn=%s next_npc_id=%s",
+            tostring(active_state.conv_id or "nil"),
+            tostring(branch.next_turn or "nil"),
+            tostring(branch.next_npc_id or "nil")
+        )
+        return false
+    end
+
+    if active_npc_id and tonumber(active_npc_id) == tonumber(target_id) then
+        return false
+    end
+
+    local target_name = "Unknown"
+    if target_se and target_se.character_name then
+        local ok_name, resolved_name = pcall(function() return target_se:character_name() end)
+        if ok_name and resolved_name and resolved_name ~= "" then
+            target_name = tostring(resolved_name)
+        end
+    end
+
+    local target_icon = nil
+    if target_se and target_se.character_icon then
+        local ok_icon, resolved_icon = pcall(function() return target_se:character_icon() end)
+        if ok_icon and resolved_icon and resolved_icon ~= "" then
+            target_icon = tostring(resolved_icon)
+        end
+    end
+
+    local runtime_ids = resolve_partner_runtime_ids(target_se)
+    local set_at = time_global and time_global() or 0
+    local handoff_dialog = panda_f2f_bridge.allocate_hub_dialog_id()
+    local contact_id = tostring(target_id)
+    local token = make_bridge_handoff_token(target_id, active_state.conv_id, branch.next_turn, set_at)
+    local canonical_id = branch.next_npc_id and tostring(branch.next_npc_id):lower() or runtime_ids.canonical_id
+
+    local handoff_row = {
+        contact_id = contact_id,
+        npc_id = target_id,
+        npc_name = target_name,
+        npc_icon = target_icon,
+        conv_id = active_state.conv_id,
+        turn = branch.next_turn,
+        faction = active_state.faction,
+        prefix = active_state.prefix,
+        channel = "f2f",
+        dialog = handoff_dialog,
+        set_at = set_at,
+        token = token,
+        story_id = branch.next_npc_id,
+        canonical_id = canonical_id,
+        fallback_name = runtime_ids.fallback_name,
+        task_id = active_state.task_id,
+        category = active_state.category,
+        route_owner = nil,
+        route_dialog = handoff_dialog,
+        route_status = "pending",
+    }
+
+    if type(active_state.handoff) == "table" and type(active_state.handoff.applied_outcomes) == "table" then
+        handoff_row.applied_outcomes = active_state.handoff.applied_outcomes
+    end
+
+    if not register_pending_handoff_via_api(contact_id, handoff_row) then
+        bridge_warn(
+            "register_f2f_continuation_handoff failed reason=register_failed target_id=%s conv_id=%s turn=%s",
+            tostring(target_id),
+            tostring(active_state.conv_id or "nil"),
+            tostring(branch.next_turn or "nil")
+        )
+        return false
+    end
+
+    local owner_tag = string.format("f2f_handoff_%s_%s_%s", tostring(contact_id), tostring(active_state.conv_id), tostring(branch.next_turn))
+    local routed = false
+    if type(panda_f2f_bridge.hard_route_branch) == "function" then
+        local ok_route, route_applied = pcall(panda_f2f_bridge.hard_route_branch, target_id, owner_tag, handoff_dialog)
+        routed = ok_route and route_applied == true
+    end
+
+    handoff_row.route_owner = owner_tag
+    handoff_row.route_status = routed and "bridge route" or "pending"
+    handoff_row.route_set_at = time_global and time_global() or set_at
+
+    bridge_debug(
+        "register_f2f_continuation_handoff target_id=%s next_npc_id=%s conv_id=%s turn=%s dialog=%s routed=%s",
+        tostring(target_id),
+        tostring(branch.next_npc_id),
+        tostring(active_state.conv_id or "nil"),
+        tostring(branch.next_turn or "nil"),
+        tostring(handoff_dialog),
+        tostring(routed)
+    )
+    return true
+end
+
 local function get_dialog_manager_iface()
     local dm = rawget(_G, "dialog_manager")
     if type(dm) == "table" then
@@ -971,6 +1171,64 @@ local function clone_override_owners(owners)
     return clone
 end
 
+local function is_pending_f2f_handoff_override(npc_id, owner_rec)
+    local sid = normalize_npc_id(npc_id)
+    if not sid or type(owner_rec) ~= "table" then
+        return false
+    end
+
+    local owner = owner_rec.owner and tostring(owner_rec.owner) or ""
+    if owner == "" then
+        return false
+    end
+    if owner:sub(1, 12) ~= "f2f_handoff_" and owner:sub(1, 12) ~= "pda_handoff_" then
+        return false
+    end
+
+    local handoffs = rawget(_G, "pda_f2f_handoffs")
+    if type(handoffs) ~= "table" then
+        return false
+    end
+
+    local now = tonumber(time_global and time_global() or 0) or 0
+    for _, handoff in pairs(handoffs) do
+        if type(handoff) == "table" and normalize_npc_id(handoff.npc_id) == sid then
+            local set_at = tonumber(handoff.set_at)
+            local age = set_at and (now - set_at) or RECENT_HANDOFF_GRACE_MS + 1
+            if age < 0 then
+                age = 0
+            end
+            if age <= RECENT_HANDOFF_GRACE_MS then
+                local route_owner = handoff.route_owner and tostring(handoff.route_owner) or ""
+                local route_dialog = handoff.route_dialog or handoff.dialog
+                if route_owner == owner or tostring(route_dialog or "") == tostring(owner_rec.dialog or "") then
+                    return true
+                end
+            end
+        end
+    end
+
+    return false
+end
+
+local function split_pending_handoff_overrides(owners)
+    local restore = {}
+    local preserve = {}
+    if type(owners) ~= "table" then
+        return restore, preserve
+    end
+
+    for npc_id, rec in pairs(owners) do
+        if is_pending_f2f_handoff_override(npc_id, rec) then
+            preserve[npc_id] = rec
+        else
+            restore[npc_id] = rec
+        end
+    end
+
+    return restore, preserve
+end
+
 local function snapshot_override_owners_for_save()
     runtime.saved_override_owners = clone_override_owners(runtime.override_owners)
     return runtime.saved_override_owners
@@ -1561,8 +1819,8 @@ local function collect_registry_continuation(registry_raw, turn, choice_index)
         choice_block:match("\"contChannel\"%s*:%s*\"([%w_%-]+)\"") or
         choice_block:match("\"continuationChannel\"%s*:%s*\"([%w_%-]+)\"")
     local next_npc_id =
-        choice_block:match("\"contNpcId\"%s*:%s*\"([%w_%-]+)\"") or
-        choice_block:match("\"nextNpcId\"%s*:%s*\"([%w_%-]+)\"")
+        choice_block:match("\"contNpcId\"%s*:%s*\"([%w_%-:]+)\"") or
+        choice_block:match("\"nextNpcId\"%s*:%s*\"([%w_%-:]+)\"")
 
     if next_turn then
         next_turn = tonumber(next_turn)
@@ -2504,14 +2762,25 @@ function panda_f2f_bridge.reset_runtime(reason)
 
     cleanup_all_runtime_handlers()
 
-    local restored = restore_override_owners(runtime.override_owners)
+    local owners_to_restore = runtime.override_owners
+    local owners_to_preserve = {}
+    if string.find(reason_s, "on_dialog_closed_finalize", 1, true) then
+        owners_to_restore, owners_to_preserve = split_pending_handoff_overrides(runtime.override_owners)
+    end
+
+    local restored = restore_override_owners(owners_to_restore)
     clear_runtime_transient_state()
-    runtime.override_owners = {}
+    runtime.override_owners = owners_to_preserve
     runtime.saved_override_owners = nil
+    local preserved_count = 0
+    for _ in pairs(owners_to_preserve or {}) do
+        preserved_count = preserved_count + 1
+    end
     bridge_warn(
-        "reset_runtime reason=%s restored_overrides=%s",
+        "reset_runtime reason=%s restored_overrides=%s preserved_handoff_overrides=%s",
         tostring(reason_s),
-        tostring(restored == true)
+        tostring(restored == true),
+        tostring(preserved_count)
     )
     return true
 end
@@ -3682,6 +3951,9 @@ local function build_dialog_tree(dialog, state)
                         tostring(active_state.pending_pda_followup.contact_id or "nil")
                     )
                 end
+                if branch.next_turn and branch.next_channel == "f2f" and branch.next_npc_id and branch.next_npc_id ~= "" then
+                    register_f2f_continuation_handoff(active_state, active_npc_id, branch)
+                end
                 active_state.branch_committed = true
                 -- For F2F-direct conversations, record cooldown on branch commit (not at init time).
                 if active_state.f2f_direct == true then
@@ -3825,7 +4097,8 @@ local function build_dialog_tree(dialog, state)
             local actor_id = alloc()
             generated_ids.choice[#generated_ids.choice + 1] = actor_id
             local cond_name, act_name = register_dispatcher(branch)
-            local branch_continues_in_f2f = (branch.next_channel == "f2f") and (branch.next_turn ~= nil)
+            local branch_targets_other_npc = branch.next_npc_id ~= nil and branch.next_npc_id ~= ""
+            local branch_continues_in_f2f = (branch.next_channel == "f2f") and (branch.next_turn ~= nil) and not branch_targets_other_npc
             local branch_auto_closes = auto_close_dead_end == true and branch_continues_in_f2f == false
             local actor_action = act_name
             if branch.reply_key == nil and branch_auto_closes then

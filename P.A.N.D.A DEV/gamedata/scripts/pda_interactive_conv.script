@@ -2220,6 +2220,32 @@ end
     return nil
 end
 
+local function resolve_or_spawn_custom_npc_se(template_id, context)
+    if not template_id or template_id == "" or not panda_npc_creator then
+        return nil
+    end
+
+    if type(panda_npc_creator.get_active_npc_se) == "function" then
+        local ok_existing, existing = pcall(panda_npc_creator.get_active_npc_se, template_id)
+        if ok_existing and existing then
+            return existing
+        end
+    end
+
+    if type(panda_npc_creator.spawn_custom_npc) == "function" then
+        pcall(panda_npc_creator.spawn_custom_npc, template_id, context or {})
+    end
+
+    if type(panda_npc_creator.get_active_npc_se) == "function" then
+        local ok_spawned, spawned = pcall(panda_npc_creator.get_active_npc_se, template_id)
+        if ok_spawned and spawned then
+            return spawned
+        end
+    end
+
+    return nil
+end
+
 local function resolve_handoff_target_se(story_npc_id, fallback_npc_se)
     if not story_npc_id or story_npc_id == "" then
         return fallback_npc_se
@@ -6429,9 +6455,10 @@ function on_player_choice(idx, contact_id)
                             new_npc_se = pick_sim_branch_speaker_se(ch.next_npc_faction_filters)
                             new_npc_id = new_npc_se and tonumber(new_npc_se.id) or nil
                         elseif ch.next_npc_id and ch.next_npc_id ~= "" then
-                            if ch.next_npc_id:sub(1,4) == "npc:" and panda_npc_creator then
-                                local tpl = ch.next_npc_id:sub(5)
-                                new_npc_se = panda_npc_creator.get_active_npc_se(tpl)
+                            if ch.next_npc_id:sub(1,4) == "npc:" then
+                                new_npc_se = resolve_or_spawn_custom_npc_se(ch.next_npc_id:sub(5), {
+                                    conv_data = c,
+                                })
                                 new_npc_id = new_npc_se and tonumber(new_npc_se.id) or nil
                             elseif type(get_story_se_object) == "function" then
                                 local ok_se, se = pcall(get_story_se_object, ch.next_npc_id)
@@ -6539,8 +6566,10 @@ function on_player_choice(idx, contact_id)
                         local handoff_target_id = tostring(c.npc_id or "Unknown")
                         local ht_se
                         if ch.next_npc_id and ch.next_npc_id ~= "" then
-                            if ch.next_npc_id:sub(1,4) == "npc:" and panda_npc_creator then
-                                ht_se = panda_npc_creator.get_active_npc_se(ch.next_npc_id:sub(5))
+                            if ch.next_npc_id:sub(1,4) == "npc:" then
+                                ht_se = resolve_or_spawn_custom_npc_se(ch.next_npc_id:sub(5), {
+                                    conv_data = c,
+                                })
                             elseif type(get_story_se_object) == "function" then
                                 local ok_ht, _ht = pcall(get_story_se_object, ch.next_npc_id)
                                 ht_se = ok_ht and _ht or nil
@@ -6605,8 +6634,10 @@ function on_player_choice(idx, contact_id)
                             handoff_row.story_id    = ch.next_npc_id
                             handoff_row.canonical_id = ch.next_npc_id:lower()
                             local new_se
-                            if ch.next_npc_id:sub(1,4) == "npc:" and panda_npc_creator then
-                                new_se = panda_npc_creator.get_active_npc_se(ch.next_npc_id:sub(5))
+                            if ch.next_npc_id:sub(1,4) == "npc:" then
+                                new_se = resolve_or_spawn_custom_npc_se(ch.next_npc_id:sub(5), {
+                                    conv_data = c,
+                                })
                             elseif type(get_story_se_object) == "function" then
                                 local ok_new, _se = pcall(get_story_se_object, ch.next_npc_id)
                                 new_se = ok_new and _se or nil
@@ -7723,6 +7754,10 @@ end
 
 function PANDA_CONV_API.queue_pda_followup(followup)
     return queue_pda_followup_internal(followup)
+end
+
+function PANDA_CONV_API.register_f2f_handoff(contact_id, handoff_row)
+    return register_pending_f2f_handoff(contact_id, handoff_row)
 end
 
 function PANDA_CONV_API.get_pending_f2f_handoff(npc_id)

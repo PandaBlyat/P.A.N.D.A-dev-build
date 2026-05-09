@@ -77,6 +77,9 @@ export function encodeNpcTemplate(t: NpcTemplate): string {
   if (t.outfit) parts.push(`outfit=${t.outfit}`);
   if (t.items) parts.push(`items=${t.items}`);
   if (t.gender && t.gender !== 'male') parts.push(`gender=${t.gender}`);
+  if (t.visualPreset) parts.push(`visual_preset=${t.visualPreset}`);
+  if (t.visual) parts.push(`visual=${t.visual}`);
+  if (t.memberSection) parts.push(`member_section=${t.memberSection}`);
   if (t.movementMode && t.movementMode !== 'roam') parts.push(`movement=${t.movementMode}`);
   if (t.relation && t.relation !== 'default') parts.push(`relation=${t.relation}`);
   if (t.spawnMode && t.spawnMode !== 'player') parts.push(`spawn_mode=${t.spawnMode}`);
@@ -136,6 +139,8 @@ function getTemplateSummary(t: NpcTemplate): string {
   if (t.rank) parts.push(t.rank);
   if (t.relation && t.relation !== 'default') parts.push(t.relation);
   if (t.gender === 'female') parts.push(ui('Female', 'Female'));
+  if (t.visualPreset) parts.push(t.visualPreset);
+  if (t.memberSection) parts.push(t.memberSection);
   if (t.movementMode === 'fixed') parts.push(ui('Fixed post', 'Fixed post'));
   if (t.movementMode === 'smart') parts.push(ui('Smart roam', 'Smart roam'));
   if (t.spawnMode === 'smart') {
@@ -189,6 +194,9 @@ function openNpcBuilderPanel(options: {
     outfit: existing?.outfit ?? '',
     items: parseItemsList(existing?.items ?? ''),
     gender: existing?.gender ?? 'male',
+    visual: existing?.visual ?? '',
+    visualPreset: existing?.visualPreset ?? '',
+    memberSection: existing?.memberSection ?? '',
     movementMode: existing?.movementMode ?? (existing?.allowRoam === false ? 'smart' : 'roam'),
     spawnDist: String(existing?.spawnDist ?? 50),
     trader: existing?.trader ?? false,
@@ -446,10 +454,52 @@ function openNpcBuilderPanel(options: {
     sel.onchange = () => { form.gender = sel.value as 'male' | 'female'; };
     const hint = document.createElement('div');
     hint.className = 'command-description';
-    hint.textContent = ui('Female uses vanilla Hip setup: woman voice prefix and girl visual.', 'Female uses vanilla Hip setup: woman voice prefix and girl visual.');
+    hint.textContent = ui('Female uses woman voice. Set visual preset/model for Dux female meshes; no Hip fallback.', 'Female uses woman voice. Set visual preset/model for Dux female meshes; no Hip fallback.');
     content.append(sel, hint);
     genderRow.appendChild(wrap);
     sec.appendChild(genderRow);
+
+    const appearanceRow = document.createElement('div');
+    appearanceRow.className = 'npc-builder-row';
+    {
+      const { wrap, content } = makeField(ui('Visual preset', 'Visual preset'));
+      const input = document.createElement('input');
+      input.className = 'npc-builder-input';
+      input.placeholder = ui('dux_loner', 'dux_loner');
+      input.value = form.visualPreset;
+      input.oninput = () => { form.visualPreset = input.value.trim(); };
+      const hint = document.createElement('div');
+      hint.className = 'command-description';
+      hint.textContent = ui('Examples: dux_loner, dux_loner_veteran, dux_duty, dux_freedom, dux_ecolog.', 'Examples: dux_loner, dux_loner_veteran, dux_duty, dux_freedom, dux_ecolog.');
+      content.append(input, hint);
+      appearanceRow.appendChild(wrap);
+    }
+    {
+      const { wrap, content } = makeField(ui('Visual path', 'Visual path'));
+      const input = document.createElement('input');
+      input.className = 'npc-builder-input';
+      input.placeholder = ui('actors\\stalker_neutral\\stalker_f_neutral_sci_sunrise_1', 'actors\\stalker_neutral\\stalker_f_neutral_sci_sunrise_1');
+      input.value = form.visual;
+      input.oninput = () => { form.visual = input.value.trim(); };
+      content.appendChild(input);
+      appearanceRow.appendChild(wrap);
+    }
+    sec.appendChild(appearanceRow);
+
+    const memberRow = document.createElement('div');
+    memberRow.className = 'npc-builder-row';
+    const memberField = makeField(ui('Member section', 'Member section'));
+    const memberInput = document.createElement('input');
+    memberInput.className = 'npc-builder-input';
+    memberInput.placeholder = ui('custom spawn section (optional)', 'custom spawn section (optional)');
+    memberInput.value = form.memberSection;
+    memberInput.oninput = () => { form.memberSection = memberInput.value.trim(); };
+    const memberHint = document.createElement('div');
+    memberHint.className = 'command-description';
+    memberHint.textContent = ui('Use only when mod adds a real spawn section backed by desired character_profile.', 'Use only when mod adds a real spawn section backed by desired character_profile.');
+    memberField.content.append(memberInput, memberHint);
+    memberRow.appendChild(memberField.wrap);
+    sec.appendChild(memberRow);
     body.appendChild(sec);
   }
 
@@ -871,6 +921,9 @@ function openNpcBuilderPanel(options: {
         : (existing?.spawnDist != null && existing.spawnDist !== 50 ? { spawnDist: existing.spawnDist } : {})),
       ...(form.trader ? { trader: true } : {}),
       ...(form.gender === 'female' ? { gender: 'female' } : {}),
+      ...(form.visualPreset ? { visualPreset: form.visualPreset.trim() } : {}),
+      ...(form.visual ? { visual: form.visual.trim() } : {}),
+      ...(form.memberSection ? { memberSection: form.memberSection.trim() } : {}),
       ...(form.movementMode !== 'roam' ? { movementMode: form.movementMode } : {}),
       ...(form.movementMode !== 'roam' ? { allowRoam: false } : {}),
       ...(form.movementMode === 'smart' && form.stationaryJob && form.stationaryJob !== 'auto' ? { stationaryJob: form.stationaryJob } : {}),

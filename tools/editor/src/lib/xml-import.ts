@@ -470,6 +470,19 @@ function decodeNpcTemplate(id: string, raw: string): NpcTemplate {
       case 'secondary': tpl.secondary = v; break;
       case 'outfit': tpl.outfit = v; break;
       case 'items': tpl.items = v; break;
+      case 'visual':
+        tpl.visual = v;
+        break;
+      case 'visual_preset':
+      case 'model_preset':
+      case 'appearance':
+        tpl.visualPreset = v;
+        break;
+      case 'member_section':
+      case 'npc_section':
+      case 'spawn_section':
+        tpl.memberSection = v;
+        break;
       case 'gender':
       case 'sex':
         if (lowerV === 'female' || lowerV === 'woman') {
