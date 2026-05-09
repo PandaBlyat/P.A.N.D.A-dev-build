@@ -13,6 +13,8 @@ export interface NpcTemplate {
   secondary?: string;
   outfit?: string;
   items?: string;
+  gender?: 'male' | 'female';
+  movementMode?: 'roam' | 'smart' | 'fixed';
   spawnMode?: 'player' | 'smart';
   smartTerrain?: string;
   spawnDist?: number;

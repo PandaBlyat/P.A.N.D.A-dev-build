@@ -584,9 +584,10 @@ If your storyline spawns a custom NPC, add an `npcTemplates` array to the projec
       "faction": "stalker",
       "rank": "experienced",
       "relation": "friendly",
+      "gender": "male",
       "spawnMode": "player",
       "spawnDist": 20,
-      "allowRoam": true
+      "movementMode": "roam"
     }
   ],
   "conversations": [ ... ]
@@ -600,6 +601,7 @@ If your storyline spawns a custom NPC, add an `npcTemplates` array to the projec
 | `faction` | Faction ID. |
 | `rank` | Rank name. |
 | `relation` | `"friendly"`, `"neutral"`, or `"hostile"` |
+| `gender` | `"male"` or `"female"`. Female uses vanilla Hip-style woman voice and girl visual. |
 | `primary` | Primary weapon item section. **Leave as placeholder.** |
 | `secondary` | Secondary weapon item section. **Leave as placeholder.** |
 | `outfit` | Armor item section. **Leave as placeholder.** |
@@ -607,7 +609,9 @@ If your storyline spawns a custom NPC, add an `npcTemplates` array to the projec
 | `spawnMode` | `"player"` (near player) or `"smart"` (at smart terrain) |
 | `spawnDist` | Meters from player. Only for `spawnMode: "player"`. |
 | `smartTerrain` | Smart terrain key. Only for `spawnMode: "smart"`. **Leave as placeholder.** |
-| `allowRoam` | `true` to let NPC wander after spawn |
+| `movementMode` | `"roam"` for normal movement, `"smart"` to wander inside chosen smart terrain like Hip, `"fixed"` to hold spawn point and return after combat like Wolf/Fanatic. Smart/fixed require `spawnMode: "smart"`. |
+| `allowRoam` | Legacy. Use `movementMode`. `false` maps to `"smart"` unless `movementMode` says `"fixed"`. |
+| `stationaryJob` | Optional smart-roam job family (`"auto"`, `"guard"`, `"walker"`, `"kamp"`, `"animpoint"`, `"sniper"`). Only for `movementMode: "smart"`. |
 | `trader` | `true` if NPC should act as trader |
 
 ---

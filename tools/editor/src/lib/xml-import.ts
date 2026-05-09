@@ -461,6 +461,7 @@ function decodeNpcTemplate(id: string, raw: string): NpcTemplate {
     if (eq < 0) continue;
     const k = pair.slice(0, eq).trim();
     const v = pair.slice(eq + 1).trim();
+    const lowerV = v.toLowerCase();
     switch (k) {
       case 'name': tpl.name = v; break;
       case 'faction': tpl.faction = v; break;
@@ -469,13 +470,32 @@ function decodeNpcTemplate(id: string, raw: string): NpcTemplate {
       case 'secondary': tpl.secondary = v; break;
       case 'outfit': tpl.outfit = v; break;
       case 'items': tpl.items = v; break;
+      case 'gender':
+      case 'sex':
+        if (lowerV === 'female' || lowerV === 'woman') {
+          tpl.gender = 'female';
+        } else if (lowerV === 'male' || lowerV === 'man') {
+          tpl.gender = 'male';
+        }
+        break;
+      case 'movement':
+      case 'movement_mode':
+      case 'move_mode':
+        if (lowerV === 'fixed' || lowerV === 'anchor' || lowerV === 'story' || lowerV === 'stay_put') {
+          tpl.movementMode = 'fixed';
+        } else if (lowerV === 'smart' || lowerV === 'smart_job' || lowerV === 'smart_roam' || lowerV === 'location') {
+          tpl.movementMode = 'smart';
+        } else if (lowerV === 'roam' || lowerV === 'free') {
+          tpl.movementMode = 'roam';
+        }
+        break;
       case 'relation': tpl.relation = v; break;
       case 'spawn_mode':
       case 'spawn_target':
       case 'spawn_location':
-        if (v === 'smart' || v === 'smart_terrain' || v === 'location') {
+        if (lowerV === 'smart' || lowerV === 'smart_terrain' || lowerV === 'location') {
           tpl.spawnMode = 'smart';
-        } else if (v === 'player' || v === 'near_player' || v === 'near') {
+        } else if (lowerV === 'player' || lowerV === 'near_player' || lowerV === 'near') {
           tpl.spawnMode = 'player';
         }
         break;
@@ -486,8 +506,11 @@ function decodeNpcTemplate(id: string, raw: string): NpcTemplate {
         break;
       case 'spawn_dist': { const n = parseInt(v, 10); if (!isNaN(n)) tpl.spawnDist = n; break; }
       case 'count': { const n = parseInt(v, 10); if (!isNaN(n)) tpl.count = n; break; }
-      case 'trader': tpl.trader = v === '1' || v === 'true'; break;
-      case 'roam': tpl.allowRoam = !(v === '0' || v === 'false'); break;
+      case 'trader': tpl.trader = lowerV === '1' || lowerV === 'true'; break;
+      case 'roam':
+        tpl.allowRoam = !(lowerV === '0' || lowerV === 'false');
+        if (tpl.movementMode == null) tpl.movementMode = tpl.allowRoam ? 'roam' : 'smart';
+        break;
       case 'smart_job':
       case 'stationary_job':
       case 'job_behavior':

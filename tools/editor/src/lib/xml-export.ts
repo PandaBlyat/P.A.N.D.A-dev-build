@@ -263,13 +263,15 @@ export function encodeNpcTemplate(t: NpcTemplate): string {
   if (t.secondary) parts.push(`secondary=${t.secondary}`);
   if (t.outfit) parts.push(`outfit=${t.outfit}`);
   if (t.items) parts.push(`items=${t.items}`);
+  if (t.gender && t.gender !== 'male') parts.push(`gender=${t.gender}`);
+  if (t.movementMode && t.movementMode !== 'roam') parts.push(`movement=${t.movementMode}`);
   if (t.relation && t.relation !== 'default') parts.push(`relation=${t.relation}`);
   if (t.spawnMode && t.spawnMode !== 'player') parts.push(`spawn_mode=${t.spawnMode}`);
   if (t.smartTerrain) parts.push(`smart_ref=${t.smartTerrain}`);
   if (t.spawnDist != null && t.spawnDist !== 50) parts.push(`spawn_dist=${t.spawnDist}`);
   if (t.trader) parts.push(`trader=1`);
-  if (t.allowRoam === false) parts.push(`roam=0`);
-  if (t.allowRoam === false && t.stationaryJob && t.stationaryJob !== 'auto') parts.push(`smart_job=${t.stationaryJob}`);
+  if (t.allowRoam === false && !t.movementMode) parts.push(`roam=0`);
+  if ((t.allowRoam === false || t.movementMode === 'smart') && t.stationaryJob && t.stationaryJob !== 'auto') parts.push(`smart_job=${t.stationaryJob}`);
   return parts.join('|');
 }
 

@@ -30,6 +30,17 @@ const SPAWN_TARGET_OPTIONS = [
   { value: 'smart', label: 'At smart terrain', labelRu: 'На smart terrain' },
 ];
 
+const GENDER_OPTIONS = [
+  { value: 'male', label: 'Male', labelRu: 'Male' },
+  { value: 'female', label: 'Female', labelRu: 'Female' },
+];
+
+const MOVEMENT_MODE_OPTIONS = [
+  { value: 'roam', label: 'Free roam', labelRu: 'Free roam' },
+  { value: 'smart', label: 'Roam inside smart terrain', labelRu: 'Smart terrain roam' },
+  { value: 'fixed', label: 'Fixed post, return after combat', labelRu: 'Fixed post' },
+];
+
 const STATIONARY_JOB_OPTIONS = [
   { value: 'auto', label: 'Auto (best smart job)', labelRu: 'Авто (лучшая работа)' },
   { value: 'guard', label: 'Guard', labelRu: 'Охранник' },
@@ -65,13 +76,15 @@ export function encodeNpcTemplate(t: NpcTemplate): string {
   if (t.secondary) parts.push(`secondary=${t.secondary}`);
   if (t.outfit) parts.push(`outfit=${t.outfit}`);
   if (t.items) parts.push(`items=${t.items}`);
+  if (t.gender && t.gender !== 'male') parts.push(`gender=${t.gender}`);
+  if (t.movementMode && t.movementMode !== 'roam') parts.push(`movement=${t.movementMode}`);
   if (t.relation && t.relation !== 'default') parts.push(`relation=${t.relation}`);
   if (t.spawnMode && t.spawnMode !== 'player') parts.push(`spawn_mode=${t.spawnMode}`);
   if (t.smartTerrain) parts.push(`smart_ref=${t.smartTerrain}`);
   if (t.spawnDist != null && t.spawnDist !== 50) parts.push(`spawn_dist=${t.spawnDist}`);
   if (t.trader) parts.push(`trader=1`);
-  if (t.allowRoam === false) parts.push('roam=0');
-  if (t.allowRoam === false && t.stationaryJob && t.stationaryJob !== 'auto') parts.push(`smart_job=${t.stationaryJob}`);
+  if (t.allowRoam === false && !t.movementMode) parts.push('roam=0');
+  if ((t.allowRoam === false || t.movementMode === 'smart') && t.stationaryJob && t.stationaryJob !== 'auto') parts.push(`smart_job=${t.stationaryJob}`);
   return parts.join('|');
 }
 
@@ -122,6 +135,9 @@ function getTemplateSummary(t: NpcTemplate): string {
   parts.push(factionLabel);
   if (t.rank) parts.push(t.rank);
   if (t.relation && t.relation !== 'default') parts.push(t.relation);
+  if (t.gender === 'female') parts.push(ui('Female', 'Female'));
+  if (t.movementMode === 'fixed') parts.push(ui('Fixed post', 'Fixed post'));
+  if (t.movementMode === 'smart') parts.push(ui('Smart roam', 'Smart roam'));
   if (t.spawnMode === 'smart') {
     parts.push(t.smartTerrain ? ui(`Smart terrain: ${t.smartTerrain}`, `Smart terrain: ${t.smartTerrain}`) : ui('Smart terrain', 'Smart terrain'));
   } else {
@@ -172,6 +188,8 @@ function openNpcBuilderPanel(options: {
     secondaryAmmo: '0',
     outfit: existing?.outfit ?? '',
     items: parseItemsList(existing?.items ?? ''),
+    gender: existing?.gender ?? 'male',
+    movementMode: existing?.movementMode ?? (existing?.allowRoam === false ? 'smart' : 'roam'),
     spawnDist: String(existing?.spawnDist ?? 50),
     trader: existing?.trader ?? false,
     allowRoam: existing?.allowRoam ?? true,
@@ -412,6 +430,26 @@ function openNpcBuilderPanel(options: {
     row.appendChild(idWrap);
 
     sec.appendChild(row);
+
+    const genderRow = document.createElement('div');
+    genderRow.className = 'npc-builder-row';
+    const { wrap, content } = makeField(ui('Sex', 'Sex'));
+    const sel = document.createElement('select');
+    sel.className = 'npc-builder-select';
+    for (const { value, label, labelRu } of GENDER_OPTIONS) {
+      const opt = document.createElement('option');
+      opt.value = value;
+      opt.textContent = ui(label, labelRu);
+      opt.selected = form.gender === value;
+      sel.appendChild(opt);
+    }
+    sel.onchange = () => { form.gender = sel.value as 'male' | 'female'; };
+    const hint = document.createElement('div');
+    hint.className = 'command-description';
+    hint.textContent = ui('Female uses vanilla Hip setup: woman voice prefix and girl visual.', 'Female uses vanilla Hip setup: woman voice prefix and girl visual.');
+    content.append(sel, hint);
+    genderRow.appendChild(wrap);
+    sec.appendChild(genderRow);
     body.appendChild(sec);
   }
 
@@ -480,25 +518,21 @@ function openNpcBuilderPanel(options: {
       behaviorRow.className = 'npc-builder-row';
 
       const { wrap, content } = makeField(ui('Movement', 'Передвижение'));
-      const checkRow = document.createElement('div');
-      checkRow.className = 'npc-builder-checkbox-row';
-
-      const cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.id = `npc-b-roam-${fieldKeyFromTrigger(options.trigger)}`;
-      cb.checked = form.allowRoam;
-      cb.onchange = () => { form.allowRoam = cb.checked; };
-
-      const cbLabel = document.createElement('label');
-      cbLabel.htmlFor = cb.id;
-      cbLabel.textContent = ui('Allow roaming after spawn', 'Разрешить движение после спавна');
+      const movementSelect = document.createElement('select');
+      movementSelect.className = 'npc-builder-select';
+      for (const { value, label, labelRu } of MOVEMENT_MODE_OPTIONS) {
+        const opt = document.createElement('option');
+        opt.value = value;
+        opt.textContent = ui(label, labelRu);
+        opt.selected = form.movementMode === value;
+        movementSelect.appendChild(opt);
+      }
 
       const hint = document.createElement('div');
       hint.className = 'command-description';
-      hint.textContent = ui('Turn this off to lock the NPC to a vanilla smart-terrain job on the chosen smart. When possible, PANDA will reserve an authored job or create a dedicated story slot from an existing vanilla job path/animpoint.', 'Отключите, чтобы привязать NPC к vanilla smart-terrain job на выбранном smart. Если возможно, PANDA зарезервирует authored job или создаст story slot из существующего vanilla job path/animpoint.');
+      hint.textContent = ui('Free roam behaves like normal squad spawn. Smart terrain roam uses a vanilla smart job. Fixed post keeps the NPC on its spawn point and returns it after combat.', 'Free roam behaves like normal squad spawn. Smart terrain roam uses a vanilla smart job. Fixed post keeps the NPC on its spawn point and returns it after combat.');
 
-      checkRow.append(cb, cbLabel);
-      content.append(checkRow, hint);
+      content.append(movementSelect, hint);
       behaviorRow.appendChild(wrap);
       sec.appendChild(behaviorRow);
 
@@ -515,16 +549,17 @@ function openNpcBuilderPanel(options: {
         opt.selected = form.stationaryJob === value;
         jobSelect.appendChild(opt);
       }
-      jobSelect.disabled = form.allowRoam;
+      jobSelect.disabled = form.movementMode !== 'smart';
       jobSelect.onchange = () => { form.stationaryJob = jobSelect.value; };
 
       const jobHint = document.createElement('div');
       jobHint.className = 'command-description';
-      jobHint.textContent = ui('Choose which vanilla smart-job family to use when roaming is disabled. Auto prefers the strongest available fit on that smart terrain.', 'Выберите vanilla smart-job, когда движение отключено. Auto выбирает лучший вариант на выбранном smart terrain.');
+      jobHint.textContent = ui('Only used by smart terrain roam. Auto prefers strongest available vanilla job on that smart terrain.', 'Only used by smart terrain roam. Auto prefers strongest available vanilla job on that smart terrain.');
 
-      cb.onchange = () => {
-        form.allowRoam = cb.checked;
-        jobSelect.disabled = form.allowRoam;
+      movementSelect.onchange = () => {
+        form.movementMode = movementSelect.value as 'roam' | 'smart' | 'fixed';
+        form.allowRoam = form.movementMode === 'roam';
+        jobSelect.disabled = form.movementMode !== 'smart';
       };
 
       jobField.content.append(jobSelect, jobHint);
@@ -835,8 +870,10 @@ function openNpcBuilderPanel(options: {
         ? (!isNaN(spawnDist) && spawnDist !== 50 ? { spawnDist } : {})
         : (existing?.spawnDist != null && existing.spawnDist !== 50 ? { spawnDist: existing.spawnDist } : {})),
       ...(form.trader ? { trader: true } : {}),
-      ...(form.allowRoam === false ? { allowRoam: false } : {}),
-      ...(form.allowRoam === false && form.stationaryJob && form.stationaryJob !== 'auto' ? { stationaryJob: form.stationaryJob } : {}),
+      ...(form.gender === 'female' ? { gender: 'female' } : {}),
+      ...(form.movementMode !== 'roam' ? { movementMode: form.movementMode } : {}),
+      ...(form.movementMode !== 'roam' ? { allowRoam: false } : {}),
+      ...(form.movementMode === 'smart' && form.stationaryJob && form.stationaryJob !== 'auto' ? { stationaryJob: form.stationaryJob } : {}),
     };
 
     options.onSave(template);

@@ -31,7 +31,7 @@ local active_custom_npcs     = {}   -- template_id -> [{npc_id, squad_id, alive,
 local pending_name_overrides  = {}   -- npc_id (number) -> name (string)
 local pending_rank_overrides  = {}   -- npc_id (number) -> rank name (string)
 local pending_relation_overrides = {} -- npc_id (number) -> relation key
-local pending_loadout_overrides = {} -- npc_id (number) -> { primary, secondary, outfit, visual, tries }
+local pending_loadout_overrides = {} -- npc_id (number) -> { primary, secondary, outfit, visual, sound_prefix, tries }
 local pending_story_targets   = {}   -- template_id -> { smart_ref, attempts, last_reason }
 local stationary_custom_npcs  = {}   -- npc_id (number) -> { mode="anchor"|"smart_job", pos={x,y,z}, lvid, gvid, squad_id, smart_id, job_section, source_job_section, job_behavior }
 local stationary_custom_squads = {}  -- squad_id (number) -> true
@@ -53,6 +53,8 @@ local STATIONARY_TELEPORT_THRESHOLD = 0.35
 local LOADOUT_RETRY_INTERVAL = 0.25
 local LOADOUT_RETRY_LIMIT = 24
 local STORY_SQUAD_IDLE_TIME = 31536000
+local FEMALE_VISUAL = "actors\\mnp_npc_remeik\\girl"
+local FEMALE_SOUND_PREFIX = "characters_voice\\human\\woman\\"
 local STATIONARY_JOB_PRIORITY_BOOST = 250
 local STATIONARY_CUSTOM_JOB_PREFIX = "panda_stationary_"
 local DEFAULT_STATIONARY_JOB_BEHAVIOR = "auto"
@@ -743,6 +745,10 @@ local function parse_template(template_id)
         spawn_dist   = 50,
         trader       = false,
         allow_roam   = true,
+        gender       = "male",
+        visual       = nil,
+        sound_prefix = nil,
+        movement_mode = "roam",
         stationary_job = DEFAULT_STATIONARY_JOB_BEHAVIOR,
         trade_preset = nil,
         buy          = nil,
@@ -773,10 +779,37 @@ local function parse_template(template_id)
             elseif key == "count"        then -- deprecated: custom NPC templates now always spawn one character
             elseif key == "spawn_dist"   then tpl.spawn_dist   = math.max(10, tonumber(v) or 50)
             elseif key == "trader"       then tpl.trader       = (lower_v == "1" or lower_v == "true")
+            elseif key == "gender" or key == "sex" then
+                if lower_v == "female" or lower_v == "woman" then
+                    tpl.gender = "female"
+                else
+                    tpl.gender = "male"
+                end
+            elseif key == "visual" then
+                tpl.visual = (v ~= "") and v or nil
+            elseif key == "sound_prefix" or key == "snd_config" or key == "voice" then
+                tpl.sound_prefix = (v ~= "") and v or nil
+            elseif key == "movement" or key == "movement_mode" or key == "move_mode" or key == "behavior_mode" then
+                if lower_v == "fixed" or lower_v == "anchor" or lower_v == "story" or lower_v == "stay_put" or lower_v == "stationary" then
+                    tpl.movement_mode = "fixed"
+                    tpl.allow_roam = false
+                elseif lower_v == "smart" or lower_v == "smart_job" or lower_v == "smart_roam" or lower_v == "location" then
+                    tpl.movement_mode = "smart"
+                    tpl.allow_roam = false
+                else
+                    tpl.movement_mode = "roam"
+                    tpl.allow_roam = true
+                end
             elseif key == "roam" or key == "allow_roam" or key == "allowroam" then
                 tpl.allow_roam = not (lower_v == "0" or lower_v == "false")
+                if tpl.allow_roam == false and tpl.movement_mode == "roam" then
+                    tpl.movement_mode = "smart"
+                end
             elseif key == "stay_put" or key == "stayput" then
                 tpl.allow_roam = not (lower_v == "1" or lower_v == "true")
+                if tpl.allow_roam == false then
+                    tpl.movement_mode = "fixed"
+                end
             elseif key == "smart_job" or key == "stationary_job" or key == "job_behavior" or key == "behavior" or key == "job" then
                 tpl.stationary_job = lower_v
             elseif key == "trade_preset" then tpl.trade_preset = v
@@ -803,6 +836,48 @@ local function parse_template(template_id)
 
     npc_templates[template_id] = tpl
     return tpl
+end
+
+local function normalize_template_movement_mode(tpl)
+    local mode = string.lower(tostring(tpl and tpl.movement_mode or ""))
+    if mode == "fixed" or mode == "anchor" or mode == "story" or mode == "stay_put" or mode == "stationary" then
+        return "fixed"
+    end
+    if mode == "smart" or mode == "smart_job" or mode == "smart_roam" or mode == "location" then
+        return "smart"
+    end
+    if tpl and tpl.allow_roam == false then
+        return "smart"
+    end
+    return "roam"
+end
+
+local function template_uses_stationary_smart_job(tpl, needs_smart)
+    return tpl and needs_smart and normalize_template_movement_mode(tpl) == "smart"
+end
+
+local function template_uses_fixed_anchor(tpl, needs_smart)
+    return tpl and needs_smart and normalize_template_movement_mode(tpl) == "fixed"
+end
+
+local function resolve_template_visual(tpl, outfit_visual)
+    if tpl and tpl.visual and tpl.visual ~= "" then
+        return tpl.visual
+    end
+    if tpl and string.lower(tostring(tpl.gender or "")) == "female" then
+        return FEMALE_VISUAL
+    end
+    return outfit_visual
+end
+
+local function resolve_template_sound_prefix(tpl)
+    if tpl and tpl.sound_prefix and tpl.sound_prefix ~= "" then
+        return tpl.sound_prefix
+    end
+    if tpl and string.lower(tostring(tpl.gender or "")) == "female" then
+        return FEMALE_SOUND_PREFIX
+    end
+    return nil
 end
 
 local function normalize_rank_name(rank_name)
@@ -1231,6 +1306,22 @@ local function apply_online_visual_override(obj, visual_name)
 
     local ok = pcall(function()
         obj:set_visual_name(visual_name)
+    end)
+
+    return ok
+end
+
+local function apply_online_sound_prefix(obj, sound_prefix)
+    if not obj or not sound_prefix or sound_prefix == "" or not obj.sound_prefix then
+        return false
+    end
+
+    local ok = pcall(function()
+        obj:sound_prefix(sound_prefix)
+        if obj.set_sound_mask then
+            obj:set_sound_mask(-1)
+            obj:set_sound_mask(0)
+        end
     end)
 
     return ok
@@ -2726,6 +2817,11 @@ local function schedule_online_loadout_activation(npc_id)
             visual_applied = is_visual_applied(npc, override.visual)
         end
 
+        local sound_applied = not (override.sound_prefix and override.sound_prefix ~= "")
+        if override.sound_prefix and override.sound_prefix ~= "" then
+            sound_applied = apply_online_sound_prefix(npc, override.sound_prefix)
+        end
+
         local weapon_applied = not ((override.primary and override.primary ~= "") or (override.secondary and override.secondary ~= ""))
         local active_weapon = nil
         if override.primary and override.primary ~= "" then
@@ -2745,15 +2841,15 @@ local function schedule_online_loadout_activation(npc_id)
             weapon_applied = true
         end
 
-        if outfit_applied and weapon_applied and visual_applied then
+        if outfit_applied and weapon_applied and visual_applied and sound_applied then
             pending_loadout_overrides[npc_id] = nil
         else
             override.tries = (override.tries or 0) + 1
             if override.tries < LOADOUT_RETRY_LIMIT then
                 schedule_online_loadout_activation(npc_id)
             else
-                printf("PANDA_NPC: timed out applying custom loadout to npc_id=%d (primary=%s secondary=%s outfit=%s visual=%s)",
-                    npc_id, tostring(override.primary), tostring(override.secondary), tostring(override.outfit), tostring(override.visual))
+                printf("PANDA_NPC: timed out applying custom loadout to npc_id=%d (primary=%s secondary=%s outfit=%s visual=%s sound_prefix=%s)",
+                    npc_id, tostring(override.primary), tostring(override.secondary), tostring(override.outfit), tostring(override.visual), tostring(override.sound_prefix))
                 pending_loadout_overrides[npc_id] = nil
             end
         end
@@ -3041,8 +3137,10 @@ function spawn_custom_npc(template_id, context)
     local template_smart_ref = tpl and tpl.spawn_mode == "smart" and tpl.smart_ref or nil
     local needs_smart = context_smart_ref ~= nil or template_smart_ref ~= nil
     local resolved_smart_ref = context_smart_ref or template_smart_ref
-    local wants_stationary_anchor = tpl and needs_smart and tpl.allow_roam == false
-    local allow_roam = tpl and not wants_stationary_anchor
+    local movement_mode = normalize_template_movement_mode(tpl)
+    local wants_stationary_smart_job = template_uses_stationary_smart_job(tpl, needs_smart)
+    local wants_fixed_anchor = template_uses_fixed_anchor(tpl, needs_smart)
+    local wants_stationary_anchor = wants_stationary_smart_job or wants_fixed_anchor
     local stationary_behavior = normalize_stationary_job_behavior(tpl and tpl.stationary_job)
     if not tpl then
         printf("PANDA_NPC: spawn_custom_npc aborted — template '%s' missing", tostring(template_id))
@@ -3056,10 +3154,11 @@ function spawn_custom_npc(template_id, context)
         printf("PANDA_NPC: template '%s' requested smart-terrain spawn but no smart_ref is set", tostring(template_id))
         return
     end
-    if not needs_smart and tpl.allow_roam == false then
+    if not needs_smart and movement_mode ~= "roam" then
         printf(
-            "PANDA_NPC: template '%s' requested a fixed position, but near-player spawns always roam; ignoring stationary flag",
-            tostring(template_id)
+            "PANDA_NPC: template '%s' requested movement mode '%s', but near-player spawns always roam; ignoring stationary flag",
+            tostring(template_id),
+            tostring(movement_mode)
         )
     end
 
@@ -3085,11 +3184,11 @@ function spawn_custom_npc(template_id, context)
     if needs_smart and not pos then
         return
     end
-    if wants_stationary_anchor and smart_obj then
+    if wants_stationary_smart_job and smart_obj then
         local available_stationary_jobs = count_available_stationary_smart_jobs(smart_obj, stationary_behavior)
         if available_stationary_jobs == 0 then
             printf(
-                "PANDA_NPC: stationary template '%s' requires a compatible stalker smart job for behavior '%s'; smart '%s' has none, aborting fixed-position spawn",
+                "PANDA_NPC: smart-roam template '%s' requires a compatible stalker smart job for behavior '%s'; smart '%s' has none, aborting spawn",
                 tostring(template_id),
                 tostring(stationary_behavior),
                 tostring(smart_obj.name and smart_obj:name() or resolved_smart_ref or "nil")
@@ -3162,6 +3261,8 @@ function spawn_custom_npc(template_id, context)
     -- Apply loadout + name to each member
     local member_count = 0
     local outfit_visual = resolve_outfit_visual(tpl.faction, tpl.outfit)
+    local effective_visual = resolve_template_visual(tpl, outfit_visual)
+    local sound_prefix = resolve_template_sound_prefix(tpl)
     for _, member_id in ipairs(member_ids) do
         member_count = member_count + 1
         local se_obj = alife_object(member_id)
@@ -3175,27 +3276,46 @@ function spawn_custom_npc(template_id, context)
                 anchor_gvid = get_obj_game_vertex_id(se_obj) or anchor_gvid
 
                 local anchor_smart_id = smart_obj and smart_obj.id or get_server_object_smart_id(se_obj)
-                stationary_custom_npcs[member_id] = {
-                    mode = "smart_job",
-                    pos = vector_to_table(anchor_pos),
-                    lvid = anchor_lvid,
-                    gvid = anchor_gvid,
-                    squad_id = squad_id,
-                    smart_id = anchor_smart_id,
-                    job_section = nil,
-                    source_job_section = nil,
-                    job_behavior = stationary_behavior,
-                }
-                if not ensure_stationary_smart_job_binding(member_id, nil, "spawn_custom_npc") then
-                    cleanup_failed_stationary_spawn(
-                        template_id,
-                        spawned_single_npc or se_obj,
-                        squad,
-                        smart_obj,
-                        member_id,
-                        "no compatible stationary smart job for requested behavior"
-                    )
-                    return
+                if wants_stationary_smart_job then
+                    stationary_custom_npcs[member_id] = {
+                        mode = "smart_job",
+                        pos = vector_to_table(anchor_pos),
+                        lvid = anchor_lvid,
+                        gvid = anchor_gvid,
+                        squad_id = squad_id,
+                        smart_id = anchor_smart_id,
+                        job_section = nil,
+                        source_job_section = nil,
+                        job_behavior = stationary_behavior,
+                    }
+                    if not ensure_stationary_smart_job_binding(member_id, nil, "spawn_custom_npc") then
+                        cleanup_failed_stationary_spawn(
+                            template_id,
+                            spawned_single_npc or se_obj,
+                            squad,
+                            smart_obj,
+                            member_id,
+                            "no compatible stationary smart job for requested behavior"
+                        )
+                        return
+                    end
+                else
+                    stationary_custom_npcs[member_id] = {
+                        mode = "anchor",
+                        pos = vector_to_table(anchor_pos),
+                        lvid = anchor_lvid,
+                        gvid = anchor_gvid,
+                        squad_id = squad_id,
+                        smart_id = anchor_smart_id,
+                        job_section = nil,
+                        source_job_section = nil,
+                        job_behavior = nil,
+                    }
+                    if squad then
+                        configure_stationary_squad(squad, "spawn_custom_npc")
+                    end
+                    enforce_stationary_npc_anchor(member_id, "spawn_custom_npc")
+                    schedule_stationary_anchor_enforcement(member_id)
                 end
             else
                 stationary_custom_npcs[member_id] = nil
@@ -3207,8 +3327,8 @@ function spawn_custom_npc(template_id, context)
             give_weapon(se_obj, tpl.primary)
             give_weapon(se_obj, tpl.secondary)
             give_outfit(se_obj, tpl.outfit)
-            if outfit_visual then
-                apply_server_visual_override(se_obj, outfit_visual)
+            if effective_visual then
+                apply_server_visual_override(se_obj, effective_visual)
             end
             give_items(se_obj, tpl.items)
 
@@ -3245,12 +3365,13 @@ function spawn_custom_npc(template_id, context)
                 pending_relation_overrides[member_id] = string.lower(tostring(tpl.relation))
             end
 
-            if primary_section or secondary_section or (tpl.outfit and tpl.outfit ~= "") then
+            if primary_section or secondary_section or (tpl.outfit and tpl.outfit ~= "") or (effective_visual and effective_visual ~= "") or (sound_prefix and sound_prefix ~= "") then
                 pending_loadout_overrides[member_id] = {
                     primary = primary_section,
                     secondary = secondary_section,
                     outfit = tpl.outfit,
-                    visual = outfit_visual,
+                    visual = effective_visual,
+                    sound_prefix = sound_prefix,
                     tries = 0,
                 }
             else
@@ -3449,11 +3570,11 @@ function ensure_story_target_spawned(template_id, smart_ref, context)
     if not squad then
         local tpl = parse_template(template_id)
         local stationary_behavior = normalize_stationary_job_behavior(tpl and tpl.stationary_job)
-        local smart_obj = tpl and tpl.allow_roam == false and resolve_smart_terrain(smart_ref) or nil
+        local smart_obj = template_uses_stationary_smart_job(tpl, true) and resolve_smart_terrain(smart_ref) or nil
         if smart_obj and count_available_stationary_smart_jobs(smart_obj, stationary_behavior) == 0 then
             pending_story_targets[template_id] = nil
             printf(
-                "PANDA_NPC: story target '%s' will not retry fixed-position spawn; smart '%s' has no compatible stalker smart job for behavior '%s'",
+                "PANDA_NPC: story target '%s' will not retry smart-roam spawn; smart '%s' has no compatible stalker smart job for behavior '%s'",
                 tostring(template_id),
                 tostring(smart_obj.name and smart_obj:name() or smart_ref or "nil"),
                 tostring(stationary_behavior)
