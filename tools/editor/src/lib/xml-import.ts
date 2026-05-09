@@ -470,11 +470,6 @@ function decodeNpcTemplate(id: string, raw: string): NpcTemplate {
       case 'secondary': tpl.secondary = v; break;
       case 'outfit': tpl.outfit = v; break;
       case 'items': tpl.items = v; break;
-      case 'gear_preset':
-      case 'gear':
-      case 'equipment_preset':
-        tpl.gearPreset = v;
-        break;
       case 'visual':
         tpl.visual = v;
         break;
