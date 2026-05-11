@@ -939,23 +939,35 @@ end
 handlers["req_custom_npc_alive"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
     local tpl_id = parts[2]
     if not tpl_id or tpl_id == "" then return false, "missing template_id" end
-    result = panda_npc_creator.is_template_npc_alive(tpl_id)
-    if not result then return false, "custom npc '" .. tpl_id .. "' not alive" end
+    if not (panda_npc_creator and type(panda_npc_creator.is_template_npc_alive) == "function") then
+        return false, "panda_npc_creator.is_template_npc_alive unavailable"
+    end
+    if not panda_npc_creator.is_template_npc_alive(tpl_id) then
+        return false, "custom npc '" .. tpl_id .. "' not alive"
+    end
 end
 
 handlers["req_custom_npc_dead"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
     local tpl_id = parts[2]
     if not tpl_id or tpl_id == "" then return false, "missing template_id" end
-    result = panda_npc_creator.is_template_npc_dead(tpl_id)
-    if not result then return false, "custom npc '" .. tpl_id .. "' still alive" end
+    if not (panda_npc_creator and type(panda_npc_creator.is_template_npc_dead) == "function") then
+        return false, "panda_npc_creator.is_template_npc_dead unavailable"
+    end
+    if not panda_npc_creator.is_template_npc_dead(tpl_id) then
+        return false, "custom npc '" .. tpl_id .. "' still alive"
+    end
 end
 
 handlers["req_custom_npc_near"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
     local tpl_id = parts[2]
     local dist   = tonumber(parts[3]) or 50
     if not tpl_id or tpl_id == "" then return false, "missing template_id" end
-    result = panda_npc_creator.is_template_npc_near(tpl_id, dist)
-    if not result then return false, "custom npc '" .. tpl_id .. "' not within " .. dist .. "m" end
+    if not (panda_npc_creator and type(panda_npc_creator.is_template_npc_near) == "function") then
+        return false, "panda_npc_creator.is_template_npc_near unavailable"
+    end
+    if not panda_npc_creator.is_template_npc_near(tpl_id, dist) then
+        return false, "custom npc '" .. tpl_id .. "' not within " .. dist .. "m"
+    end
 end
 
 local function evaluate_precondition_entry(ctx, entry, npc_se, act, get_goodwill_actor_id)

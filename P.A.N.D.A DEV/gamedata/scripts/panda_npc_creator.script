@@ -4156,10 +4156,15 @@ function on_game_start()
     printf("PANDA_NPC: initialized")
 end
 
-panda_npc_creator.install_engine_guards = install_engine_guards
-panda_npc_creator.spawn_custom_npc = spawn_custom_npc
-panda_npc_creator.mark_custom_npc_dead = mark_custom_npc_dead
+panda_npc_creator.install_engine_guards     = install_engine_guards
+panda_npc_creator.spawn_custom_npc          = spawn_custom_npc
+panda_npc_creator.mark_custom_npc_dead      = mark_custom_npc_dead
 panda_npc_creator.ensure_story_target_spawned = ensure_story_target_spawned
-panda_npc_creator.save_state = save_state
-panda_npc_creator.load_state = load_state
-panda_npc_creator.on_game_start = on_game_start
+panda_npc_creator.save_state                = save_state
+panda_npc_creator.load_state                = load_state
+panda_npc_creator.on_game_start             = on_game_start
+panda_npc_creator.get_active_npc_id         = get_active_npc_id
+panda_npc_creator.get_active_npc_se         = get_active_npc_se
+panda_npc_creator.is_template_npc_alive     = is_template_npc_alive
+panda_npc_creator.is_template_npc_dead      = is_template_npc_dead
+panda_npc_creator.is_template_npc_near      = is_template_npc_near
