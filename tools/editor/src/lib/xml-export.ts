@@ -113,7 +113,6 @@ function emitString(id: string, text: string): string {
 function isDialogueBearingKey(id: string): boolean {
   return /_open$/.test(id)
     || /_choice_\d+$/.test(id)
-    || /_reply_\d+$/.test(id)
     || /_timeout_msg$/.test(id);
 }
 
