@@ -3418,7 +3418,11 @@ local function build_dialog_tree(dialog, state)
     local alloc = make_allocator(0)
     local exit_phrase = "dm_universal_actor_exit"
     local exit_action = "dialogs.break_dialog"
-    local auto_close_dead_end = resolve_bool_flag_override("panda_f2f_auto_close_dead_end", true)
+    -- Default false: terminal branches get an explicit child "actor_exit" phrase under the NPC reply,
+    -- which lets the engine render the NPC's last line before the player clicks to close. Attaching
+    -- dialogs.break_dialog directly to the NPC reply phrase (the previous default) caused the engine
+    -- to terminate the dialog before the reply was ever shown.
+    local auto_close_dead_end = resolve_bool_flag_override("panda_f2f_auto_close_dead_end", false)
 
     state.dialog = dialog
     state.alloc = alloc

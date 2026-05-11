@@ -1437,7 +1437,7 @@ function renderChoiceProperties(
       change: SELECTION_TEXT_RENDER,
       textSessionKey: choiceReplyFieldKey,
     });
-  }, 'The NPC\'s response to this choice', choiceReplyFieldKey, {
+  }, 'The NPC\'s response to this choice. Leave empty to end the conversation here after the player\'s line.', choiceReplyFieldKey, {
     onCommit: () => store.commitTextEdit(choiceReplyFieldKey),
   });
   container.appendChild(replyField);
