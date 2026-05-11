@@ -929,7 +929,11 @@ function renderSkillCheckPanel(
     appendCheckBranchControls(configPane, conv, turn, choice, checkIndex, check, 3, 4, turnLabels);
     appendCheckActionButtons(configPane, conv, turn, choice, checkIndex);
 
-    const skillResumeOpeners = renderOutcomeResumeOpenerEditors(conv, check);
+    const skillResumeOpeners = renderOutcomeResumeOpenerEditors(conv, check, {
+      turn,
+      choice,
+      outcomeIndex: checkIndex,
+    });
     if (skillResumeOpeners) configPane.appendChild(skillResumeOpeners);
 
     const previewPane = createPane(ui('Preview', 'Предпросмотр'));
@@ -964,7 +968,11 @@ function renderSkillCheckPanel(
     appendCheckBranchControls(configPane, conv, turn, choice, checkIndex, check, 1, 2, turnLabels);
     appendCheckActionButtons(configPane, conv, turn, choice, checkIndex);
 
-    const randomResumeOpeners = renderOutcomeResumeOpenerEditors(conv, check);
+    const randomResumeOpeners = renderOutcomeResumeOpenerEditors(conv, check, {
+      turn,
+      choice,
+      outcomeIndex: checkIndex,
+    });
     if (randomResumeOpeners) configPane.appendChild(randomResumeOpeners);
 
     const previewPane = createPane(ui('Preview', 'Предпросмотр'));
@@ -1507,7 +1515,11 @@ function renderOutcomeDetails(container: HTMLElement, conv: Conversation, turn: 
     container.appendChild(createEmpty(ui('No properties for this outcome.', 'Нет свойств для этого результата.')));
   }
 
-  const resumeOpeners = renderOutcomeResumeOpenerEditors(conv, outcome);
+  const resumeOpeners = renderOutcomeResumeOpenerEditors(conv, outcome, {
+    turn,
+    choice,
+    outcomeIndex,
+  });
   if (resumeOpeners) {
     container.appendChild(resumeOpeners);
   }
@@ -1546,7 +1558,17 @@ function renderOutcomeDetails(container: HTMLElement, conv: Conversation, turn: 
   container.appendChild(actions);
 }
 
-function renderOutcomeResumeOpenerEditors(conv: Conversation, outcome: Outcome): HTMLElement | null {
+interface ResumeOpenerSourceContext {
+  turn: Turn;
+  choice: Choice;
+  outcomeIndex: number;
+}
+
+function renderOutcomeResumeOpenerEditors(
+  conv: Conversation,
+  outcome: Outcome,
+  source?: ResumeOpenerSourceContext,
+): HTMLElement | null {
   const resumeTargets = parseOutcomeResumeTurnNumbers(outcome);
   if (!resumeTargets) return null;
 
@@ -1555,7 +1577,7 @@ function renderOutcomeResumeOpenerEditors(conv: Conversation, outcome: Outcome):
     if (turnNumber == null) return;
     const targetTurn = conv.turns.find((candidate) => candidate.turnNumber === turnNumber);
     if (!targetTurn) return;
-    fields.push(renderResumeOpenerField(conv, targetTurn, label));
+    fields.push(renderResumeOpenerField(conv, targetTurn, label, source));
   };
 
   addTarget('Success', resumeTargets.successTurn);
@@ -1573,7 +1595,12 @@ function renderOutcomeResumeOpenerEditors(conv: Conversation, outcome: Outcome):
   return wrap;
 }
 
-function renderResumeOpenerField(conv: Conversation, targetTurn: Turn, label: 'Success' | 'Fail'): HTMLElement {
+function renderResumeOpenerField(
+  conv: Conversation,
+  targetTurn: Turn,
+  label: 'Success' | 'Fail',
+  source?: ResumeOpenerSourceContext,
+): HTMLElement {
   const ui = getUiText();
   const labelRu = label === 'Success' ? 'Успех' : 'Провал';
   const field = document.createElement('div');
@@ -1619,6 +1646,26 @@ function renderResumeOpenerField(conv: Conversation, targetTurn: Turn, label: 'S
     });
     requestFlowCenter({ conversationId: conv.id, turnNumber: targetTurn.turnNumber });
   }));
+  if (source) {
+    const which: 'success' | 'fail' = label === 'Success' ? 'success' : 'fail';
+    const clearBtn = document.createElement('button');
+    clearBtn.type = 'button';
+    clearBtn.className = 'btn-icon btn-sm';
+    clearBtn.textContent = '×';
+    clearBtn.style.color = 'var(--danger)';
+    clearBtn.title = ui(`Clear ${label} Branch`, `Очистить ветку (${labelRu})`);
+    clearBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      store.clearChoiceResumeBranch(
+        conv.id,
+        source.turn.turnNumber,
+        source.choice.index,
+        source.outcomeIndex,
+        which,
+      );
+    });
+    actions.appendChild(clearBtn);
+  }
   field.appendChild(actions);
   return field;
 }
