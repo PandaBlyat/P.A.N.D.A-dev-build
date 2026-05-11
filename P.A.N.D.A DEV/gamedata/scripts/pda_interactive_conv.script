@@ -1065,15 +1065,30 @@ end
 local function add_map_spot_for_object_id(obj_id, spot_type, hint)
     obj_id = tonumber(obj_id)
     if not obj_id then
+        printf("PANDA_IC: add_map_spot_for_object_id missing obj_id")
         return nil
     end
 
     spot_type = (spot_type and spot_type ~= "") and spot_type or "primary_object"
     hint = (hint and hint ~= "") and hint or "default"
 
-    if level and level.map_has_object_spot and level.map_has_object_spot(obj_id, spot_type) == 0 then
-        level.map_add_object_spot_ser(obj_id, spot_type, hint)
+    if not (level and level.map_add_object_spot_ser) then
+        printf("PANDA_IC: add_map_spot_for_object_id level API unavailable obj_id=%s", tostring(obj_id))
+        return obj_id
     end
+
+    -- Remove first if a stale spot of the same type lingers (engine sometimes
+    -- reports has_object_spot != 0 across loads, which would silently block
+    -- the new add). Then add unconditionally.
+    if level.map_has_object_spot and level.map_has_object_spot(obj_id, spot_type) ~= 0 then
+        printf("PANDA_IC: add_map_spot_for_object_id removing stale spot obj_id=%s spot=%s",
+            tostring(obj_id), tostring(spot_type))
+        level.map_remove_object_spot(obj_id, spot_type)
+    end
+
+    level.map_add_object_spot_ser(obj_id, spot_type, hint)
+    printf("PANDA_IC: add_map_spot_for_object_id ADDED obj_id=%s spot=%s hint=%s",
+        tostring(obj_id), tostring(spot_type), tostring(hint))
 
     return obj_id
 end
@@ -1110,7 +1125,10 @@ end
 
 local function queue_f2f_handoff_attachment(contact_id, sender_npc_name, sender_icon, target_npc_id, target_npc_name, token)
     local target_id = tonumber(target_npc_id)
+    printf("PANDA_IC: queue_f2f_handoff_attachment contact_id=%s target_npc_id=%s target_npc_name=%s",
+        tostring(contact_id), tostring(target_npc_id), tostring(target_npc_name))
     if not contact_id or not target_id then
+        printf("PANDA_IC: queue_f2f_handoff_attachment aborted (missing contact_id or target_id)")
         return nil
     end
 
@@ -1120,6 +1138,8 @@ local function queue_f2f_handoff_attachment(contact_id, sender_npc_name, sender_
     local spot_type = "secondary_task_location"
     local marker_hint = string.format("Locate %s to continue story", target_name)
     local spot_id = add_map_spot_for_object_id(target_id, spot_type, marker_hint)
+    printf("PANDA_IC: queue_f2f_handoff_attachment spot_id=%s spot_type=%s",
+        tostring(spot_id), tostring(spot_type))
 
     pda_private_add_message(
         contact_id,
@@ -1150,6 +1170,8 @@ end
 -- Public wrapper so panda_f2f_bridge can drop the same handoff attachment
 -- (map pin + chat entry) when an F2F dialogue branches to a new NPC.
 function queue_f2f_handoff_attachment_public(contact_id, sender_npc_name, sender_icon, target_npc_id, target_npc_name, token)
+    printf("PANDA_IC: queue_f2f_handoff_attachment_public entry contact_id=%s target_npc_id=%s",
+        tostring(contact_id), tostring(target_npc_id))
     return queue_f2f_handoff_attachment(contact_id, sender_npc_name, sender_icon, target_npc_id, target_npc_name, token)
 end
 

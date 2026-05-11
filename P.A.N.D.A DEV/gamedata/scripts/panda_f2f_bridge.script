@@ -6,6 +6,25 @@
 
 panda_f2f_bridge = panda_f2f_bridge or {}
 
+-- Runtime overrides for F2F actor-choice phrase text. Keyed by dialog node id
+-- (the second arg passed to AddPhrase). Populated when a choice's outcome
+-- carries a dialogue_skill_check / stat-reward command so the player sees
+-- "[Charisma X/Y - N% chance]" / "[+5 Charisma]" suffixes on F2F choices,
+-- the same way they appear on PDA chat choices.
+_panda_f2f_choice_text_overrides = _panda_f2f_choice_text_overrides or {}
+
+-- Engine-callable script-text functor. Registered on a phrase via
+-- `script:SetScriptText("panda_f2f_bridge.f2f_choice_text_functor")` inside
+-- dm_add_dialog when an override exists for that node.
+function f2f_choice_text_functor(first_speaker, second_speaker, dialog_id, phrase_id)
+    local node_sid = tostring(phrase_id or "")
+    local entry = _panda_f2f_choice_text_overrides[node_sid]
+    if type(entry) == "string" and entry ~= "" then
+        return entry
+    end
+    return ""
+end
+
 local MAX_CONV_SCAN = 256
 local MAX_CHOICE_SCAN = 12
 local MAX_TREE_DEPTH = 12
@@ -393,6 +412,11 @@ local function register_f2f_continuation_handoff(active_state, active_npc_id, br
 
     -- Drop a map pin + chat attachment on the sender's PDA thread so the player
     -- knows where to find the new F2F target (matches PDA->F2F handoff UX).
+    bridge_debug(
+        "register_f2f_continuation_handoff before queue_f2f_handoff_attachment_public namespace_ok=%s fn_ok=%s",
+        tostring(pda_interactive_conv ~= nil),
+        tostring(pda_interactive_conv and pda_interactive_conv.queue_f2f_handoff_attachment_public ~= nil)
+    )
     if pda_interactive_conv and pda_interactive_conv.queue_f2f_handoff_attachment_public then
         local sender_id = tonumber(active_npc_id)
         local sender_se = sender_id and alife_object(sender_id) or nil
@@ -409,8 +433,16 @@ local function register_f2f_continuation_handoff(active_state, active_npc_id, br
             end
         end
         local sender_contact_id = sender_id and tostring(sender_id) or contact_id
-        pcall(pda_interactive_conv.queue_f2f_handoff_attachment_public,
+        local ok_call, call_err = pcall(pda_interactive_conv.queue_f2f_handoff_attachment_public,
             sender_contact_id, sender_name, sender_icon, target_id, target_name, token)
+        bridge_debug(
+            "register_f2f_continuation_handoff queue_f2f_handoff_attachment_public ok=%s err=%s sender_id=%s target_id=%s",
+            tostring(ok_call), tostring(call_err), tostring(sender_id), tostring(target_id)
+        )
+    else
+        bridge_warn(
+            "register_f2f_continuation_handoff cannot post handoff attachment: pda_interactive_conv.queue_f2f_handoff_attachment_public unavailable"
+        )
     end
 
     local owner_tag = string.format("f2f_handoff_%s_%s_%s", tostring(contact_id), tostring(active_state.conv_id), tostring(branch.next_turn))
@@ -3411,6 +3443,13 @@ local function dm_add_dialog(state, parent_id, id, phrase_id, cond, act, use_scr
             end)
             if allow_script_text and script.SetScriptText then
                 script:SetScriptText(phrase_id)
+            elseif script.SetScriptText
+                and _panda_f2f_choice_text_overrides
+                and _panda_f2f_choice_text_overrides[node_sid] then
+                -- Engine will call panda_f2f_bridge.f2f_choice_text_functor at
+                -- render time which returns the augmented text (base phrase
+                -- text + dialogue skill-check / stat-reward hint).
+                script:SetScriptText("panda_f2f_bridge.f2f_choice_text_functor")
             end
         end
 
@@ -3537,6 +3576,9 @@ local function build_dialog_tree(dialog, state)
         reply = {},
         exit = {},
     }
+    -- Each new dialog tree gets fresh node ids; clear stale per-node text
+    -- overrides so the table doesn't grow unbounded across sessions.
+    _panda_f2f_choice_text_overrides = {}
     local nodes_added = 0
     local root_ok = use_entry_direct_open == true
     local npc_open_ok = false
@@ -4129,6 +4171,23 @@ local function build_dialog_tree(dialog, state)
             local actor_action = act_name
             if branch.reply_key == nil and branch_auto_closes then
                 actor_action = append_entry(actor_action, exit_action)
+            end
+            -- If this choice carries a stat check or stat reward, build the
+            -- augmented "[Charisma X/Y - N% chance]" / "[+5 Charisma]" text now
+            -- and stash it keyed by node id. dm_add_dialog will see the entry
+            -- and route the phrase through f2f_choice_text_functor.
+            if pda_interactive_conv and pda_interactive_conv.build_dialogue_check_hint
+                and branch.choice_key and branch.outcome then
+                local ok_hint, hint = pcall(pda_interactive_conv.build_dialogue_check_hint, branch.outcome)
+                if ok_hint and type(hint) == "string" and hint ~= "" then
+                    local base_text = game.translate_string(branch.choice_key) or ""
+                    if base_text == branch.choice_key then base_text = "" end
+                    _panda_f2f_choice_text_overrides[tostring(actor_id)] = (base_text ~= "" and (base_text .. " " .. hint)) or hint
+                    bridge_debug(
+                        "f2f_choice_hint applied node_id=%s choice_key=%s hint=%s",
+                        tostring(actor_id), tostring(branch.choice_key), tostring(hint)
+                    )
+                end
             end
             local actor_choice_added = add_logged_node(parent_open_id, actor_id, branch.choice_key, cond_name, actor_action, false, "actor_choice", "actor")
             if actor_choice_added and depth == 1 then

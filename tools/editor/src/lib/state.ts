@@ -2737,6 +2737,38 @@ class StateManager {
     this.finishProjectMutation({ change: FLOW_STRUCTURE_RENDER });
   }
 
+  /**
+   * Clears the success / fail / timeout resume-turn parameter on a specific
+   * outcome of a choice (the success/fail branches drawn from skill checks,
+   * random rolls, pause_job, or task outcomes). The corresponding edge in the
+   * FlowEditor disappears and the param is reset to "0" — the editor's
+   * "no branch" sentinel.
+   */
+  clearChoiceResumeBranch(
+    conversationId: number,
+    turnNumber: number,
+    choiceIndex: number,
+    outcomeIndex: number,
+    which: 'success' | 'fail' | 'timeout',
+  ): void {
+    const conv = this.state.project.conversations.find(c => c.id === conversationId);
+    const turn = conv?.turns.find(t => t.turnNumber === turnNumber);
+    const choice = turn?.choices.find(c => c.index === choiceIndex);
+    const outcome = choice?.outcomes[outcomeIndex];
+    if (!outcome) return;
+    const indices = getOutcomeResumeTurnParamIndices(outcome.command);
+    if (!indices) return;
+    let targetIndex: number;
+    if (which === 'success') targetIndex = indices.successIndex;
+    else if (which === 'fail') targetIndex = indices.failIndex;
+    else targetIndex = indices.timeoutIndex;
+    if (targetIndex < 0) return;
+    if (outcome.params[targetIndex] === '0' || outcome.params[targetIndex] == null) return;
+    this.pushUndoForConversation(conversationId);
+    outcome.params[targetIndex] = '0';
+    this.finishProjectMutation({ change: FLOW_STRUCTURE_RENDER });
+  }
+
   private applyChoiceContinuationChannel(
     conv: Conversation,
     turn: Turn,
