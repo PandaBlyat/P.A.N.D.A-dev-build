@@ -3110,11 +3110,14 @@ local function collect_branches(npc_se, forced_context)
                 )
 
                 if show then
+                    -- A missing reply key is intentional: the author chose not
+                    -- to give the NPC a response. The dialog tree builder treats
+                    -- `branch.reply_key == nil` as a silent choice (auto-close or
+                    -- direct continuation). Only the choice text itself is required.
                     local choice_renderable = key_exists(choice_key)
-                    local reply_renderable = key_exists(reply_key)
-                    if not choice_renderable or not reply_renderable then
+                    if not choice_renderable then
                         show = false
-                        choice_reason = (not choice_renderable and "choice_not_renderable" or "reply_not_renderable")
+                        choice_reason = "choice_not_renderable"
                     end
                 end
 

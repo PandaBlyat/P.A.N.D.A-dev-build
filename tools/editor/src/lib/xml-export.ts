@@ -364,7 +364,13 @@ function generateConversation(
       const outcomeKey = `${prefix}${turnInfix}_outcome_${choice.index}`;
 
       lines.push(emitString(choiceKey, choice.text));
-      lines.push(emitString(replyKey, choice.reply));
+      // Omit the reply entry entirely when the author left it blank.
+      // The engine's string table crashes on <text></text>, and the runtime
+      // (pda_interactive_conv + panda_f2f_bridge) already treats a missing
+      // reply key as a silent choice.
+      if (typeof choice.reply === 'string' && choice.reply.trim().length > 0) {
+        lines.push(emitString(replyKey, choice.reply));
+      }
       if (choice.replyImage) {
         lines.push(emitString(`${replyKey}_image`, choice.replyImage));
       }
