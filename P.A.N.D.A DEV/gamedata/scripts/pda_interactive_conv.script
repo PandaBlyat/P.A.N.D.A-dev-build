@@ -741,13 +741,40 @@ local function format_stat_label(key)
     return STAT_DISPLAY_LABELS[key] or (key:sub(1,1):upper() .. key:sub(2))
 end
 
--- Returns "[Charisma 5]" / "[60% Chance]" for an outcome string, or nil.
+-- Predicts the chance of a dialogue_skill_check exactly like
+-- evaluate_dialogue_check, minus the RNG roll.
+local function predict_dialogue_check_chance(stat_key, required_level, difficulty)
+    local stat_val = get_dialogue_stat(stat_key)
+    local luck = get_dialogue_stat("luck")
+    local req = tonumber(required_level)
+    local diff = tonumber(difficulty) or 0
+    local base
+    if req and req > 0 then
+        base = math.floor((stat_val / req) * 100)
+    else
+        base = 50 + stat_val
+    end
+    local luck_bonus = (stat_key == "luck") and 0 or luck
+    return clamp(base + luck_bonus - diff, 5, 95), stat_val
+end
+
+-- Scans an outcome string for a dialogue check or a stat reward/penalty
+-- and returns a bracketed hint to append to the choice text.
+-- Examples:
+--   [Charisma 12/50 - 22% chance]
+--   [60% Chance]
+--   [+5 Charisma]   [-3 Intimidation]   [Set Charisma=10]
+-- Returns nil if the choice has no check or stat outcome.
 function build_dialogue_check_hint(outcome_str)
     if not outcome_str or outcome_str == "" or outcome_str == "none" then return nil end
     if PANDA and type(PANDA.get_config) == "function" then
         local enabled = PANDA.get_config("show_check_hints_in_choices")
         if enabled == false then return nil end
     end
+
+    local check_hint = nil
+    local reward_hints = {}
+
     for entry in string.gmatch(outcome_str, "([^,]+)") do
         local trimmed = entry:match("^%s*(.-)%s*$")
         if trimmed and trimmed ~= "" then
@@ -755,28 +782,72 @@ function build_dialogue_check_hint(outcome_str)
             for token in string.gmatch(trimmed, "([^:]+)") do
                 table.insert(parts, token)
             end
+            -- Strip optional "chance:N:" prefix.
             if parts[1] == "chance" and tonumber(parts[2]) then
                 table.remove(parts, 1)
                 table.remove(parts, 1)
             end
-            if parts[1] == "dialogue_skill_check" then
+            local cmd = parts[1]
+            if cmd == "dialogue_skill_check" and not check_hint then
                 local stat = parts[2] or ""
-                -- New format: stat:level:difficulty:success:fail (6 parts incl cmd)
-                -- Legacy:    stat:difficulty:success:fail        (5 parts incl cmd)
-                local hint_value
+                local required_level, difficulty
+                -- New: stat:level:difficulty:success:fail   (6 parts)
+                -- Legacy: stat:difficulty:success:fail      (5 parts)
                 if #parts >= 6 then
-                    hint_value = tonumber(parts[3]) or 0
+                    required_level = tonumber(parts[3]) or 0
+                    difficulty = tonumber(parts[4]) or 0
                 else
-                    hint_value = tonumber(parts[3]) or 0
+                    required_level = 0
+                    difficulty = tonumber(parts[3]) or 0
                 end
-                return string.format("[%s %d]", format_stat_label(stat), hint_value)
-            elseif parts[1] == "random_chance_check" then
+                local chance, current = predict_dialogue_check_chance(stat, required_level, difficulty)
+                if required_level and required_level > 0 then
+                    check_hint = string.format("[%s %d/%d - %d%% chance]",
+                        format_stat_label(stat), current, required_level, chance)
+                else
+                    check_hint = string.format("[%s %d - %d%% chance]",
+                        format_stat_label(stat), current, chance)
+                end
+            elseif cmd == "random_chance_check" and not check_hint then
                 local pct = tonumber(parts[2]) or 50
                 if pct < 1 then pct = 1 end
                 if pct > 99 then pct = 99 end
-                return string.format("[%d%% Chance]", pct)
+                check_hint = string.format("[%d%% Chance]", pct)
+            elseif cmd == "give_skill_level" then
+                local stat = parts[2] or ""
+                local amount = math.abs(tonumber(parts[3]) or 0)
+                if stat ~= "" and amount > 0 then
+                    table.insert(reward_hints, string.format("[+%d %s]", amount, format_stat_label(stat)))
+                end
+            elseif cmd == "take_skill_level" then
+                local stat = parts[2] or ""
+                local amount = math.abs(tonumber(parts[3]) or 0)
+                if stat ~= "" and amount > 0 then
+                    table.insert(reward_hints, string.format("[-%d %s]", amount, format_stat_label(stat)))
+                end
+            elseif cmd == "change_dialogue_stat" then
+                local stat = parts[2] or ""
+                local delta = tonumber(parts[3]) or 0
+                if stat ~= "" and delta ~= 0 then
+                    local sign = (delta > 0) and "+" or ""
+                    table.insert(reward_hints, string.format("[%s%d %s]", sign, delta, format_stat_label(stat)))
+                end
+            elseif cmd == "set_dialogue_stat" then
+                local stat = parts[2] or ""
+                local value = tonumber(parts[3])
+                if stat ~= "" and value ~= nil then
+                    table.insert(reward_hints, string.format("[Set %s=%d]", format_stat_label(stat), value))
+                end
             end
         end
+    end
+
+    if check_hint and #reward_hints > 0 then
+        return check_hint .. " " .. table.concat(reward_hints, " ")
+    elseif check_hint then
+        return check_hint
+    elseif #reward_hints > 0 then
+        return table.concat(reward_hints, " ")
     end
     return nil
 end
@@ -1044,21 +1115,17 @@ local function queue_f2f_handoff_attachment(contact_id, sender_npc_name, sender_
     end
 
     local target_name = target_npc_name or "Unknown"
-    local spot_type = "primary_object"
-    local marker_hint = utils_data.parse_string_keys(
-        game.translate_string("st_pda_ic_location_marker_hint"),
-        {
-            ["location"] = target_name,
-            ["name"] = sender_npc_name or "Unknown",
-        }
-    )
+    -- secondary_task_location matches the yellow quest pin used by bounty/secondary tasks
+    -- so the player recognises it as a story marker rather than a static smart-terrain icon.
+    local spot_type = "secondary_task_location"
+    local marker_hint = string.format("Locate %s to continue story", target_name)
     local spot_id = add_map_spot_for_object_id(target_id, spot_type, marker_hint)
 
     pda_private_add_message(
         contact_id,
         sender_npc_name,
         sender_npc_name or game.translate_string("st_pda_ic_outcome_sender"),
-        "Map Coordinates:",
+        string.format("Locate %s", target_name),
         sender_icon or FALLBACK_NPC_ICON,
         false,
         "delivered",
@@ -1067,7 +1134,7 @@ local function queue_f2f_handoff_attachment(contact_id, sender_npc_name, sender_
         {
             msg_type = "map_attachment",
             attachment_action = "f2f_handoff",
-            attachment_label = "Meet Target:",
+            attachment_label = string.format("Locate %s:", target_name),
             map_spot_id = spot_id,
             map_spot_type = spot_type,
             location_name = target_name,
@@ -1078,6 +1145,12 @@ local function queue_f2f_handoff_attachment(contact_id, sender_npc_name, sender_
     )
 
     return spot_id
+end
+
+-- Public wrapper so panda_f2f_bridge can drop the same handoff attachment
+-- (map pin + chat entry) when an F2F dialogue branches to a new NPC.
+function queue_f2f_handoff_attachment_public(contact_id, sender_npc_name, sender_icon, target_npc_id, target_npc_name, token)
+    return queue_f2f_handoff_attachment(contact_id, sender_npc_name, sender_icon, target_npc_id, target_npc_name, token)
 end
 
 
