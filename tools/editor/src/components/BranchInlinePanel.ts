@@ -329,7 +329,7 @@ function renderDialoguePanel(container: HTMLElement, conv: Conversation, turn: T
     textPane.appendChild(createTextarea({
       label: ui('NPC Reply', 'Ответ NPC'),
       value: choice.reply,
-      placeholder: ui('NPC response after player picks this choice', 'Ответ NPC после выбора игрока'),
+      placeholder: ui('NPC response after player picks this choice (leave empty to end the conversation here)', 'Ответ NPC после выбора игрока (оставьте пустым, чтобы завершить разговор здесь)'),
       fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'reply'),
       onCommit: (value) => store.updateChoice(conv.id, turn.turnNumber, choice.index, { reply: value }),
     }));

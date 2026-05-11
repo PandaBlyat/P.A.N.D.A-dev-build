@@ -137,8 +137,6 @@ function getAuthorMessage(msg: ValidationMessage): string {
       return 'Add at least one start rule so author controls who can trigger story.';
     case 'missing-choice-text':
       return 'Write player reply text for this choice.';
-    case 'missing-choice-reply':
-      return 'Write NPC response after player picks this reply.';
     case 'missing-continue-target':
       return 'Pick next scene, create follow-up scene, or mark reply as ending story.';
     case 'f2f-start-mode-no-entry-turn':
@@ -171,15 +169,6 @@ function getQuickFix(msg: ValidationMessage): { label: string; apply: () => void
       label: 'Add placeholder',
       apply: () => store.updateChoice(msg.conversationId, msg.turnNumber!, msg.choiceIndex!, {
         text: 'Tell me more.',
-      }),
-    };
-  }
-
-  if (msg.code === 'missing-choice-reply') {
-    return {
-      label: 'Add placeholder',
-      apply: () => store.updateChoice(msg.conversationId, msg.turnNumber!, msg.choiceIndex!, {
-        reply: 'I will explain.',
       }),
     };
   }

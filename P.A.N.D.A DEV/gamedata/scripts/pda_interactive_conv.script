@@ -6372,10 +6372,12 @@ function on_player_choice(idx, contact_id)
     c.reply_pending = true
     pda_reply_pending = true
 
-    -- Estimate typing duration based on reply length (roughly 1s per 20 chars, min 2s, max 8s)
+    -- Estimate typing duration based on reply length (roughly 1s per 20 chars, min 2s, max 8s).
+    -- When the reply is empty the choice ends the branch silently, so skip the typing animation.
     local reply_text = ch.reply or ""
     local reply_len = string.len(reply_text)
-    local typing_duration = math.max(2, math.min(8, math.floor(reply_len / 20) + 1))
+    local has_reply = reply_text ~= ""
+    local typing_duration = has_reply and math.max(2, math.min(8, math.floor(reply_len / 20) + 1)) or 0
 
     -- Use per-conversation event IDs so multiple conversations don't clobber each other
     local ev_prefix = "pda_ic_" .. tostring(c.npc_id)
@@ -6397,20 +6399,24 @@ function on_player_choice(idx, contact_id)
             end
             set_last_player_message_state(cid, "read")
 
-            -- Stage 4: NPC thinks before typing
-            local think_delay = math.random(1, 3)
+            -- Stage 4: NPC thinks before typing (skipped entirely for empty replies)
+            local think_delay = has_reply and math.random(1, 3) or 0
             CreateTimeEvent(ev_prefix, "npc_thinking", think_delay, function()
                 if is_panda_ic_shutdown_in_progress() then
                     return true
                 end
 
-                -- Stage 5: NPC starts typing
-                upsert_npc_typing_message(cid, npc_name, c.npc_icon)
+                -- Stage 5: NPC starts typing (only when there is something to say)
+                if has_reply then
+                    upsert_npc_typing_message(cid, npc_name, c.npc_icon)
+                end
                 CreateTimeEvent(ev_prefix, "npc_reply", typing_duration, function()
                     if is_panda_ic_shutdown_in_progress() then
                         return true
                     end
-                    clear_npc_typing_message(cid)
+                    if has_reply then
+                        clear_npc_typing_message(cid)
+                    end
 
                     if ch.reply and ch.reply ~= "" then
                         if is_private_tab_visible and is_private_tab_visible() then

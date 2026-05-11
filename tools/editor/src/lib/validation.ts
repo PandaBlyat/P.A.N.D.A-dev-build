@@ -584,21 +584,6 @@ function validateTurn(
       messages,
     });
 
-    if (!choice.reply || choice.reply.trim() === '') {
-      pushMessage(messages, {
-        code: 'missing-choice-reply',
-        group: 'structure',
-        scope: 'choice',
-        level: 'error',
-        conversationId: conv.id,
-        turnNumber: turn.turnNumber,
-        choiceIndex: choice.index,
-        propertiesTab: 'selection',
-        fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'reply'),
-        fieldLabel: 'NPC Reply',
-        message: `${turnLabels.getLongLabel(turn.turnNumber)}, Choice ${choice.index}: Missing reply text.`,
-      });
-    }
     validateDialoguePlaceholder({
       value: choice.reply,
       fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'reply'),
