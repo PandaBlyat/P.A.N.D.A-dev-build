@@ -391,6 +391,28 @@ local function register_f2f_continuation_handoff(active_state, active_npc_id, br
         return false
     end
 
+    -- Drop a map pin + chat attachment on the sender's PDA thread so the player
+    -- knows where to find the new F2F target (matches PDA->F2F handoff UX).
+    if pda_interactive_conv and pda_interactive_conv.queue_f2f_handoff_attachment_public then
+        local sender_id = tonumber(active_npc_id)
+        local sender_se = sender_id and alife_object(sender_id) or nil
+        local sender_name = "Unknown"
+        local sender_icon = nil
+        if sender_se then
+            if sender_se.character_name then
+                local ok_n, n = pcall(function() return sender_se:character_name() end)
+                if ok_n and n and n ~= "" then sender_name = tostring(n) end
+            end
+            if sender_se.character_icon then
+                local ok_i, ic = pcall(function() return sender_se:character_icon() end)
+                if ok_i and ic and ic ~= "" then sender_icon = tostring(ic) end
+            end
+        end
+        local sender_contact_id = sender_id and tostring(sender_id) or contact_id
+        pcall(pda_interactive_conv.queue_f2f_handoff_attachment_public,
+            sender_contact_id, sender_name, sender_icon, target_id, target_name, token)
+    end
+
     local owner_tag = string.format("f2f_handoff_%s_%s_%s", tostring(contact_id), tostring(active_state.conv_id), tostring(branch.next_turn))
     local routed = false
     if type(panda_f2f_bridge.hard_route_branch) == "function" then

@@ -391,16 +391,28 @@ handlers["punish_rep"] = function(parts, cmd_str, cmd)
     db.actor:change_character_reputation(-(tonumber(parts[2]) or 0))
 end
 
+-- change_faction_goodwill lives in the pda_interactive_conv namespace
+-- (script files are loaded as namespaces in Anomaly, so non-local
+-- top-level functions are NOT true globals).
+local function apply_faction_goodwill(faction, delta)
+    if pda_interactive_conv and pda_interactive_conv.change_faction_goodwill then
+        pda_interactive_conv.change_faction_goodwill(faction, delta)
+    else
+        printf("PANDA_IC: pda_interactive_conv.change_faction_goodwill unavailable (faction=%s delta=%s)",
+            tostring(faction), tostring(delta))
+    end
+end
+
 handlers["reward_gw"] = function(parts, cmd_str, cmd)
     local amount = tonumber(parts[2]) or 0
     local faction = parts[3] or "stalker"
-    change_faction_goodwill(faction, amount)
+    apply_faction_goodwill(faction, amount)
 end
 
 handlers["punish_gw"] = function(parts, cmd_str, cmd)
     local amount = tonumber(parts[2]) or 0
     local faction = parts[3] or "stalker"
-    change_faction_goodwill(faction, -amount)
+    apply_faction_goodwill(faction, -amount)
 end
 
 handlers["give_item"] = function(parts, cmd_str, cmd)
