@@ -84,7 +84,7 @@
         <text>Hmm to be truthful, I've been holding back Hip from going there herself, have a chat with her. Don't fuck this up. </text>
     </string>
     <string id="st_pda_ic_loner_1_t3_outcome_3">
-        <text>none</text>
+        <text>spawn_custom_npc:mia</text>
     </string>
     <string id="st_pda_ic_loner_1_t3_cont_3">
         <text>4</text>
@@ -247,6 +247,114 @@
     </string>
     <string id="st_pda_ic_loner_1_start_mode">
         <text>f2f</text>
+    </string>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- CONVERSATION 2: Custom NPC spawn smoke test                 -->
+    <!--                                                             -->
+    <!-- Verifies that the editor's custom NPC spawning works for:   -->
+    <!--   1. Near-player spawn (spawn_custom_npc)                   -->
+    <!--   2. Smart-terrain spawn with delay (spawn_custom_npc_at)   -->
+    <!--   3. Spawn + F2F continuation routed to the custom NPC      -->
+    <!--   4. req_custom_npc_alive precondition gating               -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <string id="st_pda_ic_loner_2_precond">
+        <text>req_story_npc:esc_2_12_stalker_wolf</text>
+    </string>
+    <string id="st_pda_ic_loner_2_repeatable">
+        <text>1</text>
+    </string>
+    <string id="st_pda_ic_loner_2_open">
+        <text>Hey, you got a sec? I want to try something — call in some help and see who shows up. Pick where.</text>
+    </string>
+
+    <!-- Choice 1 — near-player spawn -->
+    <string id="st_pda_ic_loner_2_choice_1">
+        <text>Send Rabbit to my position.</text>
+    </string>
+    <string id="st_pda_ic_loner_2_reply_1">
+        <text>On it. He should be walking up to you any second.</text>
+    </string>
+    <string id="st_pda_ic_loner_2_outcome_1">
+        <text>spawn_custom_npc:rabbit_mule</text>
+    </string>
+    <string id="st_pda_ic_loner_2_cont_1">
+        <text>2</text>
+    </string>
+    <string id="st_pda_ic_loner_2_cont_channel_1">
+        <text>pda</text>
+    </string>
+
+    <!-- Choice 2 — smart-terrain spawn with delay -->
+    <string id="st_pda_ic_loner_2_choice_2">
+        <text>Drop Slick at the military checkpoint in five seconds.</text>
+    </string>
+    <string id="st_pda_ic_loner_2_reply_2">
+        <text>Roger. Slick is en route to the checkpoint. Give him a moment.</text>
+    </string>
+    <string id="st_pda_ic_loner_2_outcome_2">
+        <text>spawn_custom_npc_at:missing_mule:st_mil_smart_terrain_2_4_name:5</text>
+    </string>
+    <string id="st_pda_ic_loner_2_cont_2">
+        <text>2</text>
+    </string>
+    <string id="st_pda_ic_loner_2_cont_channel_2">
+        <text>pda</text>
+    </string>
+
+    <!-- Choice 3 — spawn + F2F continuation to the custom NPC -->
+    <string id="st_pda_ic_loner_2_choice_3">
+        <text>Wake Mia up and put her in front of me.</text>
+    </string>
+    <string id="st_pda_ic_loner_2_reply_3">
+        <text>Done. Talk to her face to face.</text>
+    </string>
+    <string id="st_pda_ic_loner_2_outcome_3">
+        <text>spawn_custom_npc:mia</text>
+    </string>
+    <string id="st_pda_ic_loner_2_cont_3">
+        <text>3</text>
+    </string>
+    <string id="st_pda_ic_loner_2_cont_channel_3">
+        <text>f2f</text>
+    </string>
+    <string id="st_pda_ic_loner_2_cont_npc_3">
+        <text>npc:mia</text>
+    </string>
+
+    <!-- Turn 2 — gated by req_custom_npc_alive (proves precondition works) -->
+    <string id="st_pda_ic_loner_2_t2_open">
+        <text>So — did anyone actually arrive?</text>
+    </string>
+    <string id="st_pda_ic_loner_2_t2_branch_precond">
+        <text>any(req_custom_npc_alive:rabbit_mule,req_custom_npc_alive:missing_mule)</text>
+    </string>
+    <string id="st_pda_ic_loner_2_t2_choice_1">
+        <text>Yeah, I see them.</text>
+    </string>
+    <string id="st_pda_ic_loner_2_t2_reply_1">
+        <text>Good. The system works.</text>
+    </string>
+    <string id="st_pda_ic_loner_2_t2_outcome_1">
+        <text>none</text>
+    </string>
+
+    <!-- Turn 3 — F2F with Mia (custom NPC continuation target) -->
+    <string id="st_pda_ic_loner_2_t3_open">
+        <text>You wanted me?</text>
+    </string>
+    <string id="st_pda_ic_loner_2_t3_choice_1">
+        <text>Just checking the radio still works. Carry on.</text>
+    </string>
+    <string id="st_pda_ic_loner_2_t3_reply_1">
+        <text>Whatever.</text>
+    </string>
+    <string id="st_pda_ic_loner_2_t3_outcome_1">
+        <text>none</text>
+    </string>
+
+    <string id="st_pda_ic_loner_2_start_mode">
+        <text>pda</text>
     </string>
 
 </string_table>
