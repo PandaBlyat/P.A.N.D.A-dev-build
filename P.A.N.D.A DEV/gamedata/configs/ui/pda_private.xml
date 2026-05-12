@@ -288,13 +288,15 @@
                     <texture_h a="0">ui_panda_box</texture_h>
                     <texture_t a="0">ui_panda_box</texture_t>
                     <texture_d a="0">ui_panda_box</texture_d>
-                    <text font="letterica16" align="l" vert_align="c" x="10" y="0" complex_mode="1" />
                     <text_color>
                         <e r="225" g="232" b="238" a="255"/>
                         <h r="50" g="140" b="255" a="255"/>
                         <t r="50" g="140" b="255" a="255"/>
                     </text_color>
                 </choice_chip_btn>
+                <choice_chip_label x="0" y="0" width="220" height="26" complex_mode="1">
+                    <text font="letterica16" align="l" vert_align="c" x="10" y="0" r="255" g="220" b="80" a="255" />
+                </choice_chip_label>
                 <block_chip_btn x="0" y="0" width="220" height="26" can_focus="1" stretch="1">
                     <texture a="0">ui_panda_box</texture>
                     <texture_e a="0">ui_panda_box</texture_e>

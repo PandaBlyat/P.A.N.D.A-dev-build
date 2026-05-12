@@ -1567,19 +1567,22 @@ function pda_private_tab:EnsureChoiceButtonPool(required_count, chip_h)
     for i = #self.choice_btns + 1, count do
         local bg = self.xml:InitStatic("private_pda:info:description:choice_chip_bg", self.desc_box)
         local btn = self.xml:Init3tButton("private_pda:info:description:choice_chip_btn", self.desc_box)
+        local label = self.xml:InitTextWnd("private_pda:info:description:choice_chip_label", self.desc_box)
         local btn_name = "choice_btn_" .. i
 
         self:Register(btn, btn_name)
         bg:SetWndSize(vector2():set(120, button_h))
         btn:SetWndSize(vector2():set(120, button_h))
+        label:SetWndSize(vector2():set(120, button_h))
         if bg.SetTextureColor then bg:SetTextureColor(GetARGB(235, 18, 30, 85)) end
         -- Override the 3t-button's texture with our custom atlas at alpha=0 so
         -- the vanilla button frame art is never drawn over our bg static.
         apply_button_quad_style(btn)
         bg:Show(false)
         btn:Show(false)
+        label:Show(false)
 
-        table.insert(self.choice_btns, { bg = bg, btn = btn, idx = nil, text = "" })
+        table.insert(self.choice_btns, { bg = bg, btn = btn, label = label, idx = nil, text = "" })
     end
 end
 
@@ -1604,10 +1607,24 @@ function pda_private_tab:RefreshChoiceButtons()
             local label = choice.text or ""
             if is_active and choice.idx == self.selected_choice_idx then label = "[Selected] " .. label end
 
+            local wrapped_label = wrap_plain_text(label, 54)
             local text_ctrl = choice.btn.TextControl and choice.btn:TextControl() or nil
             if text_ctrl then
-                text_ctrl:SetText(wrap_plain_text(label, 54))
+                text_ctrl:SetText(wrapped_label)
+                if text_ctrl.SetTextColor then
+                    local has_hint = tostring(label):find("%[[^%]]+%]") ~= nil
+                    if has_hint then
+                        text_ctrl:SetTextColor(GetARGB(255, 255, 220, 80))
+                    else
+                        text_ctrl:SetTextColor(GetARGB(255, 225, 232, 238))
+                    end
+                end
                 if text_ctrl.AdjustHeightToText then text_ctrl:AdjustHeightToText() end
+            end
+
+            if choice.label then
+                choice.label:SetText("")
+                choice.label:Show(false)
             end
 
             choice.btn:Enable(is_active)
@@ -1821,6 +1838,10 @@ function pda_private_tab:ClearChoiceButtons()
         end
         if choice and choice.bg then
             choice.bg:Show(false)
+        end
+        if choice and choice.label then
+            choice.label:Show(false)
+            choice.label:SetText("")
         end
         if choice then
             choice.idx = nil
@@ -2422,7 +2443,7 @@ function pda_private_tab:OnSelectNPC()
 
         self:EnsureChoiceButtonPool(usable_choices, chip_h)
 
-		for i = 1, usable_choices do
+        for i = 1, usable_choices do
 			local ch = active_conv.choices[i]
             local choice = self.choice_btns[i]
             if choice and choice.bg and choice.btn then
@@ -2431,12 +2452,18 @@ function pda_private_tab:OnSelectNPC()
 
                 choice.bg:SetWndSize(vector2():set(chip_w, chip_h))
 				choice.btn:SetWndSize(vector2():set(chip_w, chip_h))
+                if choice.label then
+                    choice.label:SetWndSize(vector2():set(chip_w, chip_h))
+                end
 
 				local row = usable_choices - i
 				local y = (composer_y - 10) - ((row + 1) * (chip_h + chip_gap))
 
                 choice.bg:SetWndPos(vector2():set(shared_left_x, y))
 				choice.btn:SetWndPos(vector2():set(shared_left_x, y))
+                if choice.label then
+                    choice.label:SetWndPos(vector2():set(shared_left_x, y))
+                end
             end
 		end
 
