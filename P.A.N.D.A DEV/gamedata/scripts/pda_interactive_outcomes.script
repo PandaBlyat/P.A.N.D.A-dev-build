@@ -19,6 +19,30 @@ local function runtime_set(key, value)
     _panda_ic_runtime[key] = value
 end
 
+local function apply_dialogue_stat_delta(key, delta)
+    if pda_interactive_conv and type(pda_interactive_conv.change_dialogue_stat) == "function" then
+        pda_interactive_conv.change_dialogue_stat(key, delta)
+    else
+        printf(
+            "PANDA_IC: pda_interactive_conv.change_dialogue_stat unavailable (key=%s delta=%s)",
+            tostring(key),
+            tostring(delta)
+        )
+    end
+end
+
+local function apply_dialogue_stat_set(key, value)
+    if pda_interactive_conv and type(pda_interactive_conv.set_dialogue_stat) == "function" then
+        pda_interactive_conv.set_dialogue_stat(key, value)
+    else
+        printf(
+            "PANDA_IC: pda_interactive_conv.set_dialogue_stat unavailable (key=%s value=%s)",
+            tostring(key),
+            tostring(value)
+        )
+    end
+end
+
 local function make_env(ctx, parts, cmd_str, cmd)
     local env = { parts = parts, cmd_str = cmd_str, cmd = cmd, str_explode = ctx.str_explode or str_explode }
     return setmetatable(env, {
@@ -1905,25 +1929,25 @@ end
 handlers["change_dialogue_stat"] = function(parts, cmd_str, cmd)
     local key = parts[2]
     local delta = tonumber(parts[3]) or 0
-    change_dialogue_stat(key, delta)
+    apply_dialogue_stat_delta(key, delta)
 end
 
 handlers["give_skill_level"] = function(parts, cmd_str, cmd)
     local key = parts[2]
     local amount = math.abs(tonumber(parts[3]) or 0)
-    change_dialogue_stat(key, amount)
+    apply_dialogue_stat_delta(key, amount)
 end
 
 handlers["take_skill_level"] = function(parts, cmd_str, cmd)
     local key = parts[2]
     local amount = math.abs(tonumber(parts[3]) or 0)
-    change_dialogue_stat(key, -amount)
+    apply_dialogue_stat_delta(key, -amount)
 end
 
 handlers["set_dialogue_stat"] = function(parts, cmd_str, cmd)
     local key = parts[2]
     local value = tonumber(parts[3]) or 0
-    set_dialogue_stat(key, value)
+    apply_dialogue_stat_set(key, value)
 end
 
 handlers["dialogue_skill_check"] = function(parts, cmd_str, cmd)
