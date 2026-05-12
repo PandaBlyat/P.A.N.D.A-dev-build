@@ -53,6 +53,19 @@ local STATIONARY_ANCHOR_INTERVAL = 0.15
 local STATIONARY_TELEPORT_THRESHOLD = 0.35
 local LOADOUT_RETRY_INTERVAL = 0.25
 local LOADOUT_RETRY_LIMIT = 24
+
+-- Returns true if the host script has begun on_game_end teardown. Time events
+-- can still fire briefly after on_game_end while the actor/level objects are
+-- being torn down — touching alife/level objects during this window crashes
+-- the engine, so periodic enforcement callbacks bail out early.
+local function is_shutting_down()
+    local ic = rawget(_G, "pda_interactive_conv")
+    if ic and type(ic.is_panda_ic_shutdown_in_progress) == "function" then
+        local ok, val = pcall(ic.is_panda_ic_shutdown_in_progress)
+        if ok and val == true then return true end
+    end
+    return db == nil or db.actor == nil
+end
 local STORY_SQUAD_IDLE_TIME = 31536000
 local FEMALE_SOUND_PREFIX = "characters_voice\\human\\woman\\"
 local DUX_FEMALE_VISUAL_PRESETS = {
@@ -3009,6 +3022,10 @@ local function schedule_stationary_anchor_enforcement(npc_id)
     CreateTimeEvent("panda_npc_anchor", tostring(npc_id), STATIONARY_ANCHOR_INTERVAL, function()
         stationary_anchor_scheduled[npc_id] = nil
 
+        if is_shutting_down() then
+            return true
+        end
+
         local current = stationary_custom_npcs[npc_id]
         if not current then
             return true
@@ -3028,6 +3045,10 @@ local function schedule_online_loadout_activation(npc_id)
     end
 
     CreateTimeEvent("panda_npc_loadout", tostring(npc_id), LOADOUT_RETRY_INTERVAL, function()
+        if is_shutting_down() then
+            return true
+        end
+
         local override = pending_loadout_overrides[npc_id]
         if not override then
             return true
@@ -3784,6 +3805,9 @@ local function schedule_story_target_retry(delay)
     story_target_retry_scheduled = true
     CreateTimeEvent("panda_story_target_spawn", "retry", delay or 5, function()
         story_target_retry_scheduled = false
+        if is_shutting_down() then
+            return true
+        end
         if process_pending_story_targets then
             process_pending_story_targets("timer")
         end
