@@ -63,7 +63,7 @@
         <text>Two hours ago. Artyom is a ghost. His last coordinates were the tunnel on the eastern edge of  Cordon. I can't leave the village undefended to go looking for him. I need you to go up there, find Artyom, and find out what Kovalchuk is up to.</text>
     </string>
     <string id="st_pda_ic_loner_1_t2_outcome_1">
-        <text>give_skill_level:perception:5</text>
+        <text>give_skill_level:charisma:20</text>
     </string>
     <string id="st_pda_ic_loner_1_t2_cont_1">
         <text>3</text>
@@ -197,9 +197,6 @@
     </string>
     <string id="st_pda_ic_loner_1_t9_choice_1">
         <text>My bad, on it.</text>
-    </string>
-    <string id="st_pda_ic_loner_1_t9_reply_1">
-        <text>...</text>
     </string>
     <string id="st_pda_ic_loner_1_t9_outcome_1">
         <text>none</text>
