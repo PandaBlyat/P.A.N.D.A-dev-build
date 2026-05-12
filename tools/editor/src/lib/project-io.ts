@@ -82,6 +82,9 @@ export function exportXml(): void {
           cloned.language = language;
           return cloned;
         });
+        if (state.project.npcTemplates?.length) {
+          mergedProject.npcTemplates = structuredClone(state.project.npcTemplates);
+        }
 
         const xml = generateXml(mergedProject, state.systemStrings, undefined, exporterConfig, language);
         const suffix = language === 'ru' ? 'rus' : 'eng';
