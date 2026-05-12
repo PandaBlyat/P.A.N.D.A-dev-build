@@ -4222,6 +4222,13 @@ local function build_dialog_tree(dialog, state)
                 build_state.first_level_choices[#build_state.first_level_choices + 1] = actor_id
             end
 
+            -- Continuation works the same whether or not the branch has an
+            -- NPC reply phrase. A missing _reply_N is intentional (skill-check
+            -- choices typically don't carry a generic ack), but we still need
+            -- to hang the next turn's opener off the choice so the tree has
+            -- somewhere to go after the player picks it. continuation_anchor
+            -- is the node id we attach the next turn's _open phrase to.
+            local continuation_anchor = actor_id
             if branch.reply_key then
                 local npc_id = alloc()
                 generated_ids.reply[#generated_ids.reply + 1] = npc_id
@@ -4230,7 +4237,11 @@ local function build_dialog_tree(dialog, state)
                     npc_reply_action = exit_action
                 end
                 add_logged_node(actor_id, npc_id, branch.reply_key, nil, npc_reply_action, false, "npc_reply", "npc")
+                continuation_anchor = npc_id
+            end
 
+            if branch.reply_key or branch_continues_in_f2f then
+                local npc_id = continuation_anchor
                 if branch_continues_in_f2f then
                     local next_turn_state = get_turn_state(branch.next_turn)
                     if next_turn_state then
