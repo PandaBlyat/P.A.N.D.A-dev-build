@@ -146,10 +146,30 @@ function get_dynamic_news()
 end
 
 function destroy_dynamic_news()
-	if (instance) then 
+	if (instance) then
 		instance:destroy()
 	end
 	instance = nil
+end
+
+-- True while the game world is torn down (quit-to-main-menu, mid-load).
+-- The DynamicNewsManager periodic Tick events (TickNews, TickQuick,
+-- TickSpecial, TickTask, TickRandom, TickCompanion) reach into db.actor,
+-- level.*, and alife():actor() every few seconds. If they fire after
+-- on_game_end has begun teardown, those bindings dereference dangling
+-- C++ objects and the engine reports it as MainMenu::ReloadUI ->
+-- xrFactory_Create.
+local function dnm_world_alive()
+	return db ~= nil and db.actor ~= nil
+end
+
+-- Called from on_game_end so the next-frame Tick* events don't fire
+-- against a torn-down world. Reschedules nothing; a fresh instance is
+-- rebuilt on the next on_game_load via destroy_dynamic_news + get_dynamic_news.
+local function on_game_end_cb()
+	pcall(destroy_dynamic_news)
+	delay = nil
+	delay_start = nil
 end
 
 function actor_on_first_update()
@@ -157,20 +177,21 @@ function actor_on_first_update()
 end
 
 function actor_on_update()
+	if not dnm_world_alive() then return end
 	if (delay and delay <= time_global()) then
-		if (not delay_start) then 
+		if (not delay_start) then
 			delay_start = time_global() + 20000
 		elseif (delay_start and delay_start <= time_global()) then
 			UnregisterScriptCallback("actor_on_first_update", actor_on_first_update)
 			UnregisterScriptCallback("actor_on_update", actor_on_update)
-			
+
 			get_dynamic_news()
 			update_settings()
-			
+
 			-- DRX Questlines trigger, runs once
 			if (not has_alife_info("drx_sl_start_news")) and IsStoryMode() then
 				get_dynamic_news():GossipTaskDRX()
-				db.actor:give_info_portion("drx_sl_start_news") 
+				db.actor:give_info_portion("drx_sl_start_news")
 			end
 		end
 	end
@@ -200,6 +221,7 @@ function on_game_start()
     end
 
     RegisterScriptCallback("on_game_load", on_game_load)
+    RegisterScriptCallback("on_game_end", on_game_end_cb)
     RegisterScriptCallback("on_option_change", update_settings)
     RegisterScriptCallback("on_key_press", on_key_press)
 
@@ -381,10 +403,11 @@ function DynamicNewsManager:destroy()
 end
 
 function DynamicNewsManager:TickNews()
+	if not dnm_world_alive() then return true end
 	if (enable_news == false) then
 		return true
 	end
-	
+
 	ResetTimeEvent("DynamicNewsManager","TickNews",math.random(5,20)) -- reset the timer, the function will get called again after 5 ~ 20 sec
 	--printf(">>> Dyn News: TickNews call")
 	
@@ -427,10 +450,11 @@ end
 
 
 function DynamicNewsManager:TickQuick()
+	if not dnm_world_alive() then return true end
 	if (enable_news == false) then
 		return true
 	end
-	
+
 	ResetTimeEvent("DynamicNewsManager","TickQuick",3600)
 	--printf(">>> Dyn News: TickQuick call")
 	
@@ -519,10 +543,11 @@ function DynamicNewsManager:TickQuick()
 end
 
 function DynamicNewsManager:TickSpecial()
+	if not dnm_world_alive() then return true end
 	if (enable_news == false) then
 		return true
 	end
-	
+
 	ResetTimeEvent("DynamicNewsManager","TickSpecial",math.random(cycle_TickSpecial + 1, cycle_TickSpecial*2 + 1))
 	--printf(">>> Dyn News: TickSpecial call - time cycle: " .. cycle_TickSpecial)
 	
@@ -558,10 +583,11 @@ function DynamicNewsManager:TickSpecial()
 end
 
 function DynamicNewsManager:TickTask()
+	if not dnm_world_alive() then return true end
 	if (enable_news == false) then
 		return true
 	end
-	
+
 	ResetTimeEvent("DynamicNewsManager","TickTask",math.random(cycle_TickTask + 1, cycle_TickTask*2 + 1))
 	--printf(">>> Dyn News: TickTask call - time cycle: " .. cycle_TickSpecial)
 	
@@ -602,10 +628,11 @@ function DynamicNewsManager:TickTask()
 end
 
 function DynamicNewsManager:TickRandom()
+	if not dnm_world_alive() then return true end
 	if (enable_news == false) then
 		return true
 	end
-	
+
 	ResetTimeEvent("DynamicNewsManager","TickRandom",math.random(cycle_TickRandom + 1, cycle_TickRandom*2 + 1))
 	--printf(">>> Dyn News: TickRandom call - time cycle: " .. cycle_TickRandom)
 	
@@ -643,14 +670,15 @@ function DynamicNewsManager:TickRandom()
 end
 
 function DynamicNewsManager:TickCompanion()
+	if not dnm_world_alive() then return true end
 	if (enable_news == false) then
 		return true
 	end
-	
+
 	if not shw_companions then
 		return true
 	end
-	
+
 	ResetTimeEvent("DynamicNewsManager","TickCompanion",math.random(cycle_TickCompanion + 1, cycle_TickCompanion*2 + 1))
 	--printf(">>> Dyn News: TickCompanion call - time cycle: " .. cycle_TickCompanion)
 	
@@ -3095,6 +3123,7 @@ end
 --=========================================================================
 
 function DynamicNewsManager:TickConversation()
+    if not dnm_world_alive() then return true end
     ResetTimeEvent("DynamicNewsManager", "TickConversation", self.conv_timer)
 
     -- Global toggle
