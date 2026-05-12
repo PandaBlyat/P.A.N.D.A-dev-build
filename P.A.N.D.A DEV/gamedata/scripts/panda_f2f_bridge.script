@@ -1458,6 +1458,18 @@ local function actor_on_update_cb()
         return
     end
 
+    -- Secondary belt-and-suspenders guard: if the PDA-IC shutdown flag flipped but
+    -- our own begin_shutdown_cleanup never ran (e.g. the bridge module went missing
+    -- from _G during teardown), still bail before reaching into db.actor / alife.
+    if db == nil or db.actor == nil then
+        return
+    end
+    local ic = rawget(_G, "pda_interactive_conv")
+    if ic and type(ic.is_panda_ic_shutdown_in_progress) == "function" then
+        local ok, val = pcall(ic.is_panda_ic_shutdown_in_progress)
+        if ok and val == true then return end
+    end
+
     -- Periodic proactive injection: push panda_f2f_direct_dialog into story NPCs
     -- that qualify for F2F-first conversations.  Story NPCs have custom dialog lists
     -- that don't include character_dialogs.xml, so we must inject via override_dialog.

@@ -1024,6 +1024,7 @@ function pda_private_tab:OnChoice3() self:OnChoiceClicked(3) end
 function pda_private_tab:OnChoice4() self:OnChoiceClicked(4) end
 
 function pda_private_tab:OnChoiceClicked(idx)
+    if not is_game_world_alive() then return end
     self:TriggerButtonFlash("choice_" .. tostring(idx), 140)
     local active_conv = self:GetActiveConvForSelected()
     if not active_conv then return end
@@ -1226,11 +1227,13 @@ function pda_private_tab:UpdateChoiceTypewriter()
 end
 
 function pda_private_tab:OnComposerQuick1Clicked()
+    if not is_game_world_alive() then return end
     self:TriggerButtonFlash("composer_quick_1", 140)
     self:ToggleQuickMenu()
 end
 
 function pda_private_tab:OnComposerQuick2Clicked()
+    if not is_game_world_alive() then return end
     self:TriggerButtonFlash("composer_quick_2", 140)
     if self:HasDialogueChoices() then
         self.reply_trigger_btn_hint_until = 0
@@ -1380,6 +1383,7 @@ function pda_private_tab:ToggleQuickMenu()
 end
 
 function pda_private_tab:OnQuickIgnoreConversationClicked()
+    if not is_game_world_alive() then return end
     self:TriggerButtonFlash("quick_ignore", 160)
     local contact_name = self:GetSelectedContactName()
     if not contact_name then return end
@@ -1423,6 +1427,7 @@ function pda_private_tab:OnQuickIgnoreConversationClicked()
 end
 
 function pda_private_tab:OnQuickBlockContactClicked()
+    if not is_game_world_alive() then return end
     self:TriggerButtonFlash("quick_block", 160)
     local contact_name = self:GetSelectedContactName()
     if not contact_name then return end
@@ -1435,6 +1440,7 @@ function pda_private_tab:OnQuickBlockContactClicked()
 end
 
 function pda_private_tab:OnQuickUnblockContactClicked()
+    if not is_game_world_alive() then return end
     self:TriggerButtonFlash("quick_unblock", 160)
     local contact_name = self:GetSelectedContactName()
     if not contact_name then return end
@@ -1478,6 +1484,7 @@ function pda_private_tab:HasDialogueChoices()
 end
 
 function pda_private_tab:OnReplyTriggerClicked()
+    if not is_game_world_alive() then return end
     self:TriggerButtonFlash("composer_send", 140)
     self.quick_menu_open = false
     self:HideQuickMenuButtons()
@@ -2004,8 +2011,9 @@ function pda_private_tab:ShowStats(contact_name)
 end
 
 function pda_private_tab:OnSelectNPC()
+    if not is_game_world_alive() then return end
     local item = self.npc_list:GetSelectedItem()
-    if not item or item.contact_id == "System" then 
+    if not item or item.contact_id == "System" then
         self.quick_menu_open = false
         self:HideQuickMenuButtons()
         self:HideStats()

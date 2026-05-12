@@ -505,6 +505,9 @@ function install_engine_guards()
             end
 
             function sim_squad_scripted:get_script_target()
+                if is_shutting_down() then
+                    return base_get_script_target(self)
+                end
                 if reassert_stationary_custom_squad(self, "get_script_target") then
                     return self.smart_id or self.id
                 end
@@ -513,6 +516,9 @@ function install_engine_guards()
             end
 
             function sim_squad_scripted:specific_update(script_target_id)
+                if is_shutting_down() then
+                    return base_specific_update(self, script_target_id)
+                end
                 if reassert_stationary_custom_squad(self, "specific_update") then
                     return
                 end
@@ -521,6 +527,9 @@ function install_engine_guards()
             end
 
             function sim_squad_scripted:generic_update()
+                if is_shutting_down() then
+                    return base_generic_update(self)
+                end
                 if reassert_stationary_custom_squad(self, "generic_update") then
                     return
                 end
@@ -4011,6 +4020,7 @@ end
 -- ============================================================
 
 local function on_npc_net_spawn(obj, se_obj)
+    if is_shutting_down() then return end
     local npc_id = get_callback_npc_id(obj, se_obj)
     if not npc_id then
         return
@@ -4105,6 +4115,7 @@ local function mark_custom_npc_dead(npc_id)
 end
 
 local function on_npc_death(obj, killer)
+    if is_shutting_down() then return end
     local npc_id = get_callback_npc_id(obj)
     mark_custom_npc_dead(npc_id)
 end
@@ -4140,14 +4151,17 @@ local function enforce_stationary_squad_runtime(squad_obj, reason)
 end
 
 local function on_stationary_squad_first_update(squad_obj)
+    if is_shutting_down() then return end
     enforce_stationary_squad_runtime(squad_obj, "squad_on_first_update")
 end
 
 local function on_stationary_squad_update(squad_obj)
+    if is_shutting_down() then return end
     enforce_stationary_squad_runtime(squad_obj, "squad_on_update")
 end
 
 local function on_actor_first_update()
+    if is_shutting_down() then return end
     spawn_story_target_templates_for_faction(actor_faction_key(), "actor_on_first_update")
 end
 
