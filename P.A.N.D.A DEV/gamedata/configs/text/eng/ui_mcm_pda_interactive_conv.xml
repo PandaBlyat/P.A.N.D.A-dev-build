@@ -1049,10 +1049,10 @@
 		<text>Adds a Charisma/Luck/Intimidation/Perception strip to the NPC chat header.</text>
 	</string>
 	<string id="pda_interactive_conv_show_check_hints_in_choices">
-		<text>Show Stat Hints on Choices</text>
+		<text>Show [Stat N] Hints on Choices</text>
 	</string>
 	<string id="pda_interactive_conv_show_check_hints_in_choices_desc">
-		<text>Appends hints to dialogue choices: e.g. "[Charisma 12/50 - 22% chance]" for skill checks, "[60% Chance]" for random rolls, and "[+5 Charisma]" / "[-3 Intimidation]" for choices that reward or cost stat points.</text>
+		<text>Appends e.g. "[Charisma 5]" or "[60% Chance]" to dialogue choices that carry a check.</text>
 	</string>
 	<string id="pda_interactive_conv_title_typing">
 		<text>NPC Typing Personality</text>

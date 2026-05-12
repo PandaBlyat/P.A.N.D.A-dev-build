@@ -1049,10 +1049,10 @@
 		<text>Добавляет блок Харизма/Удача/Запугивание/Восприятие в шапку чата с NPC.</text>
 	</string>
 	<string id="pda_interactive_conv_show_check_hints_in_choices">
-		<text>Подсказки статов на вариантах</text>
+		<text>Подсказки [Стат N] на вариантах</text>
 	</string>
 	<string id="pda_interactive_conv_show_check_hints_in_choices_desc">
-		<text>Добавляет подсказки к вариантам: "[Харизма 12/50 - 22% шанс]" для проверок навыков, "[60% шанс]" для случайных бросков, "[+5 Харизма]" / "[-3 Запугивание]" для вариантов, дающих или забирающих очки статов.</text>
+		<text>Добавляет, например, "[Харизма 5]" или "[60% шанс]" к вариантам с проверкой.</text>
 	</string>
 	<string id="pda_interactive_conv_title_typing">
 		<text>NPC Typing Personality</text>

@@ -4,13 +4,16 @@
     <!-- ═══ NPC TEMPLATES ═══ -->
     <!-- Edit these via the "Spawn Custom NPC" outcome in the editor. -->
     <string id="st_panda_npc_template_rabbit_mule">
-        <text>name=Rabbit|faction=freedom|rank=experienced|primary=wpn_k98|outfit=svoboda_heavy_outfit|items=cocaine:50|relation=companion|spawn_dist=30|roam=0</text>
+        <text>name=Rabbit|faction=freedom|rank=experienced|primary=wpn_k98|outfit=svoboda_heavy_outfit|items=cocaine:50|movement=smart|relation=companion|spawn_dist=30</text>
     </string>
     <string id="st_panda_npc_template_missing_mule">
-        <text>name=Slick|faction=freedom|rank=experienced|primary=wpn_ak74|outfit=svoboda_light_outfit|items=device_pda_2:1,cocaine:20|relation=friendly|spawn_mode=smart|smart_ref=st_mil_smart_terrain_2_4_name|roam=0</text>
+        <text>name=Slick|faction=freedom|rank=experienced|primary=wpn_ak74|outfit=svoboda_light_outfit|items=device_pda_2:1,cocaine:20|movement=smart|relation=friendly|spawn_mode=smart|smart_ref=st_mil_smart_terrain_2_4_name</text>
     </string>
     <string id="st_panda_npc_template_mia">
-        <text>name=Mia|faction=stalker|rank=veteran|gender=female|primary=wpn_ak74:r:r|secondary=wpn_pm|outfit=hybrid_outfit|spawn_dist=5</text>
+        <text>name=Mia|faction=stalker|rank=veteran|primary=wpn_ak101|outfit=stalker_outfit|gender=female|spawn_dist=5</text>
+    </string>
+    <string id="st_panda_npc_template_artyom">
+        <text>name=Artyom|faction=stalker|rank=trainee|outfit=novice_outfit_tourist|items=medkit_army:2|relation=friendly|spawn_mode=smart|smart_ref=st_esc_smart_terrain_9_7_name</text>
     </string>
 
 
@@ -33,7 +36,7 @@
         <text>You look like you haven't slept in days. What's the problem?</text>
     </string>
     <string id="st_pda_ic_loner_1_reply_1">
-        <text>It's the Garbage. There's a smuggler baron up there named Kovalchuk. He’s set up a toll on the main route. He's bleeding our rookies dry, confiscating their artifacts, and leaving them to the mutants. I sent one of my best scouts, a kid named Artyom, to trail Kovalchuk to his main stash. We were going to hit him where it hurts.</text>
+        <text> There's a new smuggler baron named Kovalchuk. He’s set up a toll on the main route. He's bleeding our rookies dry, confiscating their artifacts, and leaving them to the mutants. I sent one of my scouts, a new kid named Artyom, to trail Kovalchuk to his main stash. We were going to hit him where it hurts.</text>
     </string>
     <string id="st_pda_ic_loner_1_outcome_1">
         <text>none</text>
@@ -44,14 +47,23 @@
     <string id="st_pda_ic_loner_1_cont_channel_1">
         <text>f2f</text>
     </string>
+    <string id="st_pda_ic_loner_1_choice_2">
+        <text>Eh, find another guy.</text>
+    </string>
+    <string id="st_pda_ic_loner_1_reply_2">
+        <text>Don't come to rookie asking for help.</text>
+    </string>
+    <string id="st_pda_ic_loner_1_outcome_2">
+        <text>punish_gw:500:stalker</text>
+    </string>
     <string id="st_pda_ic_loner_1_t2_choice_1">
         <text>Let me guess. Artyom missed his check in.</text>
     </string>
     <string id="st_pda_ic_loner_1_t2_reply_1">
-        <text>Three hours ago. Artyom is a ghost, he doesn't just 'miss' check-ins. His last coordinates were a collapsed tunnel on the eastern edge of the Garbage. I can't leave the village undefended to go looking for him. I need you to go up there, find Artyom, and find out what Kovalchuk is up to.</text>
+        <text>Two hours ago. Artyom is a ghost. His last coordinates were the tunnel on the eastern edge of  Cordon. I can't leave the village undefended to go looking for him. I need you to go up there, find Artyom, and find out what Kovalchuk is up to.</text>
     </string>
     <string id="st_pda_ic_loner_1_t2_outcome_1">
-        <text>none</text>
+        <text>give_skill_level:perception:5</text>
     </string>
     <string id="st_pda_ic_loner_1_t2_cont_1">
         <text>3</text>
@@ -68,6 +80,15 @@
     <string id="st_pda_ic_loner_1_t3_outcome_1">
         <text>none</text>
     </string>
+    <string id="st_pda_ic_loner_1_t3_cont_1">
+        <text>6</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t3_cont_channel_1">
+        <text>f2f</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t3_cont_npc_1">
+        <text>npc:artyom</text>
+    </string>
     <string id="st_pda_ic_loner_1_t3_choice_2">
         <text>Sorry, I'm not a charity. Sidorovich pays me for work. What are you offering?</text>
     </string>
@@ -77,14 +98,20 @@
     <string id="st_pda_ic_loner_1_t3_outcome_2">
         <text>none</text>
     </string>
+    <string id="st_pda_ic_loner_1_t3_cont_2">
+        <text>5</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t3_cont_channel_2">
+        <text>f2f</text>
+    </string>
     <string id="st_pda_ic_loner_1_t3_choice_3">
-        <text>Kovalchuk? Doesn't he travel with heavily armed guards? At least send me with someone. </text>
+        <text>Kovalchuk? He has to be travelling with heavily armed guards? At least send me with someone. </text>
     </string>
     <string id="st_pda_ic_loner_1_t3_reply_3">
-        <text>Hmm to be truthful, I've been holding back Hip from going there herself, have a chat with her. Don't fuck this up. </text>
+        <text>Hmm to be truthful, I've been holding back Mia from going there herself, have a chat with her. She's new here. </text>
     </string>
     <string id="st_pda_ic_loner_1_t3_outcome_3">
-        <text>spawn_custom_npc:mia</text>
+        <text>none</text>
     </string>
     <string id="st_pda_ic_loner_1_t3_cont_3">
         <text>4</text>
@@ -96,15 +123,85 @@
         <text>npc:mia</text>
     </string>
     <string id="st_pda_ic_loner_1_t4_open">
-        <text>Uhm..yes?</text>
+        <text>Uhh, why are you staring?</text>
     </string>
     <string id="st_pda_ic_loner_1_t4_choice_1">
-        <text>oh shit...forgot what i was saying.</text>
+        <text>Wolf said you've been wanting to track down Artyom.
+</text>
     </string>
     <string id="st_pda_ic_loner_1_t4_reply_1">
-        <text>I'm busy.</text>
+        <text>He did? Good. I've gone on a couple expeditions with him before and don't want to leave him behind.</text>
     </string>
     <string id="st_pda_ic_loner_1_t4_outcome_1">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t4_cont_1">
+        <text>7</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t4_cont_channel_1">
+        <text>f2f</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t5_choice_1">
+        <text>I'll get to it. </text>
+    </string>
+    <string id="st_pda_ic_loner_1_t5_reply_1">
+        <text>Hope he's still alive.</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t5_outcome_1">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t5_cont_1">
+        <text>6</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t5_cont_channel_1">
+        <text>f2f</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t5_choice_2">
+        <text>Surely..you can do better?</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t5_outcome_2">
+        <text>punish_gw:50:stalker,dialogue_skill_check:charisma:50:0:8:9</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t6_open">
+        <text>Did Wolf send you?</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t6_choice_1">
+        <text>Yup</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t6_reply_1">
+        <text>Aight so</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t6_outcome_1">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t7_choice_1">
+        <text>t</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t7_reply_1">
+        <text>t</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t7_outcome_1">
+        <text>none</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t8_open">
+        <text>Alright..maybe i got something stashed. Take it now and get it done. </text>
+    </string>
+    <string id="st_pda_ic_loner_1_t8_choice_1">
+        <text>Appreciate it.</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t8_outcome_1">
+        <text>give_skill_level:charisma:5</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t9_open">
+        <text>Who do you think you are? Go now or ill find someone else.</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t9_choice_1">
+        <text>My bad, on it.</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t9_reply_1">
+        <text>...</text>
+    </string>
+    <string id="st_pda_ic_loner_1_t9_outcome_1">
         <text>none</text>
     </string>
     <string id="st_pda_ic_loner_1_panda_f2f_registry">
@@ -114,7 +211,9 @@
   &quot;entryNodes&quot;: {
     &quot;pda&quot;: [],
     &quot;f2f&quot;: [
-      1
+      1,
+      8,
+      9
     ]
   },
   &quot;turns&quot;: [
@@ -135,6 +234,18 @@
           &quot;terminal&quot;: false,
           &quot;continueTo&quot;: 2,
           &quot;continueChannel&quot;: &quot;f2f&quot;,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        },
+        {
+          &quot;index&quot;: 2,
+          &quot;channel&quot;: &quot;f2f&quot;,
+          &quot;terminal&quot;: true,
+          &quot;continueTo&quot;: null,
+          &quot;continueChannel&quot;: null,
           &quot;storyNpcId&quot;: null,
           &quot;npcFactionFilters&quot;: [],
           &quot;npcProfileFilters&quot;: [],
@@ -182,21 +293,21 @@
         {
           &quot;index&quot;: 1,
           &quot;channel&quot;: &quot;f2f&quot;,
-          &quot;terminal&quot;: true,
-          &quot;continueTo&quot;: null,
-          &quot;continueChannel&quot;: null,
+          &quot;terminal&quot;: false,
+          &quot;continueTo&quot;: 6,
+          &quot;continueChannel&quot;: &quot;f2f&quot;,
           &quot;storyNpcId&quot;: null,
           &quot;npcFactionFilters&quot;: [],
           &quot;npcProfileFilters&quot;: [],
           &quot;allowGenericStalker&quot;: false,
-          &quot;contNpcId&quot;: null
+          &quot;contNpcId&quot;: &quot;npc:artyom&quot;
         },
         {
           &quot;index&quot;: 2,
           &quot;channel&quot;: &quot;f2f&quot;,
-          &quot;terminal&quot;: true,
-          &quot;continueTo&quot;: null,
-          &quot;continueChannel&quot;: null,
+          &quot;terminal&quot;: false,
+          &quot;continueTo&quot;: 5,
+          &quot;continueChannel&quot;: &quot;f2f&quot;,
           &quot;storyNpcId&quot;: null,
           &quot;npcFactionFilters&quot;: [],
           &quot;npcProfileFilters&quot;: [],
@@ -231,6 +342,143 @@
         {
           &quot;index&quot;: 1,
           &quot;channel&quot;: &quot;f2f&quot;,
+          &quot;terminal&quot;: false,
+          &quot;continueTo&quot;: 7,
+          &quot;continueChannel&quot;: &quot;f2f&quot;,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        }
+      ]
+    },
+    {
+      &quot;turnNumber&quot;: 5,
+      &quot;channel&quot;: &quot;f2f&quot;,
+      &quot;speakerNpcId&quot;: null,
+      &quot;speakerNpcFactionFilters&quot;: [],
+      &quot;speakerAllowGenericStalker&quot;: false,
+      &quot;firstSpeaker&quot;: &quot;npc&quot;,
+      &quot;requiresNpcFirst&quot;: true,
+      &quot;pdaEntry&quot;: false,
+      &quot;f2fEntry&quot;: false,
+      &quot;choices&quot;: [
+        {
+          &quot;index&quot;: 1,
+          &quot;channel&quot;: &quot;f2f&quot;,
+          &quot;terminal&quot;: false,
+          &quot;continueTo&quot;: 6,
+          &quot;continueChannel&quot;: &quot;f2f&quot;,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        },
+        {
+          &quot;index&quot;: 2,
+          &quot;channel&quot;: &quot;f2f&quot;,
+          &quot;terminal&quot;: true,
+          &quot;continueTo&quot;: null,
+          &quot;continueChannel&quot;: null,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        }
+      ]
+    },
+    {
+      &quot;turnNumber&quot;: 6,
+      &quot;channel&quot;: &quot;f2f&quot;,
+      &quot;speakerNpcId&quot;: null,
+      &quot;speakerNpcFactionFilters&quot;: [],
+      &quot;speakerAllowGenericStalker&quot;: false,
+      &quot;firstSpeaker&quot;: &quot;npc&quot;,
+      &quot;requiresNpcFirst&quot;: true,
+      &quot;pdaEntry&quot;: false,
+      &quot;f2fEntry&quot;: false,
+      &quot;choices&quot;: [
+        {
+          &quot;index&quot;: 1,
+          &quot;channel&quot;: &quot;f2f&quot;,
+          &quot;terminal&quot;: true,
+          &quot;continueTo&quot;: null,
+          &quot;continueChannel&quot;: null,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        }
+      ]
+    },
+    {
+      &quot;turnNumber&quot;: 7,
+      &quot;channel&quot;: &quot;f2f&quot;,
+      &quot;speakerNpcId&quot;: null,
+      &quot;speakerNpcFactionFilters&quot;: [],
+      &quot;speakerAllowGenericStalker&quot;: false,
+      &quot;firstSpeaker&quot;: &quot;npc&quot;,
+      &quot;requiresNpcFirst&quot;: true,
+      &quot;pdaEntry&quot;: false,
+      &quot;f2fEntry&quot;: false,
+      &quot;choices&quot;: [
+        {
+          &quot;index&quot;: 1,
+          &quot;channel&quot;: &quot;f2f&quot;,
+          &quot;terminal&quot;: true,
+          &quot;continueTo&quot;: null,
+          &quot;continueChannel&quot;: null,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        }
+      ]
+    },
+    {
+      &quot;turnNumber&quot;: 8,
+      &quot;channel&quot;: &quot;f2f&quot;,
+      &quot;speakerNpcId&quot;: null,
+      &quot;speakerNpcFactionFilters&quot;: [],
+      &quot;speakerAllowGenericStalker&quot;: false,
+      &quot;firstSpeaker&quot;: &quot;npc&quot;,
+      &quot;requiresNpcFirst&quot;: true,
+      &quot;pdaEntry&quot;: false,
+      &quot;f2fEntry&quot;: true,
+      &quot;choices&quot;: [
+        {
+          &quot;index&quot;: 1,
+          &quot;channel&quot;: &quot;f2f&quot;,
+          &quot;terminal&quot;: true,
+          &quot;continueTo&quot;: null,
+          &quot;continueChannel&quot;: null,
+          &quot;storyNpcId&quot;: null,
+          &quot;npcFactionFilters&quot;: [],
+          &quot;npcProfileFilters&quot;: [],
+          &quot;allowGenericStalker&quot;: false,
+          &quot;contNpcId&quot;: null
+        }
+      ]
+    },
+    {
+      &quot;turnNumber&quot;: 9,
+      &quot;channel&quot;: &quot;f2f&quot;,
+      &quot;speakerNpcId&quot;: null,
+      &quot;speakerNpcFactionFilters&quot;: [],
+      &quot;speakerAllowGenericStalker&quot;: false,
+      &quot;firstSpeaker&quot;: &quot;npc&quot;,
+      &quot;requiresNpcFirst&quot;: true,
+      &quot;pdaEntry&quot;: false,
+      &quot;f2fEntry&quot;: true,
+      &quot;choices&quot;: [
+        {
+          &quot;index&quot;: 1,
+          &quot;channel&quot;: &quot;f2f&quot;,
           &quot;terminal&quot;: true,
           &quot;continueTo&quot;: null,
           &quot;continueChannel&quot;: null,
@@ -247,114 +495,6 @@
     </string>
     <string id="st_pda_ic_loner_1_start_mode">
         <text>f2f</text>
-    </string>
-
-    <!-- ═══════════════════════════════════════════════════════════ -->
-    <!-- CONVERSATION 2: Custom NPC spawn smoke test                 -->
-    <!--                                                             -->
-    <!-- Verifies that the editor's custom NPC spawning works for:   -->
-    <!--   1. Near-player spawn (spawn_custom_npc)                   -->
-    <!--   2. Smart-terrain spawn with delay (spawn_custom_npc_at)   -->
-    <!--   3. Spawn + F2F continuation routed to the custom NPC      -->
-    <!--   4. req_custom_npc_alive precondition gating               -->
-    <!-- ═══════════════════════════════════════════════════════════ -->
-    <string id="st_pda_ic_loner_2_precond">
-        <text>req_story_npc:esc_2_12_stalker_wolf</text>
-    </string>
-    <string id="st_pda_ic_loner_2_repeatable">
-        <text>1</text>
-    </string>
-    <string id="st_pda_ic_loner_2_open">
-        <text>Hey, you got a sec? I want to try something — call in some help and see who shows up. Pick where.</text>
-    </string>
-
-    <!-- Choice 1 — near-player spawn -->
-    <string id="st_pda_ic_loner_2_choice_1">
-        <text>Send Rabbit to my position.</text>
-    </string>
-    <string id="st_pda_ic_loner_2_reply_1">
-        <text>On it. He should be walking up to you any second.</text>
-    </string>
-    <string id="st_pda_ic_loner_2_outcome_1">
-        <text>spawn_custom_npc:rabbit_mule</text>
-    </string>
-    <string id="st_pda_ic_loner_2_cont_1">
-        <text>2</text>
-    </string>
-    <string id="st_pda_ic_loner_2_cont_channel_1">
-        <text>pda</text>
-    </string>
-
-    <!-- Choice 2 — smart-terrain spawn with delay -->
-    <string id="st_pda_ic_loner_2_choice_2">
-        <text>Drop Slick at the military checkpoint in five seconds.</text>
-    </string>
-    <string id="st_pda_ic_loner_2_reply_2">
-        <text>Roger. Slick is en route to the checkpoint. Give him a moment.</text>
-    </string>
-    <string id="st_pda_ic_loner_2_outcome_2">
-        <text>spawn_custom_npc_at:missing_mule:st_mil_smart_terrain_2_4_name:5</text>
-    </string>
-    <string id="st_pda_ic_loner_2_cont_2">
-        <text>2</text>
-    </string>
-    <string id="st_pda_ic_loner_2_cont_channel_2">
-        <text>pda</text>
-    </string>
-
-    <!-- Choice 3 — spawn + F2F continuation to the custom NPC -->
-    <string id="st_pda_ic_loner_2_choice_3">
-        <text>Wake Mia up and put her in front of me.</text>
-    </string>
-    <string id="st_pda_ic_loner_2_reply_3">
-        <text>Done. Talk to her face to face.</text>
-    </string>
-    <string id="st_pda_ic_loner_2_outcome_3">
-        <text>spawn_custom_npc:mia</text>
-    </string>
-    <string id="st_pda_ic_loner_2_cont_3">
-        <text>3</text>
-    </string>
-    <string id="st_pda_ic_loner_2_cont_channel_3">
-        <text>f2f</text>
-    </string>
-    <string id="st_pda_ic_loner_2_cont_npc_3">
-        <text>npc:mia</text>
-    </string>
-
-    <!-- Turn 2 — gated by req_custom_npc_alive (proves precondition works) -->
-    <string id="st_pda_ic_loner_2_t2_open">
-        <text>So — did anyone actually arrive?</text>
-    </string>
-    <string id="st_pda_ic_loner_2_t2_branch_precond">
-        <text>any(req_custom_npc_alive:rabbit_mule,req_custom_npc_alive:missing_mule)</text>
-    </string>
-    <string id="st_pda_ic_loner_2_t2_choice_1">
-        <text>Yeah, I see them.</text>
-    </string>
-    <string id="st_pda_ic_loner_2_t2_reply_1">
-        <text>Good. The system works.</text>
-    </string>
-    <string id="st_pda_ic_loner_2_t2_outcome_1">
-        <text>none</text>
-    </string>
-
-    <!-- Turn 3 — F2F with Mia (custom NPC continuation target) -->
-    <string id="st_pda_ic_loner_2_t3_open">
-        <text>You wanted me?</text>
-    </string>
-    <string id="st_pda_ic_loner_2_t3_choice_1">
-        <text>Just checking the radio still works. Carry on.</text>
-    </string>
-    <string id="st_pda_ic_loner_2_t3_reply_1">
-        <text>Whatever.</text>
-    </string>
-    <string id="st_pda_ic_loner_2_t3_outcome_1">
-        <text>none</text>
-    </string>
-
-    <string id="st_pda_ic_loner_2_start_mode">
-        <text>pda</text>
     </string>
 
 </string_table>
