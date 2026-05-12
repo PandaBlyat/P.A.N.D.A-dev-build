@@ -36,6 +36,17 @@ local function is_panda_ic_shutdown_in_progress()
     return false
 end
 
+-- True only while the game world is fully loaded. During quit-to-main-menu
+-- the engine fires on_game_end, then continues servicing CreateTimeEvent
+-- queues for a frame or two while alife/level are being torn down. Any
+-- callback that reaches into level.object_by_id / npc:* during that window
+-- dereferences invalidated C++ objects and surfaces as the crash in
+-- MainMenu::ReloadUI -> xrFactory_Create.
+local function is_world_alive()
+    if is_panda_ic_shutdown_in_progress() then return false end
+    return db ~= nil and db.actor ~= nil
+end
+
 local function printf(fmt, ...)
     if PANDA.get_config("debug_logging") then
         local normalized_fmt = tostring(fmt or "")
@@ -292,6 +303,10 @@ local function clear_dialog_npc_animation_runtime(npc_id, reason)
     clear_dialog_npc_animation_timer(numeric_id)
     clear_dialog_npc_animation_hold_timer(numeric_id)
 
+    if not is_world_alive() then
+        return true, "world_torn_down"
+    end
+
     local npc = select(1, resolve_live_npc_for_dialog_animation(numeric_id))
     if not npc then
         printf(
@@ -361,6 +376,10 @@ local function schedule_dialog_npc_animation_reset(npc_id, preset_id, duration)
 
     clear_dialog_npc_animation_timer(numeric_id)
     CreateTimeEvent(DIALOG_NPC_ANIMATION_EVENT_GROUP, tostring(numeric_id), reset_after, function()
+        if not is_world_alive() then
+            dialog_npc_animation_active[numeric_id] = nil
+            return true
+        end
         clear_dialog_npc_animation_runtime(numeric_id, "timer_elapsed:" .. tostring(preset_id or "unknown"))
         return true
     end)
@@ -376,6 +395,11 @@ local function schedule_dialog_npc_animation_hold(npc_id)
 
     clear_dialog_npc_animation_hold_timer(numeric_id)
     CreateTimeEvent(DIALOG_NPC_ANIMATION_HOLD_EVENT_GROUP, tostring(numeric_id), DIALOG_NPC_ANIMATION_HOLD_INTERVAL, function()
+        if not is_world_alive() then
+            dialog_npc_animation_active[numeric_id] = nil
+            return true
+        end
+
         local active_entry = dialog_npc_animation_active[numeric_id]
         if not active_entry then
             return true
