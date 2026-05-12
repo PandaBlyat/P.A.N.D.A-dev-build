@@ -9,6 +9,26 @@ local function get_conv_api()
     return _G
 end
 
+-- True while the game world is being torn down (quit-to-main-menu, load screen, etc.).
+-- During this window, db.actor, level.*, and game.get_game_time() can return nil or
+-- dangling C++ pointers; touching them from a CUIScriptWnd:Update tick crashes the
+-- engine inside MainMenu::ReloadUI -> xrFactory_Create.
+local function is_game_world_alive()
+    if not (db and db.actor) then return false end
+    local api = get_conv_api()
+    if api and type(api.is_panda_ic_shutdown_in_progress) == "function" then
+        if api.is_panda_ic_shutdown_in_progress() then return false end
+    end
+    return true
+end
+
+-- Drops the cached CUIScriptWnd singleton so a fresh instance is built on the next
+-- PDA open. Called on game-end to avoid carrying stale C++ widget references between
+-- sessions.
+function reset_singleton()
+    SINGLETON = nil
+end
+
 local function clamp_color_channel(value)
     value = tonumber(value) or 0
     return math.max(0, math.min(255, value))
@@ -848,6 +868,17 @@ function pda_private_tab:IsContactConversationOnline(contact_name)
 end
 
 function pda_private_tab:Update()
+    -- Bail out if the game world is unloading (quit-to-main-menu during a conversation,
+    -- mid-load, etc.). Without this, downstream calls to game.get_game_time(),
+    -- db.actor:* and level.object_by_id() touch invalidated C++ objects and crash the
+    -- engine inside MainMenu::ReloadUI -> xrFactory_Create.
+    if not is_game_world_alive() then
+        self.typing_text_wnd = nil
+        self.typing_entry_data = nil
+        self.choice_typewriter = nil
+        return
+    end
+
     if not self:IsShown() then
         self.typing_text_wnd = nil
         self.typing_entry_data = nil
@@ -1639,7 +1670,12 @@ function get_relative_time(timestamp_str, current_game_time)
     timestamp_str = tostring(timestamp_str)
     local d, m, y, h, min = timestamp_str:match("(%d+)/(%d+)/(%d+)%s+(%d+):(%d+)")
     if not d then return timestamp_str end
-    
+    -- Game world may be unloading (quit-to-main-menu); return the raw timestamp
+    -- instead of crashing on a nil/stale CTime handle.
+    if not current_game_time or type(current_game_time.get) ~= "function" then
+        return timestamp_str
+    end
+
     d, m, y, h, min = tonumber(d), tonumber(m), tonumber(y), tonumber(h), tonumber(min)
     local cY, cM, cD, ch, cmin, cs, cms = 0, 0, 0, 0, 0, 0, 0
     cY, cM, cD, ch, cmin, cs, cms = current_game_time:get(cY, cM, cD, ch, cmin, cs, cms)
