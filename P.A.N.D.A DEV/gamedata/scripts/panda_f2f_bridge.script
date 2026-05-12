@@ -3276,7 +3276,16 @@ local function collect_branches(npc_se, forced_context)
         return turn_state
     end
 
+    local scan_prefixes = { false }
+    if forced_handoff_active then
+        scan_prefixes = { stem_prefix or false }
+    else
+        scan_prefixes = { false, "panda" }
+    end
+
     for cid = 1, MAX_CONV_SCAN do
+        for _, prefix_candidate in ipairs(scan_prefixes) do
+        stem_prefix = prefix_candidate or nil
         if not forced_conv_id or cid == forced_conv_id then
             local stem
             if stem_prefix and stem_prefix ~= "task" then
@@ -3408,6 +3417,9 @@ local function collect_branches(npc_se, forced_context)
                 end
             end
         end
+        if found then break end
+        end
+        if found then break end
     end
 
     if not found then

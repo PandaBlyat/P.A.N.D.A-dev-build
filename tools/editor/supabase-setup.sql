@@ -92,6 +92,68 @@ CREATE INDEX IF NOT EXISTS idx_community_conv_co_authors ON community_conversati
 CREATE INDEX IF NOT EXISTS idx_community_conv_library_section ON community_conversations (library_section);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_community_conv_label_unique ON community_conversations (lower(label));
 
+CREATE TABLE IF NOT EXISTS community_collections (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  title TEXT NOT NULL DEFAULT '',
+  description TEXT NOT NULL DEFAULT '',
+  author TEXT NOT NULL DEFAULT 'Anonymous',
+  publisher_id TEXT,
+  faction TEXT DEFAULT 'all',
+  story_ids TEXT[] NOT NULL DEFAULT '{}'::text[],
+  downloads INT NOT NULL DEFAULT 0,
+  upvotes INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE community_collections
+  ADD COLUMN IF NOT EXISTS description TEXT,
+  ADD COLUMN IF NOT EXISTS author TEXT,
+  ADD COLUMN IF NOT EXISTS publisher_id TEXT,
+  ADD COLUMN IF NOT EXISTS faction TEXT,
+  ADD COLUMN IF NOT EXISTS story_ids TEXT[],
+  ADD COLUMN IF NOT EXISTS downloads INT,
+  ADD COLUMN IF NOT EXISTS upvotes INT,
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;
+
+ALTER TABLE community_collections
+  ALTER COLUMN title SET DEFAULT '',
+  ALTER COLUMN description SET DEFAULT '',
+  ALTER COLUMN author SET DEFAULT 'Anonymous',
+  ALTER COLUMN faction SET DEFAULT 'all',
+  ALTER COLUMN story_ids SET DEFAULT '{}'::text[],
+  ALTER COLUMN downloads SET DEFAULT 0,
+  ALTER COLUMN upvotes SET DEFAULT 0,
+  ALTER COLUMN created_at SET DEFAULT now(),
+  ALTER COLUMN updated_at SET DEFAULT now();
+
+UPDATE community_collections
+SET
+  title = coalesce(title, ''),
+  description = coalesce(description, ''),
+  author = coalesce(author, 'Anonymous'),
+  faction = coalesce(nullif(faction, ''), 'all'),
+  story_ids = coalesce(story_ids, '{}'::text[]),
+  downloads = coalesce(downloads, 0),
+  upvotes = coalesce(upvotes, 0),
+  created_at = coalesce(created_at, now()),
+  updated_at = coalesce(updated_at, created_at, now());
+
+ALTER TABLE community_collections
+  ALTER COLUMN title SET NOT NULL,
+  ALTER COLUMN description SET NOT NULL,
+  ALTER COLUMN author SET NOT NULL,
+  ALTER COLUMN story_ids SET NOT NULL,
+  ALTER COLUMN downloads SET NOT NULL,
+  ALTER COLUMN upvotes SET NOT NULL,
+  ALTER COLUMN created_at SET NOT NULL,
+  ALTER COLUMN updated_at SET NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_community_collections_created ON community_collections (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_community_collections_updated ON community_collections (updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_community_collections_faction ON community_collections (faction);
+CREATE INDEX IF NOT EXISTS idx_community_collections_story_ids ON community_collections USING GIN (story_ids);
+
 CREATE TABLE IF NOT EXISTS editor_admins (
   publisher_id TEXT PRIMARY KEY,
   username TEXT NOT NULL,
@@ -434,10 +496,20 @@ BEGIN
     BEFORE UPDATE ON community_conversations
     FOR EACH ROW EXECUTE FUNCTION set_updated_at_timestamp();
   END IF;
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_trigger
+    WHERE tgname = 'trg_community_collections_updated_at'
+  ) THEN
+    CREATE TRIGGER trg_community_collections_updated_at
+    BEFORE UPDATE ON community_collections
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at_timestamp();
+  END IF;
 END;
 $$;
 
 ALTER TABLE community_conversations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE community_collections ENABLE ROW LEVEL SECURITY;
 
 DO $$
 BEGIN
@@ -454,6 +526,22 @@ BEGIN
   END IF;
 END;
 $$;
+
+DROP POLICY IF EXISTS community_collections_public_read ON community_collections;
+CREATE POLICY community_collections_public_read
+  ON community_collections FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS community_collections_public_insert ON community_collections;
+CREATE POLICY community_collections_public_insert
+  ON community_collections FOR INSERT
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS community_collections_public_update ON community_collections;
+CREATE POLICY community_collections_public_update
+  ON community_collections FOR UPDATE
+  USING (true)
+  WITH CHECK (true);
 
 DO $$
 BEGIN
@@ -494,6 +582,14 @@ LANGUAGE sql
 SECURITY DEFINER
 AS $$
   UPDATE community_conversations SET downloads = downloads + 1 WHERE id = conv_id;
+$$;
+
+CREATE OR REPLACE FUNCTION increment_collection_download(collection_id UUID)
+RETURNS void
+LANGUAGE sql
+SECURITY DEFINER
+AS $$
+  UPDATE community_collections SET downloads = downloads + 1 WHERE id = collection_id;
 $$;
 
 CREATE OR REPLACE FUNCTION increment_upvote(conv_id UUID)

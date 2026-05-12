@@ -76,6 +76,29 @@ export type CommunityConversation = {
   data: CommunityConversationData;
 };
 
+export type CommunityCollection = {
+  id: string;
+  title: string;
+  description: string;
+  author: string;
+  publisher_id?: string | null;
+  faction?: FactionId | 'all' | null;
+  story_ids: string[];
+  downloads: number;
+  upvotes: number;
+  created_at: string;
+  updated_at?: string;
+};
+
+export type PublishCollectionPayload = {
+  title: string;
+  description: string;
+  author: string;
+  publisher_id?: string;
+  faction?: FactionId | 'all' | null;
+  story_ids: string[];
+};
+
 export type PublishPayload = Omit<CommunityConversation, 'id' | 'downloads' | 'upvotes' | 'created_at' | 'updated_at'> & {
   publisher_id?: string;
   replace_id?: string;
@@ -204,6 +227,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL as string | undefined;
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 const TABLE = 'community_conversations';
+const COLLECTIONS_TABLE = 'community_collections';
 const COLLAB_TABLE = 'collab_sessions';
 const SUPPORT_TABLE = 'creator_support_metrics';
 const ACTIVE_USERS_TABLE = 'creator_active_users';
@@ -222,6 +246,8 @@ const LOCAL_PUBLISHER_ID_KEY = 'panda-community-publisher-id';
 const LOCAL_AUTH_TOKEN_KEY = 'panda-community-auth-token';
 const COMMUNITY_REQUIRED_COLUMNS = ['id', 'faction', 'label', 'description', 'author', 'data', 'downloads', 'created_at'] as const;
 const COMMUNITY_OPTIONAL_COLUMNS = ['summary', 'tags', 'branch_count', 'complexity', 'library_section', 'upvotes', 'updated_at', 'publisher_id', 'co_authors', 'co_author_usernames'] as const;
+const COLLECTION_REQUIRED_COLUMNS = ['id', 'title', 'description', 'author', 'story_ids', 'downloads', 'upvotes', 'created_at'] as const;
+const COLLECTION_OPTIONAL_COLUMNS = ['updated_at', 'publisher_id', 'faction'] as const;
 
 class ApiRequestError extends Error {
   constructor(message: string, readonly status: number) {
@@ -477,6 +503,26 @@ function normalizeConversationRow(row: Partial<CommunityConversation>): Communit
   };
 }
 
+function normalizeCollectionRow(row: Partial<CommunityCollection>): CommunityCollection {
+  const faction = typeof row.faction === 'string' ? row.faction : null;
+  return {
+    id: String(row.id ?? ''),
+    title: typeof row.title === 'string' ? row.title : '',
+    description: typeof row.description === 'string' ? row.description : '',
+    author: typeof row.author === 'string' && row.author.trim() ? row.author : 'Anonymous',
+    publisher_id: typeof row.publisher_id === 'string' ? row.publisher_id : null,
+    faction: faction && (faction === 'all' || faction in ({
+      stalker: true, dolg: true, freedom: true, csky: true, ecolog: true, killer: true, army: true,
+      bandit: true, monolith: true, zombied: true, isg: true, renegade: true, greh: true,
+    } as Record<string, boolean>)) ? faction as FactionId | 'all' : null,
+    story_ids: Array.isArray(row.story_ids) ? row.story_ids.filter((id): id is string => typeof id === 'string' && id.trim().length > 0) : [],
+    downloads: typeof row.downloads === 'number' ? row.downloads : 0,
+    upvotes: typeof row.upvotes === 'number' ? row.upvotes : 0,
+    created_at: typeof row.created_at === 'string' ? row.created_at : new Date(0).toISOString(),
+    updated_at: typeof row.updated_at === 'string' ? row.updated_at : typeof row.created_at === 'string' ? row.created_at : new Date(0).toISOString(),
+  };
+}
+
 function normalizeCollabSessionRow(row: Partial<CollabSession>): CollabSession {
   return {
     id: String(row.id ?? ''),
@@ -722,6 +768,66 @@ export async function fetchConversations(faction?: FactionId): Promise<Community
   }
   const rows = await res.json() as Array<Partial<CommunityConversation>>;
   return rows.map(normalizeConversationRow);
+}
+
+export async function fetchCommunityCollections(faction?: FactionId | 'all'): Promise<CommunityCollection[]> {
+  try {
+    const query = faction && faction !== 'all' ? `?faction=${encodeURIComponent(faction)}` : '';
+    const rows = await fetchFromApi<Array<Partial<CommunityCollection>>>(`/api/collections${query}`);
+    return rows.map(normalizeCollectionRow);
+  } catch {
+    const params = new URLSearchParams({
+      select: [...COLLECTION_REQUIRED_COLUMNS, ...COLLECTION_OPTIONAL_COLUMNS].join(','),
+      order: 'updated_at.desc',
+    });
+    if (faction && faction !== 'all') params.set('or', `(faction.eq.${faction},faction.eq.all,faction.is.null)`);
+    const res = await fetch(`${sbEndpoint(COLLECTIONS_TABLE)}?${params}`, { headers: sbHeaders() });
+    if (!res.ok) return [];
+    const rows = await res.json() as Array<Partial<CommunityCollection>>;
+    return rows.map(normalizeCollectionRow);
+  }
+}
+
+export async function publishCommunityCollection(payload: PublishCollectionPayload): Promise<CommunityCollection> {
+  const normalizedPayload: PublishCollectionPayload = {
+    title: payload.title.trim(),
+    description: payload.description.trim(),
+    author: payload.author.trim() || 'Anonymous',
+    publisher_id: payload.publisher_id?.trim() || getPublisherId(),
+    faction: payload.faction ?? 'all',
+    story_ids: Array.from(new Set(payload.story_ids.map(id => id.trim()).filter(Boolean))).slice(0, 80),
+  };
+  const response = await fetchFromApi<{ collection: Partial<CommunityCollection> }>('/api/collections', {
+    method: 'POST',
+    body: JSON.stringify(normalizedPayload),
+  });
+  return normalizeCollectionRow(response.collection);
+}
+
+export async function incrementCollectionDownload(id: string): Promise<void> {
+  try {
+    await sendToApi(`/api/collections/${encodeURIComponent(id)}/download`, { method: 'PATCH' });
+  } catch {
+    const res = await fetch(`${sbEndpoint(COLLECTIONS_TABLE)}?id=eq.${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { ...sbHeaders(), Prefer: 'return=minimal' },
+      body: JSON.stringify({ updated_at: new Date().toISOString() }),
+    });
+    if (!res.ok) throw new Error(await readErrorMessage(res));
+  }
+}
+
+export async function incrementCollectionUpvote(id: string): Promise<void> {
+  try {
+    await sendToApi(`/api/collections/${encodeURIComponent(id)}/upvote`, { method: 'PATCH' });
+  } catch {
+    const res = await fetch(`${sbEndpoint(COLLECTIONS_TABLE)}?id=eq.${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { ...sbHeaders(), Prefer: 'return=minimal' },
+      body: JSON.stringify({ updated_at: new Date().toISOString() }),
+    });
+    if (!res.ok) throw new Error(await readErrorMessage(res));
+  }
 }
 
 export async function conversationLabelExists(label: string): Promise<boolean> {

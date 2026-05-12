@@ -10,6 +10,7 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN ?? 'http://localhost:5173';
 const TABLE = 'community_conversations';
+const COLLECTIONS_TABLE = 'community_collections';
 const COLLAB_TABLE = 'collab_sessions';
 const SUPPORT_TABLE = 'creator_support_metrics';
 const ACTIVE_USERS_TABLE = 'creator_active_users';
@@ -28,6 +29,8 @@ const ADMIN_PUBLISHER_IDS = new Set(
 const ALLOW_LEGACY_PUBLISHER_ID = (process.env.PANDA_ALLOW_LEGACY_PUBLISHER_ID ?? '').trim() === '1';
 const COMMUNITY_REQUIRED_COLUMNS = ['id', 'faction', 'label', 'description', 'author', 'data', 'downloads', 'created_at'] as const;
 const COMMUNITY_OPTIONAL_COLUMNS = ['summary', 'tags', 'branch_count', 'complexity', 'library_section', 'upvotes', 'updated_at', 'publisher_id', 'co_authors', 'co_author_usernames'] as const;
+const COLLECTION_REQUIRED_COLUMNS = ['id', 'title', 'description', 'author', 'story_ids', 'downloads', 'upvotes', 'created_at'] as const;
+const COLLECTION_OPTIONAL_COLUMNS = ['updated_at', 'publisher_id', 'faction'] as const;
 
 type CommunityLibraryStats = {
   published_conversations: number;
@@ -191,6 +194,26 @@ function normalizeConversationRow(row: Record<string, unknown>) {
         ? row.created_at
         : new Date(0).toISOString(),
     data: row.data ?? null,
+  };
+}
+
+function normalizeCollectionRow(row: Record<string, unknown>) {
+  return {
+    id: typeof row.id === 'string' ? row.id : '',
+    title: typeof row.title === 'string' ? row.title : '',
+    description: typeof row.description === 'string' ? row.description : '',
+    author: typeof row.author === 'string' ? row.author : 'Anonymous',
+    publisher_id: typeof row.publisher_id === 'string' ? row.publisher_id : null,
+    faction: typeof row.faction === 'string' ? row.faction : null,
+    story_ids: Array.isArray(row.story_ids) ? row.story_ids.filter((id): id is string => typeof id === 'string') : [],
+    downloads: typeof row.downloads === 'number' ? row.downloads : 0,
+    upvotes: typeof row.upvotes === 'number' ? row.upvotes : 0,
+    created_at: typeof row.created_at === 'string' ? row.created_at : new Date(0).toISOString(),
+    updated_at: typeof row.updated_at === 'string'
+      ? row.updated_at
+      : typeof row.created_at === 'string'
+        ? row.created_at
+        : new Date(0).toISOString(),
   };
 }
 
@@ -908,6 +931,138 @@ app.get('/api/conversations', async (req, res) => {
     }
     const rows = await r.json() as Array<Record<string, unknown>>;
     res.json(rows.map(normalizeConversationRow));
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.get('/api/collections', async (req, res) => {
+  try {
+    const params = new URLSearchParams({
+      select: [...COLLECTION_REQUIRED_COLUMNS, ...COLLECTION_OPTIONAL_COLUMNS].join(','),
+      order: 'updated_at.desc',
+    });
+    const { faction } = req.query;
+    if (typeof faction === 'string' && faction && faction !== 'all') {
+      params.set('or', `(faction.eq.${faction},faction.eq.all,faction.is.null)`);
+    }
+
+    const r = await fetch(`${sbEndpoint(COLLECTIONS_TABLE)}?${params}`, { headers: sbHeaders() });
+    if (!r.ok) {
+      const msg = await readErrorMessage(r);
+      if (msg.toLowerCase().includes(COLLECTIONS_TABLE)) {
+        res.json([]);
+        return;
+      }
+      res.status(r.status).json({ error: msg });
+      return;
+    }
+    const rows = await r.json() as Array<Record<string, unknown>>;
+    res.json(rows.map(normalizeCollectionRow));
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.post('/api/collections', async (req, res) => {
+  try {
+    const { title, description, author, publisher_id, faction, story_ids } = req.body ?? {};
+    const normalizedTitle = typeof title === 'string' ? title.trim() : '';
+    const normalizedStoryIds = Array.isArray(story_ids)
+      ? Array.from(new Set(story_ids.filter((id): id is string => typeof id === 'string').map(id => id.trim()).filter(Boolean))).slice(0, 80)
+      : [];
+    if (!normalizedTitle || normalizedStoryIds.length === 0) {
+      res.status(400).json({ error: 'Missing required fields: title, story_ids' });
+      return;
+    }
+
+    const body = {
+      title: normalizedTitle,
+      description: typeof description === 'string' ? description.trim() : '',
+      author: typeof author === 'string' && author.trim() ? author.trim() : 'Anonymous',
+      publisher_id: typeof publisher_id === 'string' && publisher_id.trim() ? publisher_id.trim() : `anon:${randomUUID()}`,
+      faction: typeof faction === 'string' && faction.trim() ? faction.trim() : 'all',
+      story_ids: normalizedStoryIds,
+    };
+
+    const r = await fetch(sbEndpoint(COLLECTIONS_TABLE), {
+      method: 'POST',
+      headers: { ...sbHeaders(), Prefer: 'return=representation' },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) {
+      res.status(r.status).json({ error: await readErrorMessage(r) });
+      return;
+    }
+    const rows = await r.json() as Array<Record<string, unknown>>;
+    res.status(201).json({ collection: rows[0] ? normalizeCollectionRow(rows[0]) : null });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.patch('/api/collections/:id/download', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_collection_download`, {
+      method: 'POST',
+      headers: sbHeaders(),
+      body: JSON.stringify({ collection_id: id }),
+    });
+    if (!r.ok) {
+      const currentParams = new URLSearchParams({
+        select: 'downloads',
+        id: `eq.${id}`,
+        limit: '1',
+      });
+      const current = await fetch(`${sbEndpoint(COLLECTIONS_TABLE)}?${currentParams}`, { headers: sbHeaders() });
+      if (!current.ok) {
+        res.status(current.status).json({ error: await readErrorMessage(current) });
+        return;
+      }
+      const rows = await current.json() as Array<{ downloads?: number }>;
+      const nextDownloads = (rows[0]?.downloads ?? 0) + 1;
+      const patch = await fetch(`${sbEndpoint(COLLECTIONS_TABLE)}?id=eq.${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { ...sbHeaders(), Prefer: 'return=minimal' },
+        body: JSON.stringify({ downloads: nextDownloads }),
+      });
+      if (!patch.ok) {
+        res.status(patch.status).json({ error: await readErrorMessage(patch) });
+        return;
+      }
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.patch('/api/collections/:id/upvote', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const currentParams = new URLSearchParams({
+      select: 'upvotes',
+      id: `eq.${id}`,
+      limit: '1',
+    });
+    const current = await fetch(`${sbEndpoint(COLLECTIONS_TABLE)}?${currentParams}`, { headers: sbHeaders() });
+    if (!current.ok) {
+      res.status(current.status).json({ error: await readErrorMessage(current) });
+      return;
+    }
+    const rows = await current.json() as Array<{ upvotes?: number }>;
+    const nextUpvotes = (rows[0]?.upvotes ?? 0) + 1;
+    const patch = await fetch(`${sbEndpoint(COLLECTIONS_TABLE)}?id=eq.${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { ...sbHeaders(), Prefer: 'return=minimal' },
+      body: JSON.stringify({ upvotes: nextUpvotes }),
+    });
+    if (!patch.ok) {
+      res.status(patch.status).json({ error: await readErrorMessage(patch) });
+      return;
+    }
+    res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }

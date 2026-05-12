@@ -55,44 +55,37 @@ export function exportXml(): void {
     if (!proceed) return;
   }
 
-  const factions = getProjectConversationFactions(state.project);
+  const selectedConversation = store.getSelectedConversation();
+  if (!selectedConversation) {
+    alert('Export blocked: select a storyline first.');
+    return;
+  }
+
+  const faction = getConversationFaction(selectedConversation, state.project.faction);
   const exporterConfig: XmlExporterConfig = {
     strictDialogueValidation: true,
     validateDialogueStrings: true,
     autofillMissingOpenWhenNonStrict: true,
     missingOpenPlaceholder: '[MISSING_OPEN_LINE]',
+    conversationKeyPrefix: 'panda',
   };
 
   try {
-    factions.forEach((faction, index) => {
-      const factionKey = FACTION_XML_KEYS[faction];
-      const languages: UiLanguage[] = ['en', 'ru'];
-      const factionConversations = state.project.conversations
-        .filter((conv) => getConversationFaction(conv, state.project.faction) === faction)
-        .sort((a, b) => a.id - b.id);
+    const language = state.uiLanguage;
+    const factionKey = FACTION_XML_KEYS[faction];
+    const mergedProject = createEmptyProject(faction);
+    const cloned: Conversation = structuredClone(selectedConversation);
+    cloned.id = 1;
+    cloned.language = language;
+    mergedProject.conversations = [cloned];
+    if (state.project.npcTemplates?.length) {
+      mergedProject.npcTemplates = structuredClone(state.project.npcTemplates);
+    }
 
-      languages.forEach((language, languageIndex) => {
-        // Always export full conversation list into each language pack so string
-        // keys exist regardless of game language. Missing translations fall
-        // back to authored text until a real translation exists.
-        const mergedProject = createEmptyProject(faction);
-        mergedProject.conversations = factionConversations.map((conv, convIndex) => {
-          const cloned: Conversation = structuredClone(conv);
-          cloned.id = convIndex + 1;
-          cloned.language = language;
-          return cloned;
-        });
-        if (state.project.npcTemplates?.length) {
-          mergedProject.npcTemplates = structuredClone(state.project.npcTemplates);
-        }
-
-        const xml = generateXml(mergedProject, state.systemStrings, undefined, exporterConfig, language);
-        const suffix = language === 'ru' ? 'rus' : 'eng';
-        window.setTimeout(() => {
-          downloadFile(xml, `st_PANDA_${factionKey}_interactive_conversations_${suffix}.xml`, 'application/xml');
-        }, index * 150 + languageIndex * 75);
-      });
-    });
+    const xml = generateXml(mergedProject, state.systemStrings, undefined, exporterConfig, language);
+    const suffix = language === 'ru' ? 'rus' : 'eng';
+    const storySlug = slugifyFilename(selectedConversation.label || `story_${selectedConversation.id}`);
+    downloadFile(xml, `st_PANDA_panda_${factionKey}_${storySlug}_${suffix}.xml`, 'application/xml');
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     alert(message);
@@ -204,6 +197,10 @@ function getFileExtension(filename: string): string | null {
 /** Download a string as a file (shared helper used by SharePanel). */
 export function downloadFile(content: string, filename: string, mimeType: string): void {
   const blob = new Blob([content], { type: mimeType });
+  downloadBlob(blob, filename);
+}
+
+export function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -228,6 +225,15 @@ function getProjectConversationFactions(project: Project): Project['faction'][] 
   }
 
   return [...factions];
+}
+
+function slugifyFilename(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 48) || 'story';
 }
 
 const ONBOARDING_SAMPLE_PACK_ID = '21f5bc31-cf62-454a-baba-62163e5b0202';

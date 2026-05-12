@@ -44,10 +44,16 @@ export const BEGINNER_TOOLTIP_PRESETS = {
     body: 'Generate game-ready XML after validation looks clean. This is final output for mod files.',
     placement: 'bottom',
   },
+  'toolbar-collections': {
+    id: 'toolbar-collections',
+    title: 'Collections',
+    body: 'Pick curated storylines or public packs, then download a mod-ready ZIP for Anomaly.',
+    placement: 'bottom',
+  },
   'toolbar-community': {
     id: 'toolbar-community',
-    title: 'Community Library',
-    body: 'Browse shared stories, import examples, or publish finished work for other authors.',
+    title: 'Community',
+    body: 'Author workspace for publishing, updating, translating, and importing individual community storylines.',
     placement: 'bottom',
   },
   'toolbar-help': {
@@ -447,9 +453,13 @@ const BEGINNER_TOOLTIP_RU_OVERRIDES: Partial<Record<BeginnerTooltipPresetId, Pic
     title: 'Экспорт XML',
     body: 'Генерирует XML для игры после чистой валидации. Это финальный вывод для файлов мода.',
   },
+  'toolbar-collections': {
+    title: 'Коллекции',
+    body: 'Выбирай сюжетные линии или публичные наборы и скачивай готовый ZIP для Anomaly.',
+  },
   'toolbar-community': {
-    title: 'Библиотека сообщества',
-    body: 'Смотри общие истории, импортируй примеры, или публикуй готовую работу для других авторов.',
+    title: 'Сообщество',
+    body: 'Рабочее место авторов: публикация, обновление, перевод и импорт отдельных сюжетных линий.',
   },
   'toolbar-help': {
     title: 'Быстрый старт',

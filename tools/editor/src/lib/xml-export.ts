@@ -25,6 +25,8 @@ export type XmlExporterConfig = {
   autofillMissingOpenWhenNonStrict?: boolean;
   missingOpenPlaceholder?: string;
   validateDialogueStrings?: boolean;
+  conversationKeyPrefix?: string;
+  conversationIdOffset?: number;
 };
 
 export const DEFAULT_XML_EXPORTER_CONFIG: Required<XmlExporterConfig> = {
@@ -32,6 +34,8 @@ export const DEFAULT_XML_EXPORTER_CONFIG: Required<XmlExporterConfig> = {
   autofillMissingOpenWhenNonStrict: false,
   missingOpenPlaceholder: DEFAULT_MISSING_OPEN_PLACEHOLDER,
   validateDialogueStrings: false,
+  conversationKeyPrefix: '',
+  conversationIdOffset: 0,
 };
 
 /** Escape special XML characters in text content */
@@ -294,7 +298,10 @@ function generateConversation(
   exportId: number,
   config: Required<XmlExporterConfig>,
 ): string {
-  const prefix = `st_pda_ic_${factionKey}_${exportId}`;
+  const keyPrefix = config.conversationKeyPrefix.trim();
+  const prefix = keyPrefix
+    ? `st_pda_ic_${keyPrefix}_${factionKey}_${exportId}`
+    : `st_pda_ic_${factionKey}_${exportId}`;
   const lines: string[] = [];
 
   lines.push(`\n    <!-- ═══════════════════════════════════════════════════════════ -->`);
@@ -481,8 +488,9 @@ export function generateXml(
   const exportCounts = new Map<FactionId, number>();
   for (const conv of sorted) {
     const faction = getConversationFaction(conv, project.faction);
-    const exportId = (exportCounts.get(faction) ?? 0) + 1;
-    exportCounts.set(faction, exportId);
+    const count = (exportCounts.get(faction) ?? 0) + 1;
+    const exportId = count + Math.max(0, Math.floor(config.conversationIdOffset));
+    exportCounts.set(faction, count);
     lines.push(generateConversation(conv, FACTION_XML_KEYS[faction], exportId, config));
     lines.push('');
   }

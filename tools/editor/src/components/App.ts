@@ -25,6 +25,7 @@ import { FACTION_DISPLAY_NAMES, getConversationFaction, type FactionId } from '.
 import { FACTION_IDS } from '../lib/constants';
 import { setBeginnerTooltip } from '../lib/beginner-tooltips';
 import { openSharePanel } from './SharePanel';
+import { openCollectionsModal } from './CollectionsModal';
 import { openHelpModal } from './HelpModal';
 import { openSupportPanel } from './SupportPanel';
 import { openBugReportsPanel } from './BugReportsPanel';
@@ -978,7 +979,8 @@ function renderMobileMoreActions(body: HTMLElement): void {
     createMobileSheetAction('export', 'Export XML', () => { closeMobileSheet(); exportXml(); }),
     createMobileSheetAction('undo', 'Undo', () => store.undo(), state.undoStack.length === 0),
     createMobileSheetAction('redo', 'Redo', () => store.redo(), state.redoStack.length === 0),
-    createMobileSheetAction('share', 'Community', () => { closeMobileSheet(); openSharePanel(); }),
+    createMobileSheetAction('share', 'Collections', () => { closeMobileSheet(); openCollectionsModal(); }),
+    createMobileSheetAction('share', 'Community (Authors)', () => { closeMobileSheet(); openSharePanel(); }),
     createMobileSheetAction('bug', 'Reports', () => { closeMobileSheet(); openBugReportsPanel(); }),
     createMobileSheetAction('support', 'Support', () => { closeMobileSheet(); openSupportPanel(); }),
     createMobileSheetAction('help', 'Help', () => { closeMobileSheet(); openHelpModal(); }),

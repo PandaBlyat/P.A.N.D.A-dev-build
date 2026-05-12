@@ -8221,9 +8221,9 @@ end
 -- story NPC or custom story target. For each, resolves the NPC in alife and
 -- checks whether all preconditions pass. Returns a list of {npc_se, conv_id}
 -- tables.
-local function collect_story_npc_conversations(xml_fac)
+local function collect_story_npc_conversations(xml_fac, prefix)
     local results = {}
-    local base = "st_pda_ic_"
+    local base = (prefix and prefix ~= "task") and ("st_pda_ic_" .. tostring(prefix) .. "_") or "st_pda_ic_"
     local mode = PANDA.get_config("cooldown_mode")
     local penalty = PANDA.get_config("cooldown_penalty") / 100
     local hard_min = PANDA.get_config("cooldown_hard_min") * 60
@@ -8282,7 +8282,7 @@ local function collect_story_npc_conversations(xml_fac)
                 -- NPC cooldown
                 if not is_npc_on_cooldown(npc_se.id) then
                     -- Conversation cooldown
-                    local cooldown_key = "task_" .. xml_fac .. "_" .. cid
+                    local cooldown_key = (prefix or "task") .. "_" .. xml_fac .. "_" .. cid
                     local last = conv_last_played[cooldown_key]
                     local skip = false
                     local weight = 100
@@ -8311,7 +8311,7 @@ local function collect_story_npc_conversations(xml_fac)
                         if check_preconditions_generic(precond_key, npc_se)
                             and check_preconditions_generic(branch_precond_key, npc_se)
                         then
-                            table.insert(results, {npc_se = npc_se, conv_id = cid, weight = weight})
+                            table.insert(results, {npc_se = npc_se, conv_id = cid, prefix = prefix, weight = weight})
                             printf("Story NPC conv %s matched — NPC %s (story_id=%s, weight=%s)",
                                 tostring(tonumber(cid) or 0),
                                 tostring(npc_se:character_name()),
@@ -8353,6 +8353,10 @@ local function attempt_interactive_conversation()
 
     -- Phase 1: Collect targeted NPC conversation candidates
     local story_matches = collect_story_npc_conversations(xml_fac)
+    local panda_story_matches = collect_story_npc_conversations(xml_fac, "panda")
+    for _, m in ipairs(panda_story_matches) do
+        table.insert(story_matches, m)
+    end
     printf(string.format("Found %d targeted NPC conversation candidates", #story_matches))
 
     -- Phase 2: Collect simulated NPC conversation candidates (existing flow)
@@ -8376,8 +8380,14 @@ local function attempt_interactive_conversation()
             )
         else
             local candidate_conv = pick_random_conv_id_generic(nil, xml_fac, nil, candidate)
-            if candidate_conv then
-                table.insert(sim_matches, {npc_se = candidate, conv_id = candidate_conv, weight = 100})
+            local panda_candidate_conv = pick_random_conv_id_generic("panda", xml_fac, nil, candidate)
+            if candidate_conv or panda_candidate_conv then
+                if candidate_conv then
+                    table.insert(sim_matches, {npc_se = candidate, conv_id = candidate_conv, prefix = nil, weight = 100})
+                end
+                if panda_candidate_conv then
+                    table.insert(sim_matches, {npc_se = candidate, conv_id = panda_candidate_conv, prefix = "panda", weight = 100})
+                end
                 -- Stop after finding one simulated match (preserves existing behavior
                 -- where one random NPC is selected from the pool)
                 break
@@ -8421,9 +8431,9 @@ local function attempt_interactive_conversation()
     printf("Picked NPC: %s (ID %s)",
         tostring(pick.npc_se:character_name()),
         tostring(tonumber(pick.npc_se.id) or 0))
-    printf("Selected conv_id = %s", tostring(tonumber(pick.conv_id) or 0))
+    printf("Selected conv_id = %s prefix = %s", tostring(tonumber(pick.conv_id) or 0), tostring(pick.prefix or "legacy"))
 
-    return start_interactive_conv(pick.npc_se, pick.conv_id, nil, xml_fac, nil, nil)
+    return start_interactive_conv(pick.npc_se, pick.conv_id, pick.prefix, xml_fac, nil, nil)
 end
 
 -- ============================================================

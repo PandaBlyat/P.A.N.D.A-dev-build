@@ -2,7 +2,9 @@ import { hasDraft } from '../lib/draft-storage';
 import { importFromXml, loadOnboardingSamplePack } from '../lib/project-io';
 import { createIcon, setButtonContent, type IconName } from './icons';
 import { openStoryWizard } from './StoryWizard';
-import { t } from '../lib/i18n';
+import { openCollectionsModal } from './CollectionsModal';
+import { openSharePanel } from './SharePanel';
+import { rawUi, t } from '../lib/i18n';
 
 type OnboardingCardOptions = {
   title: string;
@@ -31,6 +33,14 @@ type FirstRunCta = {
 
 const FIRST_RUN_CTAS: FirstRunCta[] = [
   {
+    title: 'Download Story Collections',
+    description: 'Pick faction stories and download mod-ready packs for Anomaly.',
+    icon: 'download',
+    tone: 'sample',
+    actionLabel: 'Open Collections',
+    onClick: () => openCollectionsModal(),
+  },
+  {
     title: 'Create New Story',
     description: 'Pick start, speaker, and recipe. Editor builds a safe first draft.',
     icon: 'add',
@@ -39,12 +49,12 @@ const FIRST_RUN_CTAS: FirstRunCta[] = [
     onClick: () => openStoryWizard(),
   },
   {
-    title: 'Sample Pack',
-    description: 'Load ready-made stories to study structure, pacing, and branching.',
-    icon: 'open',
-    tone: 'sample',
-    actionLabel: 'Open Sample Pack',
-    onClick: () => void handleSamplePackClick(),
+    title: 'Author Community',
+    description: 'Publish, update, translate, or import individual storylines.',
+    icon: 'share',
+    tone: 'import',
+    actionLabel: 'Open Community',
+    onClick: () => openSharePanel(),
   },
   {
     title: 'Import XML',
@@ -53,6 +63,14 @@ const FIRST_RUN_CTAS: FirstRunCta[] = [
     tone: 'import',
     actionLabel: 'Import XML',
     onClick: () => importFromXml(),
+  },
+  {
+    title: 'Sample Pack',
+    description: 'Load ready-made stories to study structure, pacing, and branching.',
+    icon: 'open',
+    tone: 'sample',
+    actionLabel: 'Open Sample Pack',
+    onClick: () => void handleSamplePackClick(),
   },
 ];
 
@@ -425,10 +443,20 @@ export function createOnboardingNudge(options: OnboardingCardOptions): HTMLEleme
   const actions = document.createElement('div');
   actions.className = 'onboarding-nudge-actions';
 
+  const collectionsBtn = document.createElement('button');
+  collectionsBtn.className = 'btn btn-sm btn-primary';
+  setButtonContent(collectionsBtn, 'download', rawUi('Collections'));
+  collectionsBtn.onclick = () => openCollectionsModal();
+
   const blankBtn = document.createElement('button');
-  blankBtn.className = 'btn btn-sm btn-primary';
+  blankBtn.className = 'btn btn-sm';
   setButtonContent(blankBtn, 'add', t('onboarding.action.createStory'));
   blankBtn.onclick = () => openStoryWizard();
+
+  const communityBtn = document.createElement('button');
+  communityBtn.className = 'btn btn-sm';
+  setButtonContent(communityBtn, 'share', rawUi('Community'));
+  communityBtn.onclick = () => openSharePanel();
 
   const sampleBtn = document.createElement('button');
   sampleBtn.className = 'btn btn-sm';
@@ -440,7 +468,7 @@ export function createOnboardingNudge(options: OnboardingCardOptions): HTMLEleme
   setButtonContent(importBtn, 'import', t('onboarding.action.importXml'));
   importBtn.onclick = () => importFromXml();
 
-  actions.append(blankBtn, sampleBtn, importBtn);
+  actions.append(collectionsBtn, blankBtn, communityBtn, sampleBtn, importBtn);
   wrapper.append(title, body, actions);
 
   return wrapper;

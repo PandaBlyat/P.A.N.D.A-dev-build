@@ -7,6 +7,7 @@ import { FACTION_DISPLAY_NAMES, FACTION_DISPLAY_NAMES_RU, type FactionId } from 
 import { createTurnDisplayLabeler } from '../lib/turn-labels';
 import { exportProjectJson, exportXml, importFromXml, importFromJson } from '../lib/project-io';
 import { openSharePanel } from './SharePanel';
+import { openCollectionsModal } from './CollectionsModal';
 import { openHelpModal } from './HelpModal';
 import { openSupportPanel } from './SupportPanel';
 import { openBugReportsPanel } from './BugReportsPanel';
@@ -132,8 +133,12 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
     classes: ['btn-subtle'],
   });
   setBeginnerTooltip(exportXmlBtn, 'toolbar-export-xml');
-  const communityBtn = btn('share', ui('Community', 'Сообщество'), openSharePanel, ui('Browse, import, and publish community stories', 'Просматривать, импортировать и публиковать истории сообщества'), {
+  const collectionsBtn = btn('download', ui('Collections', 'Коллекции'), openCollectionsModal, ui('Download curated storyline collections and public packs', 'Скачать подборки сюжетных линий и публичные наборы'), {
     classes: ['btn-community', 'toolbar-button-primary'],
+  });
+  setBeginnerTooltip(collectionsBtn, 'toolbar-collections');
+  const communityBtn = btn('share', ui('Community', 'Сообщество'), openSharePanel, ui('Author tools: publish, edit, translate, and import individual community stories', 'Инструменты автора: публикация, редактирование, перевод и импорт отдельных историй'), {
+    classes: ['btn-subtle'],
   });
   setBeginnerTooltip(communityBtn, 'toolbar-community');
   const supportBtn = btn('support', ui('Support', 'Поддержка'), openSupportPanel, ui('Support the Creator', 'Поддержать автора'), {
@@ -211,7 +216,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
 
     const projectGroup = document.createElement('div');
     projectGroup.className = 'toolbar-group toolbar-group-project';
-    projectGroup.append(openBtn, importBtn, saveBtn, exportXmlBtn, communityBtn, languageSwitcher, reportsBtn, helpBtn);
+    projectGroup.append(openBtn, importBtn, saveBtn, exportXmlBtn, collectionsBtn, communityBtn, languageSwitcher, reportsBtn, helpBtn);
     centerZone.appendChild(projectGroup);
 
     const rightZone = document.createElement('div');
@@ -292,7 +297,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
     moreBtn.classList.add('toolbar-mobile-more-button');
     setBeginnerTooltip(moreBtn, 'toolbar-more');
     fileGroup.append(
-      communityBtn,
+      collectionsBtn,
       languageSwitcher,
       moreBtn,
     );
@@ -309,13 +314,14 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
       graphicsQualityAction,
       tooltipToggleAction,
       { icon: 'import', label: ui('Import XML', 'Импорт XML'), title: importBtn.title, onclick: importFromXml },
-      { icon: 'share', label: ui('Community', 'Сообщество'), title: communityBtn.title, onclick: openSharePanel },
       { icon: 'bug', label: ui('Reports', 'Отчёты'), title: reportsBtn.title, onclick: openBugReportsPanel },
     );
 
     fileGroup.appendChild(openBtn);
     fileGroup.appendChild(saveBtn);
     fileGroup.appendChild(exportXmlBtn);
+    fileGroup.appendChild(collectionsBtn);
+    fileGroup.appendChild(communityBtn);
     fileGroup.appendChild(reportsBtn);
     fileGroup.appendChild(helpBtn);
     fileGroup.appendChild(languageSwitcher);
@@ -327,6 +333,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
     fileGroup.appendChild(saveBtn);
     fileGroup.appendChild(exportXmlBtn);
     fileGroup.appendChild(sep());
+    fileGroup.appendChild(collectionsBtn);
     fileGroup.appendChild(communityBtn);
     fileGroup.appendChild(languageSwitcher);
     fileGroup.appendChild(reportsBtn);
