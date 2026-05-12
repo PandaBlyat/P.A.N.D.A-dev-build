@@ -3170,14 +3170,39 @@ local function collect_branches(npc_se, forced_context)
                             next_npc_id = reg_npc
                         end
                     end
+
+                    -- Skill-check / random-chance choices author the branch
+                    -- target inside the outcome (dialogue_skill_check:stat:...:success:fail)
+                    -- rather than via _cont_N or the registry, so the static
+                    -- continuation lookup above leaves next_turn nil and the
+                    -- tree builder closes the conversation. Pre-resolve the
+                    -- check now so the F2F dialog tree gets a real
+                    -- success/fail continuation to wire up.
+                    local skill_check_resolved = false
+                    if not next_turn and key_exists(outcome_key)
+                        and pda_interactive_conv
+                        and type(pda_interactive_conv.preresolve_dialogue_check) == "function" then
+                        local outcome_str = tr(outcome_key)
+                        local ok_pre, resolved = pcall(pda_interactive_conv.preresolve_dialogue_check, outcome_str)
+                        if ok_pre and resolved then
+                            next_turn = normalize_positive_int(resolved)
+                            if next_turn then
+                                skill_check_resolved = true
+                                if not next_channel then
+                                    next_channel = "f2f"
+                                end
+                            end
+                        end
+                    end
                     bridge_debug(
-                        "collect_branches continuation conv_id=%s turn=%s choice=%s next_turn=%s next_channel=%s next_npc_id=%s",
+                        "collect_branches continuation conv_id=%s turn=%s choice=%s next_turn=%s next_channel=%s next_npc_id=%s skill_check_resolved=%s",
                         tostring(cid),
                         tostring(turn),
                         tostring(idx),
                         tostring(next_turn or "nil"),
                         tostring(next_channel or "nil"),
-                        tostring(next_npc_id or "nil")
+                        tostring(next_npc_id or "nil"),
+                        tostring(skill_check_resolved)
                     )
 
                     table.insert(turn_state.branches, {
