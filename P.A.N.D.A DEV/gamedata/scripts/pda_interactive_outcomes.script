@@ -22,6 +22,8 @@ end
 local function apply_dialogue_stat_delta(key, delta)
     if pda_interactive_conv and type(pda_interactive_conv.change_dialogue_stat) == "function" then
         pda_interactive_conv.change_dialogue_stat(key, delta)
+    elseif type(change_dialogue_stat) == "function" then
+        change_dialogue_stat(key, delta)
     else
         printf(
             "PANDA_IC: pda_interactive_conv.change_dialogue_stat unavailable (key=%s delta=%s)",
@@ -34,6 +36,8 @@ end
 local function apply_dialogue_stat_set(key, value)
     if pda_interactive_conv and type(pda_interactive_conv.set_dialogue_stat) == "function" then
         pda_interactive_conv.set_dialogue_stat(key, value)
+    elseif type(set_dialogue_stat) == "function" then
+        set_dialogue_stat(key, value)
     else
         printf(
             "PANDA_IC: pda_interactive_conv.set_dialogue_stat unavailable (key=%s value=%s)",
@@ -1966,8 +1970,10 @@ function M.process_command(ctx, cmd_str)
         local spawn_mult = ctx.spawn_mult or 1
         local adjusted = math.floor(tonumber(chance_val) * spawn_mult)
         adjusted = math.max(0, math.min(100, adjusted))
-        if math.random(100) <= adjusted then M.process_command(ctx, rest) end
-        return
+        if math.random(100) <= adjusted then
+            return M.process_command(ctx, rest) == true
+        end
+        return true
     end
     local parts = (ctx.str_explode or str_explode)(cmd_str, ":")
     local cmd = parts[1]
@@ -1979,11 +1985,12 @@ function M.process_command(ctx, cmd_str)
     local handler = handlers[cmd]
     if not handler then
         printf("Unknown outcome command: %s", cmd_str)
-        return
+        return false
     end
     local env = make_env(ctx, parts, cmd_str, cmd)
     setfenv(handler, env)
-    return handler(parts, cmd_str, cmd)
+    handler(parts, cmd_str, cmd)
+    return true
 end
 
 return M

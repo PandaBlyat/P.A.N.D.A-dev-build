@@ -682,6 +682,82 @@ function get_all_dialogue_stats()
     return out
 end
 
+local DIALOGUE_STAT_OUTCOME_COMMANDS = {
+    change_dialogue_stat = true,
+    give_skill_level = true,
+    take_skill_level = true,
+    set_dialogue_stat = true,
+}
+
+local function split_outcome_entry(entry)
+    local parts = {}
+    for token in string.gmatch(entry or "", "([^:]+)") do
+        table.insert(parts, token)
+    end
+    return parts
+end
+
+local function trim_outcome_entry(entry)
+    return tostring(entry or ""):match("^%s*(.-)%s*$")
+end
+
+local function normalize_outcome_command_parts(entry)
+    local trimmed = trim_outcome_entry(entry)
+    local parts = split_outcome_entry(trimmed)
+    local chance_wrapped = false
+    if parts[1] == "chance" and tonumber(parts[2]) then
+        chance_wrapped = true
+        table.remove(parts, 1)
+        table.remove(parts, 1)
+    end
+    return trimmed, parts, chance_wrapped
+end
+
+local function is_dialogue_stat_outcome_command(cmd)
+    return DIALOGUE_STAT_OUTCOME_COMMANDS[cmd] == true
+end
+
+function apply_dialogue_stat_outcomes(outcome_str)
+    if not outcome_str or outcome_str == "" or outcome_str == "none" then return false end
+    local applied = false
+    for entry in string.gmatch(outcome_str, "([^,]+)") do
+        local _, parts, chance_wrapped = normalize_outcome_command_parts(entry)
+        local cmd = parts[1]
+        -- Do not pre-roll chance-wrapped rewards here; delayed outcome pipeline owns RNG.
+        if is_dialogue_stat_outcome_command(cmd) and chance_wrapped ~= true then
+            local stat = parts[2]
+            if cmd == "change_dialogue_stat" then
+                change_dialogue_stat(stat, tonumber(parts[3]) or 0)
+                applied = true
+            elseif cmd == "give_skill_level" then
+                change_dialogue_stat(stat, math.abs(tonumber(parts[3]) or 0))
+                applied = true
+            elseif cmd == "take_skill_level" then
+                change_dialogue_stat(stat, -math.abs(tonumber(parts[3]) or 0))
+                applied = true
+            elseif cmd == "set_dialogue_stat" then
+                set_dialogue_stat(stat, tonumber(parts[3]) or 0)
+                applied = true
+            end
+        end
+    end
+    return applied
+end
+
+function strip_dialogue_stat_outcomes(outcome_str)
+    if not outcome_str or outcome_str == "" or outcome_str == "none" then return outcome_str end
+    local kept = {}
+    for entry in string.gmatch(outcome_str, "([^,]+)") do
+        local trimmed, parts, chance_wrapped = normalize_outcome_command_parts(entry)
+        local cmd = parts[1]
+        if trimmed ~= "" and (chance_wrapped == true or not is_dialogue_stat_outcome_command(cmd)) then
+            kept[#kept + 1] = trimmed
+        end
+    end
+    if #kept == 0 then return "none" end
+    return table.concat(kept, ",")
+end
+
 local function clamp(v, lo, hi)
     if v < lo then return lo end
     if v > hi then return hi end
@@ -918,6 +994,42 @@ function preresolve_dialogue_check(outcome_str)
                 local result = evaluate_random_chance(pct)
                 if result == "success" then return s_turn end
                 return f_turn
+            end
+        end
+    end
+    return nil
+end
+
+function parse_dialogue_check_turns(outcome_str)
+    if not outcome_str or outcome_str == "" then return nil end
+    for entry in string.gmatch(outcome_str, "([^,]+)") do
+        local _, parts = normalize_outcome_command_parts(entry)
+        local cmd = parts[1]
+        if cmd == "dialogue_skill_check" then
+            local s_turn, f_turn
+            if #parts >= 6 then
+                s_turn = tonumber(parts[5])
+                f_turn = tonumber(parts[6])
+            else
+                s_turn = tonumber(parts[4])
+                f_turn = tonumber(parts[5])
+            end
+            if s_turn or f_turn then
+                return {
+                    kind = "dialogue_skill_check",
+                    success_turn = s_turn,
+                    fail_turn = f_turn,
+                }
+            end
+        elseif cmd == "random_chance_check" then
+            local s_turn = tonumber(parts[3])
+            local f_turn = tonumber(parts[4])
+            if s_turn or f_turn then
+                return {
+                    kind = "random_chance_check",
+                    success_turn = s_turn,
+                    fail_turn = f_turn,
+                }
             end
         end
     end
@@ -4924,10 +5036,11 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
     _panda_ic_runtime.job_spawn_collector = {}
     _panda_ic_runtime.pending_job_params = nil
 
+    local processed_any = false
     for entry in string.gmatch(outcome_str, "([^,]+)") do
         entry = entry:match("^%s*(.-)%s*$")
         if entry ~= "" then
-            mod.process_command(ctx, entry)
+            processed_any = mod.process_command(ctx, entry) == true or processed_any == true
         end
     end
 
@@ -4948,7 +5061,7 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
         _panda_ic_runtime.pending_job_params = nil
     end
 
-    return ctx.task_given == true
+    return ctx.task_given == true or processed_any == true
 end
 
 function apply_outcome(outcome_str, sender_npc_name, sender_faction, sender_npc_id, pre_found_task_id, sender_contact_id, conv_data, channel)
@@ -6485,9 +6598,14 @@ function on_player_choice(idx, contact_id)
             printf("Outcome already applied for choice %s, skipping to prevent farming.", outcome_key)
         end
 
+        local original_outcome = ch.outcome
+        if should_apply_outcome and apply_dialogue_stat_outcomes(original_outcome) then
+            ch.outcome = strip_dialogue_stat_outcomes(original_outcome)
+        end
+
         -- Dialogue skill / random checks resolve inline so the success/fail
         -- branch overrides the choice's regular continuation.
-        local check_override = preresolve_dialogue_check(ch.outcome)
+        local check_override = preresolve_dialogue_check(original_outcome)
         if check_override then
             ch.next_turn = check_override
         end

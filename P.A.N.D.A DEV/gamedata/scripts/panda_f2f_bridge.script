@@ -21,6 +21,25 @@ function f2f_choice_text_functor(first_speaker, second_speaker, dialog_id, phras
     local entry = _panda_f2f_choice_text_overrides[node_sid]
     if type(entry) == "string" and entry ~= "" then
         return entry
+    elseif type(entry) == "table" then
+        local base_text = ""
+        if entry.choice_key and game and game.translate_string then
+            base_text = game.translate_string(entry.choice_key) or ""
+            if base_text == entry.choice_key then base_text = "" end
+        end
+        local hint = nil
+        if pda_interactive_conv and type(pda_interactive_conv.build_dialogue_check_hint) == "function" then
+            local ok_hint, built_hint = pcall(pda_interactive_conv.build_dialogue_check_hint, entry.outcome or "none")
+            if ok_hint and type(built_hint) == "string" and built_hint ~= "" then
+                hint = built_hint
+            end
+        end
+        if base_text ~= "" and hint and hint ~= "" then
+            return base_text .. " " .. hint
+        elseif hint and hint ~= "" then
+            return hint
+        end
+        return base_text
     end
     return ""
 end
@@ -3171,38 +3190,40 @@ local function collect_branches(npc_se, forced_context)
                         end
                     end
 
-                    -- Skill-check / random-chance choices author the branch
-                    -- target inside the outcome (dialogue_skill_check:stat:...:success:fail)
-                    -- rather than via _cont_N or the registry, so the static
-                    -- continuation lookup above leaves next_turn nil and the
-                    -- tree builder closes the conversation. Pre-resolve the
-                    -- check now so the F2F dialog tree gets a real
-                    -- success/fail continuation to wire up.
-                    local skill_check_resolved = false
+                    -- Skill-check / random-chance choices author success/fail
+                    -- targets inside the outcome. Do not roll here; tree build
+                    -- can happen before previous branches grant stat levels.
+                    local skill_check_meta = nil
                     if not next_turn and key_exists(outcome_key)
                         and pda_interactive_conv
-                        and type(pda_interactive_conv.preresolve_dialogue_check) == "function" then
+                        and type(pda_interactive_conv.parse_dialogue_check_turns) == "function" then
                         local outcome_str = tr(outcome_key)
-                        local ok_pre, resolved = pcall(pda_interactive_conv.preresolve_dialogue_check, outcome_str)
-                        if ok_pre and resolved then
-                            next_turn = normalize_positive_int(resolved)
-                            if next_turn then
-                                skill_check_resolved = true
-                                if not next_channel then
-                                    next_channel = "f2f"
-                                end
+                        local ok_meta, parsed_meta = pcall(pda_interactive_conv.parse_dialogue_check_turns, outcome_str)
+                        if ok_meta and type(parsed_meta) == "table" then
+                            local success_turn = normalize_positive_int(parsed_meta.success_turn)
+                            local fail_turn = normalize_positive_int(parsed_meta.fail_turn)
+                            if success_turn or fail_turn then
+                                skill_check_meta = {
+                                    kind = parsed_meta.kind,
+                                    success_turn = success_turn,
+                                    fail_turn = fail_turn,
+                                }
+                            end
+                            if skill_check_meta and not next_channel then
+                                next_channel = "f2f"
                             end
                         end
                     end
                     bridge_debug(
-                        "collect_branches continuation conv_id=%s turn=%s choice=%s next_turn=%s next_channel=%s next_npc_id=%s skill_check_resolved=%s",
+                        "collect_branches continuation conv_id=%s turn=%s choice=%s next_turn=%s next_channel=%s next_npc_id=%s skill_check_success=%s skill_check_fail=%s",
                         tostring(cid),
                         tostring(turn),
                         tostring(idx),
                         tostring(next_turn or "nil"),
                         tostring(next_channel or "nil"),
                         tostring(next_npc_id or "nil"),
-                        tostring(skill_check_resolved)
+                        tostring(skill_check_meta and skill_check_meta.success_turn or "nil"),
+                        tostring(skill_check_meta and skill_check_meta.fail_turn or "nil")
                     )
 
                     table.insert(turn_state.branches, {
@@ -3218,6 +3239,9 @@ local function collect_branches(npc_se, forced_context)
                         next_channel = next_channel,
                         next_npc_id = next_npc_id,
                         pda_delay_seconds = pda_delay_seconds,
+                        skill_check_kind = skill_check_meta and skill_check_meta.kind or nil,
+                        skill_check_success_turn = skill_check_meta and skill_check_meta.success_turn or nil,
+                        skill_check_fail_turn = skill_check_meta and skill_check_meta.fail_turn or nil,
                     })
                 else
                     rejected_choice_keys[#rejected_choice_keys + 1] = choice_key
@@ -3356,6 +3380,12 @@ local function collect_branches(npc_se, forced_context)
                             for _, branch in ipairs(turn_state.branches or {}) do
                                 if branch.next_channel == "f2f" and branch.next_turn then
                                     expand_turns(branch.next_turn, depth + 1)
+                                end
+                                if branch.next_channel == "f2f" and branch.skill_check_success_turn then
+                                    expand_turns(branch.skill_check_success_turn, depth + 1)
+                                end
+                                if branch.next_channel == "f2f" and branch.skill_check_fail_turn then
+                                    expand_turns(branch.skill_check_fail_turn, depth + 1)
                                 end
                             end
                         end
@@ -3512,6 +3542,11 @@ local function build_dialog_tree(dialog, state)
     -- dialogs.break_dialog directly to the NPC reply phrase (the previous default) caused the engine
     -- to terminate the dialog before the reply was ever shown.
     local auto_close_dead_end = resolve_bool_flag_override("panda_f2f_auto_close_dead_end", false)
+    local function normalize_positive_turn(value)
+        local n = tonumber(value)
+        if n and n > 0 then return math.floor(n) end
+        return nil
+    end
 
     state.dialog = dialog
     state.alloc = alloc
@@ -3845,6 +3880,68 @@ local function build_dialog_tree(dialog, state)
         return (actor_choice_count_added == 0) or only_shim_selectable
     end
 
+    local function make_skill_check_result_key(branch)
+        return string.format(
+            "%s:%s:%s",
+            tostring(state.conv_id or "nil"),
+            tostring((branch and branch.turn) or state.turn or 1),
+            tostring(branch and branch.index or 0)
+        )
+    end
+
+    local function read_skill_check_result(active_state, branch)
+        if type(active_state) ~= "table" or type(active_state.skill_check_results) ~= "table" then
+            return nil
+        end
+        return normalize_positive_turn(active_state.skill_check_results[make_skill_check_result_key(branch)])
+    end
+
+    local function register_skill_check_turn_condition(branch, expected_turn, label)
+        local cond_name = string.format(
+            "panda_f2f_bridge_skill_check_%s_%d_t%d_%s",
+            token,
+            branch.index or 0,
+            branch.turn or state.turn or 1,
+            tostring(label or expected_turn or "turn")
+        )
+        local captured_state = state
+        local captured_state_id = make_state_id(captured_state)
+        local captured_token = tostring(token)
+        local expected = normalize_positive_turn(expected_turn)
+
+        local function resolve_callback_state()
+            local token_key = "token:" .. captured_token
+            local token_state = runtime.state_by_id[token_key]
+            if token_state ~= captured_state then
+                return nil, "token_invalid"
+            end
+            local indexed_state = runtime.state_by_id[captured_state_id]
+            if indexed_state == captured_state then
+                return indexed_state, "token_valid"
+            end
+            return captured_state, "token_valid_fallback"
+        end
+
+        _G[cond_name] = function()
+            local active_state, status = resolve_callback_state()
+            local actual = read_skill_check_result(active_state, branch)
+            local ok = expected ~= nil and actual == expected
+            bridge_debug(
+                "callback skill_check_turn_condition name=%s branch=%s token=%s status=%s expected=%s actual=%s ok=%s",
+                tostring(cond_name),
+                tostring(branch.index),
+                tostring(captured_token),
+                tostring(status or "nil"),
+                tostring(expected or "nil"),
+                tostring(actual or "nil"),
+                tostring(ok)
+            )
+            return ok == true
+        end
+        state.handlers[#state.handlers + 1] = { cond_name = cond_name }
+        return cond_name
+    end
+
     local function register_dispatcher(branch)
         local idx = branch.index
         local branch_turn = branch.turn or state.turn or 1
@@ -3930,6 +4027,29 @@ local function build_dialog_tree(dialog, state)
             local owner_tag = nil
             local routed = false
             local active_npc_id = resolve_server_npc_id(active_state.npc_se, "register_dispatcher:act")
+            local resolved_skill_turn = nil
+            if (branch.skill_check_success_turn or branch.skill_check_fail_turn)
+                and pda_interactive_conv
+                and type(pda_interactive_conv.preresolve_dialogue_check) == "function" then
+                local ok_check, check_turn = pcall(pda_interactive_conv.preresolve_dialogue_check, branch.outcome or "none")
+                if ok_check and check_turn then
+                    resolved_skill_turn = normalize_positive_turn(check_turn)
+                    if resolved_skill_turn then
+                        active_state.skill_check_results = active_state.skill_check_results or {}
+                        active_state.skill_check_results[make_skill_check_result_key(branch)] = resolved_skill_turn
+                    end
+                end
+                bridge_debug(
+                    "register_dispatcher: skill_check_resolved branch=%s conv_id=%s turn=%s resolved_turn=%s success_turn=%s fail_turn=%s",
+                    tostring(branch.index),
+                    tostring(active_state.conv_id or "nil"),
+                    tostring(branch_turn),
+                    tostring(resolved_skill_turn or "nil"),
+                    tostring(branch.skill_check_success_turn or "nil"),
+                    tostring(branch.skill_check_fail_turn or "nil")
+                )
+            end
+            local branch_next_turn = resolved_skill_turn or branch.next_turn
             if branch.hard_route then
                 owner_tag = make_override_owner_tag(active_state, branch)
                 local route_dialog = active_state.handoff_route_dialog
@@ -3975,7 +4095,7 @@ local function build_dialog_tree(dialog, state)
                 tostring(branch.outcome or "none")
             )
             if ok then
-                if branch.next_turn and branch.next_channel == "pda" then
+                if branch_next_turn and branch.next_channel == "pda" then
                     local handoff_source = type(active_state.handoff) == "table" and active_state.handoff or nil
                     local followup_npc_id = active_npc_id
                     local followup_contact_id = handoff_source and handoff_source.contact_id or (active_npc_id and tostring(active_npc_id) or nil)
@@ -4029,7 +4149,7 @@ local function build_dialog_tree(dialog, state)
                         faction = active_state.faction,
                         prefix = active_state.prefix,
                         conv_id = active_state.conv_id,
-                        turn = branch.next_turn,
+                        turn = branch_next_turn,
                         delay_seconds = branch.pda_delay_seconds or 0,
                         task_id = handoff_source and handoff_source.task_id or nil,
                         category = handoff_source and handoff_source.category or nil,
@@ -4042,13 +4162,19 @@ local function build_dialog_tree(dialog, state)
                         "register_dispatcher: queued_pda_followup branch=%s conv_id=%s target_turn=%s delay_s=%s contact_id=%s",
                         tostring(branch.index),
                         tostring(active_state.conv_id or "nil"),
-                        tostring(branch.next_turn or "nil"),
+                        tostring(branch_next_turn or "nil"),
                         tostring(branch.pda_delay_seconds or 0),
                         tostring(active_state.pending_pda_followup.contact_id or "nil")
                     )
                 end
-                if branch.next_turn and branch.next_channel == "f2f" and branch.next_npc_id and branch.next_npc_id ~= "" then
-                    register_f2f_continuation_handoff(active_state, active_npc_id, branch)
+                if branch_next_turn and branch.next_channel == "f2f" and branch.next_npc_id and branch.next_npc_id ~= "" then
+                    local handoff_branch = branch
+                    if branch_next_turn ~= branch.next_turn then
+                        handoff_branch = {}
+                        for k, v in pairs(branch) do handoff_branch[k] = v end
+                        handoff_branch.next_turn = branch_next_turn
+                    end
+                    register_f2f_continuation_handoff(active_state, active_npc_id, handoff_branch)
                 end
                 active_state.branch_committed = true
                 -- For F2F-direct conversations, record cooldown on branch commit (not at init time).
@@ -4194,7 +4320,10 @@ local function build_dialog_tree(dialog, state)
             generated_ids.choice[#generated_ids.choice + 1] = actor_id
             local cond_name, act_name = register_dispatcher(branch)
             local branch_targets_other_npc = branch.next_npc_id ~= nil and branch.next_npc_id ~= ""
-            local branch_continues_in_f2f = (branch.next_channel == "f2f") and (branch.next_turn ~= nil) and not branch_targets_other_npc
+            local branch_has_dynamic_check = branch.skill_check_success_turn ~= nil or branch.skill_check_fail_turn ~= nil
+            local branch_continues_in_f2f = (branch.next_channel == "f2f")
+                and (branch.next_turn ~= nil or branch_has_dynamic_check)
+                and not branch_targets_other_npc
             local branch_auto_closes = auto_close_dead_end == true and branch_continues_in_f2f == false
             local actor_action = act_name
             if branch.reply_key == nil and branch_auto_closes then
@@ -4208,9 +4337,10 @@ local function build_dialog_tree(dialog, state)
                 and branch.choice_key and branch.outcome then
                 local ok_hint, hint = pcall(pda_interactive_conv.build_dialogue_check_hint, branch.outcome)
                 if ok_hint and type(hint) == "string" and hint ~= "" then
-                    local base_text = game.translate_string(branch.choice_key) or ""
-                    if base_text == branch.choice_key then base_text = "" end
-                    _panda_f2f_choice_text_overrides[tostring(actor_id)] = (base_text ~= "" and (base_text .. " " .. hint)) or hint
+                    _panda_f2f_choice_text_overrides[tostring(actor_id)] = {
+                        choice_key = branch.choice_key,
+                        outcome = branch.outcome,
+                    }
                     bridge_debug(
                         "f2f_choice_hint applied node_id=%s choice_key=%s hint=%s",
                         tostring(actor_id), tostring(branch.choice_key), tostring(hint)
@@ -4243,9 +4373,20 @@ local function build_dialog_tree(dialog, state)
             if branch.reply_key or branch_continues_in_f2f then
                 local npc_id = continuation_anchor
                 if branch_continues_in_f2f then
-                    local next_turn_state = get_turn_state(branch.next_turn)
-                    if next_turn_state then
+                    local function append_continuation(target_turn, target_cond_name, target_label)
+                        local next_turn_state = get_turn_state(target_turn)
+                        if not next_turn_state then
+                            bridge_warn(
+                                "build_dialog_tree missing_next_turn_state conv_id=%s from_turn=%s to_turn=%s choice_key=%s action=exit_fallback",
+                                tostring(state.conv_id or "nil"),
+                                tostring(turn or "nil"),
+                                tostring(target_turn or "nil"),
+                                tostring(branch.choice_key or "nil")
+                            )
+                            return false
+                        end
                         local allow_next_turn_open = state.render_non_entry_openers ~= false
+                            or branch_has_dynamic_check == true
                         local should_insert_next_turn_open = allow_next_turn_open and (next_turn_state.missing_turn_open ~= true)
                         local continuation_parent_id = npc_id
                         local continuation_shim_inserted = false
@@ -4258,7 +4399,7 @@ local function build_dialog_tree(dialog, state)
                                 npc_id,
                                 continuation_open_id,
                                 next_turn_state.open_key,
-                                nil,
+                                target_cond_name,
                                 nil,
                                 false,
                                 "npc_open",
@@ -4276,7 +4417,7 @@ local function build_dialog_tree(dialog, state)
                                     "build_dialog_tree continuation missing_next_turn_open conv_id=%s from_turn=%s to_turn=%s choice_key=%s action=direct_to_choices preferred=%s fallback=%s",
                                     tostring(state.conv_id or "nil"),
                                     tostring(turn or "nil"),
-                                    tostring(branch.next_turn or "nil"),
+                                    tostring(target_turn or "nil"),
                                     tostring(branch.choice_key or "nil"),
                                     tostring(next_turn_state.preferred_open_key or "nil"),
                                     tostring(next_turn_state.fallback_open_key or "nil")
@@ -4289,37 +4430,59 @@ local function build_dialog_tree(dialog, state)
                             end
                         end
                         bridge_debug(
-                            "build_dialog_tree continuation conv_id=%s from_turn=%s to_turn=%s choice_key=%s direct_actor_next=%s npc_open_inserted=%s next_open_phrase=%s",
+                            "build_dialog_tree continuation conv_id=%s from_turn=%s to_turn=%s choice_key=%s direct_actor_next=%s npc_open_inserted=%s next_open_phrase=%s label=%s cond=%s",
                             tostring(state.conv_id or "nil"),
                             tostring(turn or "nil"),
-                            tostring(branch.next_turn or "nil"),
+                            tostring(target_turn or "nil"),
                             tostring(branch.choice_key or "nil"),
                             tostring(should_insert_next_turn_open ~= true),
                             tostring(continuation_shim_inserted == true),
-                            tostring(next_open_phrase_for_log)
+                            tostring(next_open_phrase_for_log),
+                            tostring(target_label or "static"),
+                            tostring(target_cond_name or "nil")
                         )
-                        build_turn(continuation_parent_id, branch.next_turn, depth + 1, visited_turns)
+                        build_turn(continuation_parent_id, target_turn, depth + 1, visited_turns)
+                        return true
+                    end
+
+                    if branch_has_dynamic_check then
+                        local appended = false
+                        if branch.skill_check_success_turn then
+                            appended = append_continuation(
+                                branch.skill_check_success_turn,
+                                register_skill_check_turn_condition(branch, branch.skill_check_success_turn, "success"),
+                                "success"
+                            ) or appended
+                        end
+                        if branch.skill_check_fail_turn
+                            and branch.skill_check_fail_turn ~= branch.skill_check_success_turn then
+                            appended = append_continuation(
+                                branch.skill_check_fail_turn,
+                                register_skill_check_turn_condition(branch, branch.skill_check_fail_turn, "fail"),
+                                "fail"
+                            ) or appended
+                        end
+                        if not appended then
+                            local exit_id = alloc()
+                            generated_ids.exit[#generated_ids.exit + 1] = exit_id
+                            add_logged_exit_node(npc_id, exit_id, "actor_exit")
+                        end
                     else
-                        bridge_warn(
-                            "build_dialog_tree missing_next_turn_state conv_id=%s from_turn=%s to_turn=%s choice_key=%s action=exit_fallback",
-                            tostring(state.conv_id or "nil"),
-                            tostring(turn or "nil"),
-                            tostring(branch.next_turn or "nil"),
-                            tostring(branch.choice_key or "nil")
-                        )
-                        bridge_debug(
-                            "build_dialog_tree continuation conv_id=%s from_turn=%s to_turn=%s choice_key=%s direct_actor_next=%s npc_open_inserted=%s next_open_phrase=%s",
-                            tostring(state.conv_id or "nil"),
-                            tostring(turn or "nil"),
-                            tostring(branch.next_turn or "nil"),
-                            tostring(branch.choice_key or "nil"),
-                            "false",
-                            "false",
-                            "nil"
-                        )
+                        if not append_continuation(branch.next_turn, nil, "static") then
+                            bridge_debug(
+                                "build_dialog_tree continuation conv_id=%s from_turn=%s to_turn=%s choice_key=%s direct_actor_next=%s npc_open_inserted=%s next_open_phrase=%s",
+                                tostring(state.conv_id or "nil"),
+                                tostring(turn or "nil"),
+                                tostring(branch.next_turn or "nil"),
+                                tostring(branch.choice_key or "nil"),
+                                "false",
+                                "false",
+                                "nil"
+                            )
                         local exit_id = alloc()
                         generated_ids.exit[#generated_ids.exit + 1] = exit_id
                         add_logged_exit_node(npc_id, exit_id, "actor_exit")
+                        end
                     end
                 elseif not branch_auto_closes then
                     local exit_id = alloc()
