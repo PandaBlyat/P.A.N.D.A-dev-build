@@ -3,6 +3,20 @@ local M = pda_interactive_outcomes
 
 local handlers = {}
 
+-- True while the game world is being torn down (quit-to-main-menu, mid-load).
+-- Pending outcome time events keep firing for a frame or two after on_game_end,
+-- and any reach into db.actor:* / level.object_by_id / alife() in that window
+-- dereferences invalidated C++ objects and surfaces as the crash in
+-- MainMenu::ReloadUI -> xrFactory_Create.
+local function ic_is_shutting_down()
+    local ic = rawget(_G, "pda_interactive_conv")
+    if ic and type(ic.is_panda_ic_shutdown_in_progress) == "function" then
+        local ok, val = pcall(ic.is_panda_ic_shutdown_in_progress)
+        if ok and val == true then return true end
+    end
+    return db == nil or db.actor == nil
+end
+
 local function str_explode(str, sep)
     local t = {}
     for s in string.gmatch(str or "", "([^" .. sep .. "]+)") do table.insert(t, s) end
@@ -247,7 +261,7 @@ handlers["spawn_custom_npc"] = function(parts, cmd_str, cmd)
     elseif delay > 0 then
         local ev_key = "panda_cnpc_" .. tostring(math.random(100000))
         CreateTimeEvent("panda_cnpc_spawn", ev_key, delay, function()
-            if not db.actor then return true end
+            if ic_is_shutting_down() then return true end
             panda_npc_creator.spawn_custom_npc(tpl_id, { use_player_pos = true, conv_data = conv_data })
             return true
         end)
@@ -267,7 +281,7 @@ handlers["spawn_custom_npc_at"] = function(parts, cmd_str, cmd)
     elseif delay > 0 then
         local ev_key = "panda_cnpc_at_" .. tostring(math.random(100000))
         CreateTimeEvent("panda_cnpc_spawn", ev_key, delay, function()
-            if not db.actor then return true end
+            if ic_is_shutting_down() then return true end
             panda_npc_creator.spawn_custom_npc(tpl_id, { smart_ref = smart_ref, conv_data = conv_data })
             return true
         end)
@@ -931,10 +945,9 @@ handlers["boost_speed"] = function(parts, cmd_str, cmd)
     act:set_actor_run_coef(mult)
     act:set_actor_sprint_koef(mult)
     CreateTimeEvent(0, "panda_speed_reset_" .. tostring(time_global()), dur, function()
-        if db.actor then
-            db.actor:set_actor_run_coef(0)
-            db.actor:set_actor_sprint_koef(0)
-        end
+        if ic_is_shutting_down() then return true end
+        db.actor:set_actor_run_coef(0)
+        db.actor:set_actor_sprint_koef(0)
         return true
     end)
 end
@@ -945,10 +958,9 @@ handlers["slow_speed"] = function(parts, cmd_str, cmd)
     act:set_actor_run_coef(mult)
     act:set_actor_sprint_koef(mult)
     CreateTimeEvent(0, "panda_speed_reset_" .. tostring(time_global()), dur, function()
-        if db.actor then
-            db.actor:set_actor_run_coef(0)
-            db.actor:set_actor_sprint_koef(0)
-        end
+        if ic_is_shutting_down() then return true end
+        db.actor:set_actor_run_coef(0)
+        db.actor:set_actor_sprint_koef(0)
         return true
     end)
 
@@ -975,9 +987,8 @@ handlers["teleport_player_to_smart"] = function(parts, cmd_str, cmd)
         if smart_pos then
             if delay > 0 then
                 CreateTimeEvent(0, "panda_tp_player_" .. tostring(time_global()), delay, function()
-                    if db.actor then
-                        db.actor:set_actor_position(smart_pos)
-                    end
+                    if ic_is_shutting_down() then return true end
+                    db.actor:set_actor_position(smart_pos)
                     return true
                 end)
             else
