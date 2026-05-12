@@ -856,6 +856,27 @@ end
 -- random_chance_check and return the resolved success/fail turn override (or
 -- nil if no check is present). Mutates nothing — the apply_outcome dispatcher
 -- is still called normally afterwards but treats these commands as no-ops.
+-- Detect (without resolving) whether an outcome string carries a dialogue_skill_check
+-- or random_chance_check. Used to decide when to emit the next turn's _open body
+-- on inline continuation — the branch-specific narration lives there because the
+-- choice's single _reply is shared across success and fail branches.
+function outcome_has_dialogue_check(outcome_str)
+    if not outcome_str or outcome_str == "" then return false end
+    for entry in string.gmatch(outcome_str, "([^,]+)") do
+        local trimmed = entry:match("^%s*(.-)%s*$")
+        if trimmed and trimmed ~= "" then
+            local first = trimmed:match("^([^:]+)")
+            if first == "chance" then
+                first = trimmed:match("^chance:%d+:([^:]+)")
+            end
+            if first == "dialogue_skill_check" or first == "random_chance_check" then
+                return true
+            end
+        end
+    end
+    return false
+end
+
 function preresolve_dialogue_check(outcome_str)
     if not outcome_str or outcome_str == "" then return nil end
     for entry in string.gmatch(outcome_str, "([^,]+)") do
@@ -5074,6 +5095,9 @@ apply_spawned_faction_relation = function(obj, relation_mode)
         local attempts = 0
         local ev_key = "panda_spawn_relation_" .. tostring(obj.id) .. "_" .. tostring(math.random(100000))
         CreateTimeEvent("pda_ic_spawn", ev_key, 1, function()
+            if is_panda_ic_shutdown_in_progress() or not db.actor then
+                return true
+            end
             attempts = attempts + 1
             local retry_touched = apply_member_relation()
             return retry_touched > 0 or attempts >= 10
@@ -5116,6 +5140,9 @@ function mark_npc_as_hostage(npc_id, smart_ref)
     track_panda_ic_event("pda_ic_spawn", key)
     local attempts = 0
     CreateTimeEvent("pda_ic_spawn", key, 1, function()
+        if is_panda_ic_shutdown_in_progress() or not db.actor then
+            return true
+        end
         attempts = attempts + 1
         if try_mark() or attempts >= 10 then
             return true
@@ -5165,6 +5192,9 @@ function apply_rescue_survivor_animation(npc_id)
     track_panda_ic_event("pda_ic_spawn", key)
     local attempts = 0
     CreateTimeEvent("pda_ic_spawn", key, 1, function()
+        if is_panda_ic_shutdown_in_progress() or not db.actor then
+            return true
+        end
         attempts = attempts + 1
         if try_set() or attempts >= 10 then
             return true
@@ -6623,6 +6653,30 @@ function on_player_choice(idx, contact_id)
                             -- Same NPC: in-place continuation as before
                             local next_choices, num = load_choices_for_turn(c.prefix, c.faction, c.conv_id, ch.next_turn, npc_name, cid, resolve_runtime_npc_se(nil, c.npc_id))
                             if num > 0 then
+                                -- Skill/chance check branches: the choice's _reply is a
+                                -- shared generic ack, so the branch-specific narration
+                                -- lives in the success/fail turn's _open body. Emit it
+                                -- here so the player sees the actual outcome message.
+                                if outcome_has_dialogue_check(ch.outcome) then
+                                    local next_p = build_turn_string_prefix(c.prefix, c.faction, c.conv_id, ch.next_turn)
+                                    local open_key = next_p .. "_open"
+                                    local open_text = game.translate_string(open_key)
+                                    if open_text and open_text ~= ""
+                                        and open_text ~= open_key
+                                        and open_text ~= "[MISSING_OPEN_LINE]" then
+                                        local npc_se_for_sub = c.npc_id and alife_object(c.npc_id) or nil
+                                        pda_private_add_message(
+                                            cid,
+                                            npc_name,
+                                            npc_name,
+                                            sub_placeholders(open_text, npc_name, c.faction, npc_se_for_sub, cid),
+                                            c.npc_icon,
+                                            false,
+                                            nil, nil, nil,
+                                            get_message_attachment_fields_for_string_key(open_key)
+                                        )
+                                    end
+                                end
                                 c.turn = ch.next_turn
                                 c.choices = next_choices
                                 c.num_choices = num
