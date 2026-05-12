@@ -617,7 +617,9 @@ active_conversations = {}  -- Table keyed by npc_name → conversation data
 pda_reply_pending = false  -- True while the multi-stage reply timer chain is active
 pda_player_chat_online = true
 local panda_ic_shutdown_in_progress = false
-local is_panda_ic_shutdown_in_progress
+-- Module-scope (no `local`) so other scripts can call it as
+-- pda_interactive_conv.is_panda_ic_shutdown_in_progress(). The real function
+-- body is assigned further down once helpers are ready.
 local conv_last_played, last_conv_npc_id, _callbacks_registered = {}, nil, false
 -- Storylines completed by the player (author-defined storyline_id from XML).
 -- Marked when a conversation reaches a terminal branch. Persisted via save_state.
@@ -3070,6 +3072,13 @@ function on_game_shutdown_cb()
         pcall(bridge.begin_shutdown_cleanup, "on_game_shutdown")
     elseif bridge and type(bridge.mark_shutdown_in_progress) == "function" then
         pcall(bridge.mark_shutdown_in_progress, "on_game_shutdown")
+    end
+
+    -- Drop the cached PDA private tab CUIScriptWnd singleton so its dangling
+    -- references to about-to-be-freed C++ widgets cannot be reused on the next
+    -- main-menu reload. A fresh instance is built next time the PDA opens.
+    if pda_private_tab and type(pda_private_tab.reset_singleton) == "function" then
+        pcall(pda_private_tab.reset_singleton)
     end
 end
 
