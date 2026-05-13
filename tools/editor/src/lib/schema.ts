@@ -188,6 +188,22 @@ const NPC_RELATION_STATE_OPTIONS: ParamOption[] = [
   { value: 'friendly', label: 'Friendly', keywords: ['friend', 'friendly'] },
 ];
 
+const EQUIPPED_WEAPON_CONDITION_TARGET_OPTIONS: ParamOption[] = [
+  { value: 'active', label: 'Active weapon', keywords: ['active', 'held'] },
+  { value: 'slot1', label: 'Slot 1 weapon', keywords: ['slot1', 'pistol'] },
+  { value: 'slot2', label: 'Slot 2 weapon', keywords: ['slot2', 'primary'] },
+  { value: 'both', label: 'Both weapon slots', keywords: ['both', 'all equipped weapons'] },
+];
+
+const PDA_TIP_SENDER_OPTIONS: ParamOption[] = [
+  { value: 'system', label: 'System message', keywords: ['system'] },
+  { value: 'unknown', label: 'Unknown sender', keywords: ['unknown'] },
+  { value: 'current', label: 'Current conversation NPC', keywords: ['current', 'sender'] },
+  { value: 'custom', label: 'Custom NPC template', keywords: ['custom', 'template'] },
+  { value: 'story', label: 'Story NPC', keywords: ['story', 'named npc'] },
+  { value: 'faction', label: 'Random online faction NPC', keywords: ['faction', 'random'] },
+];
+
 const ESCORT_TARGET_OPTIONS: ParamOption[] = [
   { value: 'sender', label: 'Conversation NPC', keywords: ['sender', 'talker', 'current npc'] },
   { value: 'story_npc', label: 'Story NPC', keywords: ['story npc', 'named npc'] },
@@ -1165,9 +1181,65 @@ export const PRECONDITION_SCHEMAS: CommandSchema[] = [
   {
     name: 'req_outfit_equipped',
     label: 'Outfit Equipped',
-    description: 'Player must have an outfit/armor equipped (slot 6)',
+    description: 'Player must have an outfit/armor equipped (vanilla slot 7)',
     category: 'Items',
     params: [],
+  },
+  {
+    name: 'req_outfit_condition_min',
+    label: 'Outfit Condition Min',
+    description: 'Equipped outfit condition must be at least this percent',
+    category: 'Items',
+    params: [
+      { name: 'percent', type: 'number', required: true, label: 'Minimum Condition (%)', min: 0, max: 100 },
+    ],
+  },
+  {
+    name: 'req_outfit_condition_max',
+    label: 'Outfit Condition Max',
+    description: 'Equipped outfit condition must be at most this percent',
+    category: 'Items',
+    params: [
+      { name: 'percent', type: 'number', required: true, label: 'Maximum Condition (%)', min: 0, max: 100 },
+    ],
+  },
+  {
+    name: 'req_equipped_weapon_condition_min',
+    label: 'Weapon Condition Min',
+    description: 'Equipped weapon condition must be at least this percent',
+    category: 'Items',
+    params: [
+      { name: 'percent', type: 'number', required: true, label: 'Minimum Condition (%)', min: 0, max: 100 },
+    ],
+  },
+  {
+    name: 'req_equipped_weapon_condition_max',
+    label: 'Weapon Condition Max',
+    description: 'Equipped weapon condition must be at most this percent',
+    category: 'Items',
+    params: [
+      { name: 'percent', type: 'number', required: true, label: 'Maximum Condition (%)', min: 0, max: 100 },
+    ],
+  },
+  {
+    name: 'req_weapon_condition_min',
+    label: 'Weapon Condition Min',
+    description: 'Alias for req_equipped_weapon_condition_min',
+    category: 'Items',
+    pickerHidden: true,
+    params: [
+      { name: 'percent', type: 'number', required: true, label: 'Minimum Condition (%)', min: 0, max: 100 },
+    ],
+  },
+  {
+    name: 'req_weapon_condition_max',
+    label: 'Weapon Condition Max',
+    description: 'Alias for req_equipped_weapon_condition_max',
+    category: 'Items',
+    pickerHidden: true,
+    params: [
+      { name: 'percent', type: 'number', required: true, label: 'Maximum Condition (%)', min: 0, max: 100 },
+    ],
   },
 
   // ─── NEW: World State ─────────────────────────────────────────────────────
@@ -1438,10 +1510,46 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
   {
     name: 'give_item',
     label: 'Give Item',
-    description: 'Spawn item in player inventory',
+    description: 'Spawn item in player inventory, optionally with condition for degradable gear',
     category: 'Items',
     params: [
       { name: 'item', type: 'item_section', required: true, label: 'Item Section', editor: ITEM_PICKER_PANEL_EDITOR },
+      { name: 'condition_percent', type: 'number', required: false, label: 'Condition (%)', min: 0, max: 100, placeholder: '100',
+        helpText: 'Optional. Applies only to degradable weapons and outfits; non-degradable items spawn normally.' },
+    ],
+  },
+  {
+    name: 'change_outfit_condition',
+    label: 'Change Outfit Condition',
+    description: 'Change equipped outfit condition by signed percent',
+    category: 'Items',
+    params: [
+      { name: 'delta_percent', type: 'number', required: true, label: 'Delta (%)', min: -100, max: 100, placeholder: '-10' },
+    ],
+  },
+  {
+    name: 'change_equipped_weapon_condition',
+    label: 'Change Weapon Condition',
+    description: 'Change equipped weapon condition by signed percent',
+    category: 'Items',
+    params: [
+      { name: 'delta_percent', type: 'number', required: true, label: 'Delta (%)', min: -100, max: 100, placeholder: '-10' },
+      { name: 'target', type: 'string', required: false, label: 'Target', placeholder: 'active',
+        editor: { kind: 'static_select', options: EQUIPPED_WEAPON_CONDITION_TARGET_OPTIONS, emptyLabel: 'Active weapon' } },
+    ],
+  },
+  {
+    name: 'send_pda_msg_tip',
+    label: 'Send PDA Message Tip',
+    description: 'Send a global PDA news tip with optional delay and sender source',
+    category: 'PDA',
+    params: [
+      { name: 'message', type: 'string', required: true, label: 'Message or String ID', placeholder: 'st_pda_ic_custom_tip' },
+      { name: 'delay', type: 'number', required: false, label: 'Delay (s)', min: 0, placeholder: '0' },
+      { name: 'sender_mode', type: 'string', required: false, label: 'Sender Mode', placeholder: 'system',
+        editor: { kind: 'static_select', options: PDA_TIP_SENDER_OPTIONS, emptyLabel: 'System message' } },
+      { name: 'sender_ref', type: 'string', required: false, label: 'Sender Value', placeholder: 'story id, template id, faction, or custom name',
+        helpText: 'Used by story/custom/faction modes. System and unknown modes ignore this.' },
     ],
   },
   // Items (expanded)
@@ -2514,9 +2622,9 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
   {
     name: 'dialogue_skill_check',
     label: 'Skill Check',
-    description: 'Fallout-style stat check: roll player skill against a required level, route to success or fail turns',
+    description: 'Fallout-style stat check: roll effective player skill against a required level, route to success or fail turns',
     category: 'Dialogue Checks',
-    helpText: 'Stats range 0-100. Formula: chance% = clamp(5, 95, floor(player_stat / required_level * 100) + luck - difficulty). E.g. Charisma 15 vs required 65 = ~23% base, then +luck and -difficulty. "rank" is read live from character_rank/1000. Use give_skill_level / take_skill_level / change_dialogue_stat in other branches to evolve stats.',
+    helpText: 'Stats range 0-100. Runtime uses effective stat = clamp(base + gear + context + social, 0, 100). Formula: chance% = clamp(5, 95, floor(effective_stat / required_level * 100) + effective_luck - difficulty). E.g. Charisma 15 vs required 65 = ~23% base, then +luck and -difficulty. "rank" is read live from character_rank/1000 and is not modified. Use give_skill_level / take_skill_level / change_dialogue_stat in other branches to evolve saved base stats.',
     examples: [
       'dialogue_skill_check:charisma:65:5:3:4',
       'dialogue_skill_check:intimidation:40:0:3:4',
@@ -2531,7 +2639,7 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
           { value: 'rank', label: 'Rank (derived)', keywords: ['rank'] },
         ], emptyLabel: '-- Select stat --' } },
       { name: 'required_level', type: 'number', required: true, label: 'Required Level', min: 1, max: 100,
-        helpText: 'Level the stat is being measured against (1-100). Player skill / required level = base success ratio. Example: Charisma 65 means a player with charisma 65 reaches ~100% before luck/difficulty.' },
+        helpText: 'Level the effective stat is being measured against (1-100). Effective skill / required level = base success ratio. Example: Charisma 65 means a player with effective charisma 65 reaches ~100% before luck/difficulty.' },
       { name: 'difficulty', type: 'number', required: true, label: 'Difficulty', min: 0, max: 99,
         helpText: 'Flat penalty subtracted from roll chance after the skill ratio. 0 = no penalty, 10 = hard, 25 = very hard.' },
       { name: 'success_turn', type: 'number', required: true, label: 'Success Turn', min: 2, editor: TURN_REFERENCE_EDITOR },

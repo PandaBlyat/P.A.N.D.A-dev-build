@@ -68,6 +68,7 @@ export function exportXml(): void {
     autofillMissingOpenWhenNonStrict: true,
     missingOpenPlaceholder: '[MISSING_OPEN_LINE]',
     conversationKeyPrefix: 'panda',
+    useStoryKeyPrefixes: true,
   };
 
   try {

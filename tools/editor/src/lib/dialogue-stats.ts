@@ -1,8 +1,8 @@
 // P.A.N.D.A. Dialogue Stat Registry
-// Player-level stats used by `dialogue_skill_check` outcomes. Core stats start
-// at 0 and are persisted in the mod's save state. `rank` is derived live from
-// the player's character_rank at runtime; the editor still lists it so authors
-// can target it in checks.
+// Player-level base stats used by `dialogue_skill_check` outcomes. Core stats
+// start at 0 and are persisted in the mod's save state. Runtime checks use the
+// effective value: base + temporary gear/context/social modifiers, clamped 0-100.
+// `rank` is derived live from character_rank and is not modified.
 
 export const CORE_DIALOGUE_STATS = [
   'charisma',
@@ -25,10 +25,10 @@ export const DIALOGUE_STAT_LABELS: Record<CoreDialogueStatKey, string> = {
 
 export const DIALOGUE_STAT_DESCRIPTIONS: Record<CoreDialogueStatKey, string> = {
   charisma: 'Smooth talk, persuasion, deception.',
-  luck: 'Passive bonus to all checks (+floor(luck/2)).',
+  luck: 'Passive bonus to non-luck checks; temporary modifiers can affect it.',
   intimidation: 'Threats, demands, hostile postures.',
   perception: 'Notice details, read intent, spot lies.',
-  rank: 'Derived from current character rank (0 = novice tier).',
+  rank: 'Derived from current character rank (0 = novice tier); no temporary modifiers.',
 };
 
 export const RANDOM_STAT_KEY = '__random__';

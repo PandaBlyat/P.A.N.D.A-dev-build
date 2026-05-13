@@ -50,6 +50,7 @@ Stalker Anomaly Mods for Reference/                     ← READ ONLY reference
 | `pda_interactive_conv_mcm.script` | MCM settings menu. Exports `on_mcm_load()`, helpers: `isInteractiveEnabled()`, `isFlexibleMode()`, `isStrictMode()`, `isBackgroundEnabled()`, etc. |
 | `pda_private_tab.script` | PDA Private Messages UI. Class `pda_private_tab(CUIScriptWnd)`. Handles contact list, chat rendering, colored text tokens, 40+ emoji shortcodes → DDS textures, audio playback, actor portrait resolution |
 | `pda_typing_personality.script` | Message formatting with per-character voice personalities |
+| `panda_dialogue_skills.script` | Dynamic dialogue skill modifiers. Computes effective stats from saved base stats + equipped gear + condition + actor/world/social context, and patches item hover tooltips with dialogue modifiers |
 
 ### Bridge/Integration Scripts
 
@@ -75,6 +76,7 @@ Stalker Anomaly Mods for Reference/                     ← READ ONLY reference
 | File | Purpose |
 |------|---------|
 | `configs/ui/pda_private.xml` | PDA Private Messages tab layout (dark theme, 210px contact pane + 470px chat pane) |
+| `configs/misc/panda_dialogue_skill_modifiers.ltx` | Config-driven dialogue skill modifiers. Sections: `section_modifiers`, `pattern_modifiers`, `kind_modifiers`, `context_modifiers`. Format: `item_or_context = charisma:+5,intimidation:-3` |
 | `configs/misc/task/tm_panda.ltx` | Task template slots: `panda_delivery_01-16`, `panda_fetch_01+`, etc. Inherits task functors |
 | `configs/gameplay/dialogs.xml` | Story dialogue definitions (Sidorovich, Petrenko, faction starts) |
 | `configs/text/eng/st_PANDA_*.xml` | English localization. Key files: `st_PANDA_freedom_interactive_conversations.xml`, `st_PANDA_tasks.xml`, `ui_mcm_pda_interactive_conv.xml`, `st_dynamic_news*.xml` |
@@ -98,6 +100,16 @@ Stalker Anomaly Mods for Reference/                     ← READ ONLY reference
 ### Outcomes
 - Execute on player choice: money, item spawns, reputation, task creation, NPC spawns, dead body spawns, artifact flows
 - New outcome commands (from artifact adapter): `start_anomaly_scan_task`, `start_artifact_retrieval_task`, `spawn_artifact_on_npc`, `spawn_artifact_in_zone`, `require_detector_tier`, `turn_in_artifact`
+
+### Dialogue Skills
+- Saved base stats live in `pda_interactive_conv.script`: `charisma`, `luck`, `intimidation`, `perception`. `rank` is derived from `character_rank()/1000`.
+- Dialogue checks use effective stat: `clamp(base + gear + context + social, 0, 100)`. Permanent outcomes (`give_skill_level`, `take_skill_level`, `change_dialogue_stat`, `set_dialogue_stat`) still change base stats only.
+- Gear modifiers are temporary and config-driven in `configs/misc/panda_dialogue_skill_modifiers.ltx`. Positive gear bonuses scale by item condition: 75-100% full, 50-74% 75%, 25-49% 50%, below 25% zero. Negative penalties do not scale away.
+- Equipped item slots follow vanilla Anomaly: weapon slots `1/2`, outfit `7`, helmet `12`, backpack `13`; active weapon is also checked as fallback.
+- Context modifiers cover low health, bleeding, radiation, overweight, hunger/thirst, night, emission, psi storm, same/enemy faction, and goodwill.
+- PDA stat panel displays effective value with modifier, e.g. `Intimidation: 45 (+20)`. Choice hints display base plus modifier before required level, e.g. `[Intimidation 25 (+20)/60 - 78% chance]`.
+- Item hover tooltips show configured modifiers when MCM option `show_dialogue_modifiers_in_item_tooltips` is enabled. Unequipped items show `when equipped`; weapons can show `when equipped/active`.
+- MCM options: `enable_dialogue_skill_modifiers`, `show_dialogue_modifiers_in_item_tooltips`, `show_player_stats_panel`, `show_check_hints_in_choices`.
 
 ### Contacts & Relations
 - Contacts identified by NPC server object ID (`npc_se.id`), displayed by character name
@@ -204,6 +216,7 @@ make build-catalogs      # Run all build_editor_*.py → src/lib/generated/
 3. Press SPACE in-game to force-trigger a conversation
 4. Check PDA → Private Messages tab for threads
 5. Use `make doctor` and `make lua-lint` before committing changes
+6. For dialogue skill modifiers: equip/damage/unequip an exosuit, confirm check chance and PDA stat panel update; hover configured outfit/weapon and confirm tooltip line appears; save/load and confirm only base stats persist
 
 ## Testing the Editor
 

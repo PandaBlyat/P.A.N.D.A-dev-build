@@ -341,6 +341,39 @@ function openItemPickerPanel(options: {
   let itemRowIndices: number[] = [];
   let renderedRowRange = { start: -1, end: -1 };
 
+  const collapseFilterSelect = (select: HTMLSelectElement): void => {
+    select.size = 1;
+    select.classList.remove('is-expanded');
+  };
+
+  const expandFilterSelect = (select: HTMLSelectElement): void => {
+    select.size = Math.min(Math.max(select.options.length, 1), 12);
+    select.classList.add('is-expanded');
+  };
+
+  const wireScrollableFilterSelect = (select: HTMLSelectElement): void => {
+    select.onpointerdown = (event) => {
+      if (select.size > 1) return;
+      event.preventDefault();
+      expandFilterSelect(select);
+      select.focus();
+    };
+    select.onkeydown = (event) => {
+      if (event.key === 'Escape') {
+        collapseFilterSelect(select);
+        return;
+      }
+      if ((event.key === 'Enter' || event.key === ' ') && select.size === 1) {
+        event.preventDefault();
+        expandFilterSelect(select);
+      }
+    };
+    select.onblur = () => window.setTimeout(() => collapseFilterSelect(select), 120);
+  };
+
+  wireScrollableFilterSelect(groupSelect);
+  wireScrollableFilterSelect(subgroupSelect);
+
   const setActiveIndexFromValue = (value: string): void => {
     const matchIndex = filteredItems.findIndex((item) => item.section === value);
     activeIndex = matchIndex >= 0 ? matchIndex : 0;
@@ -749,6 +782,7 @@ function openItemPickerPanel(options: {
 
   /* ── Wire up chip clicks ── */
   groupSelect.onchange = () => {
+    collapseFilterSelect(groupSelect);
     activeGroup = groupSelect.value ? groupSelect.value as GameItemCategoryGroup : null;
     activeSubgroup = null;
     rebuildSubchips();
@@ -760,6 +794,7 @@ function openItemPickerPanel(options: {
     updateActiveOption();
   };
   subgroupSelect.onchange = () => {
+    collapseFilterSelect(subgroupSelect);
     activeSubgroup = subgroupSelect.value ? subgroupSelect.value as GameItemPickerSubgroupId : null;
     updateSubchipStates();
     renderList(searchInput.value, { resetScroll: true });

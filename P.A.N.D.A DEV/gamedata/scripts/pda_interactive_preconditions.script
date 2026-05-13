@@ -13,6 +13,40 @@ local function str_explode(str, sep)
     return t
 end
 
+local function item_condition_percent(item)
+    if not item or type(item.condition) ~= "function" then return nil end
+    local ok, cond = pcall(function() return item:condition() end)
+    if not ok or cond == nil then return nil end
+    return (tonumber(cond) or 0) * 100
+end
+
+local function get_equipped_weapon_for_condition(act)
+    if not act then return nil end
+
+    local active = act.active_item and act:active_item() or nil
+    if active and IsWeapon(active) then return active end
+
+    local slot1 = act:item_in_slot(1)
+    if slot1 and IsWeapon(slot1) then return slot1 end
+
+    local slot2 = act:item_in_slot(2)
+    if slot2 and IsWeapon(slot2) then return slot2 end
+
+    return nil
+end
+
+local function check_item_condition_min(item, required, missing_reason)
+    local cond = item_condition_percent(item)
+    if cond == nil then return false, missing_reason or "item condition unavailable" end
+    if cond < required then return false, "condition below minimum" end
+end
+
+local function check_item_condition_max(item, required, missing_reason)
+    local cond = item_condition_percent(item)
+    if cond == nil then return false, missing_reason or "item condition unavailable" end
+    if cond > required then return false, "condition above maximum" end
+end
+
 local function precond_trace(ctx, fmt, ...)
     local PANDA = ctx and ctx.PANDA or _G.PANDA
     if PANDA and (PANDA.get_config("debug_logging") or PANDA.get_config("precond_verbose_debug")) then
@@ -672,16 +706,39 @@ handlers["req_weapon_equipped"] = function(parts, entry, npc_se, act, get_goodwi
     if not has_weapon then return false, "no weapon equipped" end
 end
 
+handlers["req_equipped_weapon_condition_min"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local required = tonumber(parts[2]) or 0
+    return check_item_condition_min(get_equipped_weapon_for_condition(act), required, "no equipped weapon")
+end
+
+handlers["req_equipped_weapon_condition_max"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local required = tonumber(parts[2]) or 100
+    return check_item_condition_max(get_equipped_weapon_for_condition(act), required, "no equipped weapon")
+end
+
+handlers["req_weapon_condition_min"] = handlers["req_equipped_weapon_condition_min"]
+handlers["req_weapon_condition_max"] = handlers["req_equipped_weapon_condition_max"]
+
 handlers["req_no_weapon_equipped"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
     local has_weapon = (act:item_in_slot(1) ~= nil) or (act:item_in_slot(2) ~= nil)
     if has_weapon then return false, "weapon is equipped" end
 end
 
 handlers["req_outfit_equipped"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
-    if act:item_in_slot(6) == nil then return false, "no outfit equipped" end
+    if act:item_in_slot(7) == nil then return false, "no outfit equipped" end
+end
+
+handlers["req_outfit_condition_min"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local required = tonumber(parts[2]) or 0
+    return check_item_condition_min(act:item_in_slot(7), required, "no outfit equipped")
+end
+
+handlers["req_outfit_condition_max"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
+    local required = tonumber(parts[2]) or 100
+    return check_item_condition_max(act:item_in_slot(7), required, "no outfit equipped")
+end
 
         -- World state: emission active
-end
 
 handlers["req_surge_active"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
     local active = false

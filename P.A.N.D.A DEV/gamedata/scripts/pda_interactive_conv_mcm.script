@@ -247,6 +247,8 @@ function on_mcm_load()
                     { id = "line_skill_checks", type = "line" },
                     { id = "show_player_stats_panel", type = "check", val = 1, def = true },
                     { id = "show_check_hints_in_choices", type = "check", val = 1, def = true },
+                    { id = "enable_dialogue_skill_modifiers", type = "check", val = 1, def = true },
+                    { id = "show_dialogue_modifiers_in_item_tooltips", type = "check", val = 1, def = true },
                     { id = "line_skill_checks_end", type = "line" },
 
                     -- DEBUG (always shown)

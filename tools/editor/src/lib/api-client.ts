@@ -388,6 +388,10 @@ function escapeIlike(value: string): string {
   return value.replace(/[%_,]/g, c => `\\${c}`);
 }
 
+function normalizeCommunityLabel(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
 function hasSuspiciousLink(value: string): boolean {
   return /https?:\/\/|www\.|discord\.gg|bit\.ly/i.test(value);
 }
@@ -831,21 +835,21 @@ export async function incrementCollectionUpvote(id: string): Promise<void> {
 }
 
 export async function conversationLabelExists(label: string): Promise<boolean> {
-  const normalized = label.trim();
+  const normalized = normalizeCommunityLabel(label);
   if (!normalized) return false;
 
   const params = new URLSearchParams({
-    select: 'id',
-    limit: '1',
-    label: `ilike.${escapeIlike(normalized)}`,
+    select: 'id,label',
+    limit: '25',
+    label: `ilike.*${escapeIlike(normalized)}*`,
   });
   const res = await fetch(`${sbEndpoint(TABLE)}?${params}`, { headers: sbHeaders() });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.message ?? body.error ?? `Failed to validate title (${res.status})`);
   }
-  const rows = await res.json() as Array<{ id: string }>;
-  return rows.length > 0;
+  const rows = await res.json() as Array<{ id: string; label?: string }>;
+  return rows.some(row => normalizeCommunityLabel(row.label ?? '') === normalized);
 }
 
 function isTranslationPayloadData(data: CommunityConversationData | undefined): data is CommunityConversationData & { translation: ConversationTranslationMetadata } {
@@ -896,7 +900,7 @@ export async function publishConversation(payload: PublishPayload): Promise<Publ
   }
 
   if (!payload.replace_id && !isTranslationPayloadData(payload.data) && await conversationLabelExists(label)) {
-    throw new PublishValidationError('A community conversation with this title already exists. Rename it before publishing.', 'duplicate-name');
+    throw new PublishValidationError('Story title already exists. Rename story before publishing.', 'duplicate-name');
   }
 
   const publishData: CommunityConversationData = {
@@ -967,7 +971,7 @@ export async function publishConversation(payload: PublishPayload): Promise<Publ
           if (res.status === 401) throw new ApiRequestError('Authentication required.', 401);
           if (res.status === 403) throw new ApiRequestError('You can only update conversations published by your current publisher identity.', 403);
           if (res.status === 404) throw new Error('Original community conversation was not found.');
-          if (res.status === 409) throw new PublishValidationError('A different conversation already uses this title.', 'duplicate-name');
+          if (res.status === 409) throw new PublishValidationError('Story title already exists. Rename story before publishing.', 'duplicate-name');
           throw new Error(msg);
         }
         proxySucceeded = true;
@@ -1060,7 +1064,7 @@ export async function publishConversation(payload: PublishPayload): Promise<Publ
         if (!proxyRes.ok) {
           const msg = await readErrorMessage(proxyRes).catch(() => `Publish failed (${proxyRes.status})`);
           if (proxyRes.status === 409) {
-            throw new PublishValidationError('A community conversation with this title already exists.', 'duplicate-name');
+            throw new PublishValidationError('Story title already exists. Rename story before publishing.', 'duplicate-name');
           }
           throw new ApiRequestError(msg, proxyRes.status);
         }

@@ -156,6 +156,10 @@ function refreshToolbarProfile(): void {
 
 const publisherId = getPublisherId();
 const storedUsername = getStoredUsername();
+type LoginModalOptions = {
+  onComplete?: () => void;
+};
+
 if (storedUsername) {
   initializeCollabIdentity({ publisherId, username: storedUsername }, showCollabInviteToast);
   const collabParam = new URLSearchParams(window.location.search).get('collab');
@@ -212,11 +216,15 @@ function handleProfileRegistered(profile: UserProfile): void {
   })();
 }
 
-function openLoginModal(): void {
+function openLoginModal(options: LoginModalOptions = {}): void {
   if (isUsernameModalOpen()) return;
   openUsernameModal({
     publisherId,
-    onRegistered: handleProfileRegistered,
+    onRegistered: (profile) => {
+      handleProfileRegistered(profile);
+      options.onComplete?.();
+    },
+    onSkip: options.onComplete,
   });
 }
 
@@ -232,11 +240,6 @@ if (storedUsername) {
     clearStoredUsername();
     setCurrentProfile(null);
   });
-} else {
-  // First visit — show username modal after a short delay so the app settles
-  setTimeout(() => {
-    openLoginModal();
-  }, 1500);
 }
 
 const requestIdle = ((globalThis as typeof globalThis & { requestIdleCallback?: IdleCallbackScheduler }).requestIdleCallback

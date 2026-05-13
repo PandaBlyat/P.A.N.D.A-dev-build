@@ -46,6 +46,12 @@ interface ImportedF2FRegistryPayload {
   turns?: ImportedF2FTurnMetadata[];
 }
 
+type DetectedFaction = {
+  factionId: FactionId;
+  factionKey: string;
+  prefixes: Array<string | null>;
+};
+
 /** Parse XML text into a map of string IDs to text values */
 function parseStringTable(xmlText: string): Map<string, string> {
   const map = new Map<string, string>();
@@ -79,12 +85,55 @@ function parseFactionList(value: string | undefined): FactionId[] | undefined {
   return factions.length > 0 ? factions : undefined;
 }
 
+function parsePrefixManifest(value: string | undefined): string[] {
+  if (!value?.trim()) return [];
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function buildStringPrefix(namespace: string | null, factionKey: string, convId: number): string {
+  return namespace
+    ? `st_pda_ic_${namespace}_${factionKey}_${convId}`
+    : `st_pda_ic_${factionKey}_${convId}`;
+}
+
+function labelFromNamespace(namespace: string | null, convId: number): string {
+  if (!namespace || namespace === 'panda') return `Conversation ${convId}`;
+  return namespace
+    .replace(/^panda_/, '')
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ') || `Conversation ${convId}`;
+}
+
 /** Detect faction from string table keys */
-function detectFaction(strings: Map<string, string>): { factionId: FactionId; factionKey: string } | null {
-  // Try each faction key and look for _1_open
+function detectFaction(strings: Map<string, string>): DetectedFaction | null {
   for (const [fid, fkey] of Object.entries(FACTION_XML_KEYS)) {
+    const prefixes: Array<string | null> = [];
     if (strings.has(`st_pda_ic_${fkey}_1_open`)) {
-      return { factionId: fid as FactionId, factionKey: fkey };
+      prefixes.push(null);
+    }
+    if (strings.has(`st_pda_ic_panda_${fkey}_1_open`)) {
+      prefixes.push('panda');
+    }
+
+    for (const prefix of parsePrefixManifest(strings.get(`st_pda_ic_panda_${fkey}_prefixes`))) {
+      if (!prefixes.includes(prefix)) prefixes.push(prefix);
+    }
+
+    const directPrefixPattern = new RegExp(`^st_pda_ic_(panda_[a-z0-9_]+)_${fkey}_1_open$`);
+    for (const key of strings.keys()) {
+      const match = key.match(directPrefixPattern);
+      if (match?.[1] && !prefixes.includes(match[1])) {
+        prefixes.push(match[1]);
+      }
+    }
+
+    if (prefixes.length > 0) {
+      return { factionId: fid as FactionId, factionKey: fkey, prefixes };
     }
   }
   return null;
@@ -543,20 +592,21 @@ export function importXml(xmlText: string): { project: Project; systemStrings: M
   const detected = detectFaction(strings);
   if (!detected) return null;
 
-  const { factionId, factionKey } = detected;
+  const { factionId, factionKey, prefixes } = detected;
   const systemStrings = extractSystemStrings(strings);
 
   const conversations: Conversation[] = [];
-  let convId = 1;
+  let nextConversationId = 1;
 
-  // Scan sequentially for conversations
-  while (true) {
-    const prefix = `st_pda_ic_${factionKey}_${convId}`;
+  for (const namespace of prefixes) {
+    let sourceConvId = 1;
+    while (true) {
+    const prefix = buildStringPrefix(namespace, factionKey, sourceConvId);
     const openKey = `${prefix}_open`;
 
     if (!strings.has(openKey)) break;
     const channelWarnings: LegacyChannelNormalizationWarning[] = [];
-    const metadata = parseF2FRegistryPayload(strings.get(`${prefix}${PANDA_F2F_REGISTRY_SUFFIX}`));
+    const metadata = parseF2FRegistryPayload(strings.get(`${prefix}${PANDA_F2F_REGISTRY_SUFFIX}`) ?? strings.get(`${prefix}_registry`));
     const f2fEntryTargets = new Set<number>(
       (metadata?.entryNodes?.f2f ?? [])
         .filter((turnNumber): turnNumber is number => typeof turnNumber === 'number' && Number.isFinite(turnNumber))
@@ -568,8 +618,8 @@ export function importXml(xmlText: string): { project: Project; systemStrings: M
     }
 
     const conv: Conversation = {
-      id: convId,
-      label: `Conversation ${convId}`,
+      id: nextConversationId,
+      label: labelFromNamespace(namespace, nextConversationId),
       faction: factionId,
       preconditions: [],
       turns: [],
@@ -593,6 +643,9 @@ export function importXml(xmlText: string): { project: Project; systemStrings: M
     const storylineId = strings.get(`${prefix}_storyline_id`)?.trim();
     if (storylineId) {
       conv.storyline_id = storylineId;
+      if (namespace && namespace !== 'panda') {
+        conv.label = labelFromNamespace(namespace, nextConversationId);
+      }
     }
 
     // Timeout
@@ -655,7 +708,9 @@ export function importXml(xmlText: string): { project: Project; systemStrings: M
     applyLegacyChannelWarningsToConversation(conv, channelWarnings);
 
     conversations.push(conv);
-    convId++;
+    nextConversationId++;
+    sourceConvId++;
+    }
   }
 
   // Parse NPC templates authored via the editor (st_panda_npc_template_<id>)

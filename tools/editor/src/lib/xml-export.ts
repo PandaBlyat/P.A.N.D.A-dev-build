@@ -26,6 +26,7 @@ export type XmlExporterConfig = {
   missingOpenPlaceholder?: string;
   validateDialogueStrings?: boolean;
   conversationKeyPrefix?: string;
+  useStoryKeyPrefixes?: boolean;
   conversationIdOffset?: number;
 };
 
@@ -35,8 +36,22 @@ export const DEFAULT_XML_EXPORTER_CONFIG: Required<XmlExporterConfig> = {
   missingOpenPlaceholder: DEFAULT_MISSING_OPEN_PLACEHOLDER,
   validateDialogueStrings: false,
   conversationKeyPrefix: '',
+  useStoryKeyPrefixes: false,
   conversationIdOffset: 0,
 };
+
+function slugifyStoryKey(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 48) || 'story';
+}
+
+function buildStoryKeySlug(conv: Conversation): string {
+  return slugifyStoryKey(conv.storyline_id || conv.label || `story_${conv.id}`);
+}
 
 /** Escape special XML characters in text content */
 function escapeXml(text: string): string {
@@ -297,8 +312,9 @@ function generateConversation(
   factionKey: string,
   exportId: number,
   config: Required<XmlExporterConfig>,
+  keyPrefixOverride?: string,
 ): string {
-  const keyPrefix = config.conversationKeyPrefix.trim();
+  const keyPrefix = (keyPrefixOverride ?? config.conversationKeyPrefix).trim();
   const prefix = keyPrefix
     ? `st_pda_ic_${keyPrefix}_${factionKey}_${exportId}`
     : `st_pda_ic_${factionKey}_${exportId}`;
@@ -485,13 +501,44 @@ export function generateXml(
     .filter((conv) => factionFilter == null || getConversationFaction(conv, project.faction) === factionFilter)
     .filter((conv) => languageFilter == null || (conv.language ?? 'en') === languageFilter)
     .sort((a, b) => a.id - b.id);
-  const exportCounts = new Map<FactionId, number>();
+
+  const storyPrefixByConversation = new Map<Conversation, string>();
+  if (config.useStoryKeyPrefixes && config.conversationKeyPrefix.trim() === 'panda') {
+    const usedByFaction = new Map<FactionId, Map<string, number>>();
+    const manifestByFaction = new Map<FactionId, string[]>();
+    for (const conv of sorted) {
+      const faction = getConversationFaction(conv, project.faction);
+      const used = usedByFaction.get(faction) ?? new Map<string, number>();
+      usedByFaction.set(faction, used);
+
+      const baseSlug = buildStoryKeySlug(conv);
+      const nextCount = (used.get(baseSlug) ?? 0) + 1;
+      used.set(baseSlug, nextCount);
+      const uniqueSlug = nextCount === 1 ? baseSlug : `${baseSlug}_${nextCount}`;
+      const storyPrefix = `panda_${uniqueSlug}`;
+      storyPrefixByConversation.set(conv, storyPrefix);
+
+      const manifest = manifestByFaction.get(faction) ?? [];
+      manifest.push(storyPrefix);
+      manifestByFaction.set(faction, manifest);
+    }
+
+    for (const [faction, prefixes] of manifestByFaction.entries()) {
+      const factionKey = FACTION_XML_KEYS[faction];
+      lines.push(emitString(`st_pda_ic_panda_${factionKey}_prefixes`, Array.from(new Set(prefixes)).join(',')));
+      lines.push('');
+    }
+  }
+
+  const exportCounts = new Map<string, number>();
   for (const conv of sorted) {
     const faction = getConversationFaction(conv, project.faction);
-    const count = (exportCounts.get(faction) ?? 0) + 1;
+    const storyPrefix = storyPrefixByConversation.get(conv);
+    const countKey = storyPrefix ? `${faction}:${storyPrefix}` : faction;
+    const count = (exportCounts.get(countKey) ?? 0) + 1;
     const exportId = count + Math.max(0, Math.floor(config.conversationIdOffset));
-    exportCounts.set(faction, count);
-    lines.push(generateConversation(conv, FACTION_XML_KEYS[faction], exportId, config));
+    exportCounts.set(countKey, count);
+    lines.push(generateConversation(conv, FACTION_XML_KEYS[faction], exportId, config, storyPrefix));
     lines.push('');
   }
 

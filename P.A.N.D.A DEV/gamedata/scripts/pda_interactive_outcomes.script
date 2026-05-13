@@ -23,6 +23,160 @@ local function str_explode(str, sep)
     return t
 end
 
+local function clamp_num(value, min_value, max_value)
+    value = tonumber(value) or 0
+    if value < min_value then return min_value end
+    if value > max_value then return max_value end
+    return value
+end
+
+local function is_degradable_section(section)
+    if not section or section == "" then return false end
+    if utils_item and type(utils_item.is_degradable) == "function" then
+        local ok, result = pcall(function() return utils_item.is_degradable(nil, section) end)
+        if ok then return result == true end
+    end
+    return false
+end
+
+local function create_actor_item_with_optional_condition(section, condition_percent)
+    if not condition_percent or tostring(condition_percent) == "" then
+        return alife_create_item(section, db.actor)
+    end
+
+    local cond = clamp_num(condition_percent, 0, 100) / 100
+    if is_degradable_section(section) then
+        return alife_create_item(section, db.actor, { cond = cond })
+    end
+
+    printf("PANDA_IC: give_item condition ignored for non-degradable item [%s]", tostring(section))
+    return alife_create_item(section, db.actor)
+end
+
+local function safe_item_condition(item)
+    if not item or type(item.condition) ~= "function" then return nil end
+    local ok, cond = pcall(function() return item:condition() end)
+    if ok then return tonumber(cond) end
+    return nil
+end
+
+local function safe_set_item_condition(item, value)
+    if not item or type(item.set_condition) ~= "function" then return false end
+    local ok = pcall(function() item:set_condition(clamp_num(value, 0, 1)) end)
+    return ok == true
+end
+
+local function collect_equipped_weapons_for_condition(act, target)
+    local weapons = {}
+    local seen = {}
+    local function add(item)
+        if item and IsWeapon(item) and item.id then
+            local id = item:id()
+            if not seen[id] then
+                seen[id] = true
+                weapons[#weapons + 1] = item
+            end
+        elseif item and IsWeapon(item) then
+            weapons[#weapons + 1] = item
+        end
+    end
+
+    target = target or "active"
+    if target == "" or target == "active" then
+        add(act and act.active_item and act:active_item() or nil)
+        if #weapons == 0 then
+            add(act and act:item_in_slot(1) or nil)
+            add(act and act:item_in_slot(2) or nil)
+        end
+    elseif target == "slot1" then
+        add(act and act:item_in_slot(1) or nil)
+    elseif target == "slot2" then
+        add(act and act:item_in_slot(2) or nil)
+    elseif target == "both" then
+        add(act and act:item_in_slot(1) or nil)
+        add(act and act:item_in_slot(2) or nil)
+    else
+        printf("PANDA_IC: change_equipped_weapon_condition unknown target '%s'", tostring(target))
+    end
+
+    return weapons
+end
+
+local function apply_condition_delta(item, delta_percent)
+    local current = safe_item_condition(item)
+    if current == nil then return false end
+    return safe_set_item_condition(item, current + ((tonumber(delta_percent) or 0) / 100))
+end
+
+local function resolve_tip_text(raw)
+    if not raw or raw == "" then return "" end
+    local translated = game.translate_string(raw)
+    return translated or raw
+end
+
+local function object_name_and_icon(obj, fallback_name, fallback_icon)
+    fallback_icon = fallback_icon or "ui_inGame2_neutral_1"
+    if not obj then return fallback_name or "Unknown", fallback_icon end
+    local name = fallback_name or "Unknown"
+    local icon = fallback_icon
+    if obj.character_name then
+        local ok_name, resolved_name = pcall(function() return obj:character_name() end)
+        if ok_name and resolved_name and resolved_name ~= "" then name = resolved_name end
+    end
+    if obj.character_icon then
+        local ok_icon, resolved_icon = pcall(function() return obj:character_icon() end)
+        if ok_icon and resolved_icon and resolved_icon ~= "" then icon = resolved_icon end
+    end
+    return name, icon
+end
+
+local function resolve_story_tip_sender(story_id, fallback_icon)
+    if story_id and story_id ~= "" and get_story_object then
+        local ok, obj = pcall(function() return get_story_object(story_id) end)
+        if ok and obj then return object_name_and_icon(obj, story_id, fallback_icon) end
+    end
+    return story_id or "Unknown", fallback_icon
+end
+
+local function resolve_custom_tip_sender(custom_id, fallback_icon)
+    if custom_id and custom_id ~= "" and panda_npc_creator and type(panda_npc_creator.get_active_npc_se) == "function" then
+        local ok_se, se_obj = pcall(function() return panda_npc_creator.get_active_npc_se(custom_id) end)
+        local sid = ok_se and se_obj and tonumber(se_obj.id) or nil
+        local obj = sid and level.object_by_id(sid) or nil
+        if obj then return object_name_and_icon(obj, custom_id, fallback_icon) end
+    end
+    return custom_id or "Unknown", fallback_icon
+end
+
+local function resolve_faction_tip_sender(faction, fallback_icon, fallback_faction)
+    faction = faction or fallback_faction or "stalker"
+    if db and db.OnlineStalkers then
+        local matches = {}
+        for _, obj_id in pairs(db.OnlineStalkers) do
+            local obj = level.object_by_id(obj_id)
+            if obj and obj.alive and obj:alive() and obj.character_community and obj:character_community() == faction then
+                matches[#matches + 1] = obj
+            end
+        end
+        if #matches > 0 then
+            return object_name_and_icon(matches[math.random(#matches)], faction, fallback_icon)
+        end
+    end
+    return game.translate_string(faction) or faction, fallback_icon
+end
+
+local function resolve_tip_sender(mode, value, fallback_icon, current_sender_name, current_sender_id, current_sender_faction)
+    fallback_icon = fallback_icon or "ui_inGame2_neutral_1"
+    mode = tostring(mode or "system"):lower()
+    if mode == "system" then return "System", fallback_icon end
+    if mode == "unknown" then return "Unknown", fallback_icon end
+    if mode == "current" then return current_sender_name or "Unknown", (current_sender_id and level.object_by_id(current_sender_id) and level.object_by_id(current_sender_id):character_icon()) or fallback_icon end
+    if mode == "story" then return resolve_story_tip_sender(value, fallback_icon) end
+    if mode == "custom" then return resolve_custom_tip_sender(value, fallback_icon) end
+    if mode == "faction" then return resolve_faction_tip_sender(value, fallback_icon, current_sender_faction) end
+    return value or current_sender_name or "Unknown", fallback_icon
+end
+
 local function runtime_get(key)
     _panda_ic_runtime = _panda_ic_runtime or {}
     return _panda_ic_runtime[key]
@@ -460,13 +614,51 @@ end
 handlers["give_item"] = function(parts, cmd_str, cmd)
     local item_sec = parts[2]
     if item_sec and ini_sys:section_exist(item_sec) then
-        alife_create_item(item_sec, db.actor)
+        create_actor_item_with_optional_condition(item_sec, parts[3])
         local msg = utils_data.parse_string_keys(
             game.translate_string("st_pda_ic_outcome_item_gain"),
             {["what"] = ui_item.get_sec_name(item_sec)}
         )
         dynamic_news_helper.send_tip(msg, "System", 0, 10, FALLBACK_NPC_ICON, "beep_1", "npc")
     end
+end
+
+handlers["change_outfit_condition"] = function(parts, cmd_str, cmd)
+    local outfit = db.actor and db.actor:item_in_slot(6) or nil
+    if not outfit then
+        printf("PANDA_IC: change_outfit_condition ignored (no outfit equipped)")
+        return
+    end
+    if not apply_condition_delta(outfit, parts[2]) then
+        printf("PANDA_IC: change_outfit_condition failed for equipped outfit")
+    end
+end
+
+handlers["change_equipped_weapon_condition"] = function(parts, cmd_str, cmd)
+    local delta = tonumber(parts[2]) or 0
+    local target = parts[3] or "active"
+    local weapons = collect_equipped_weapons_for_condition(db.actor, target)
+    if #weapons == 0 then
+        printf("PANDA_IC: change_equipped_weapon_condition ignored (no equipped weapon target=%s)", tostring(target))
+        return
+    end
+    for _, weapon in ipairs(weapons) do
+        if not apply_condition_delta(weapon, delta) then
+            printf("PANDA_IC: change_equipped_weapon_condition failed for target=%s", tostring(target))
+        end
+    end
+end
+
+handlers["send_pda_msg_tip"] = function(parts, cmd_str, cmd)
+    local msg = resolve_tip_text(parts[2])
+    if msg == "" then
+        printf("PANDA_IC: send_pda_msg_tip missing message in '%s'", tostring(cmd_str))
+        return
+    end
+    local delay = tonumber(parts[3]) or 0
+    local mode = parts[4] or "system"
+    local sender_name, sender_icon = resolve_tip_sender(mode, parts[5], FALLBACK_NPC_ICON, sender_npc_name, sender_npc_id, sender_faction)
+    dynamic_news_helper.send_tip(msg, sender_name, delay, 10, sender_icon, "beep_1", "npc")
 end
 
 handlers["reward_stash"] = function(parts, cmd_str, cmd)

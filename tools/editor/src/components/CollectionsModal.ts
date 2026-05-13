@@ -30,6 +30,7 @@ type NormalizedStory = CommunityConversation & {
 const MODAL_MOUNT_ID = 'app-modal-host';
 const ZIP_EXPORT_CONFIG: XmlExporterConfig = {
   conversationKeyPrefix: 'panda',
+  useStoryKeyPrefixes: true,
   strictDialogueValidation: true,
   validateDialogueStrings: true,
   autofillMissingOpenWhenNonStrict: true,
@@ -537,6 +538,9 @@ async function downloadCollectionZip(rootIds: string[], title: string, collectio
     byFaction.set(faction, list);
   }
 
+  const language = store.get().uiLanguage;
+  const folder = language === 'ru' ? 'rus' : 'eng';
+  const suffix = language === 'ru' ? 'rus' : 'eng';
   const files: Array<{ path: string; content: string }> = [
     {
       path: 'README_INSTALL.txt',
@@ -546,40 +550,72 @@ async function downloadCollectionZip(rootIds: string[], title: string, collectio
         'Install:',
         '1. Extract this ZIP.',
         '2. Merge gamedata folder into your S.T.A.L.K.E.R. Anomaly folder.',
-        '3. Final XML path should be gamedata\\configs\\text\\eng\\ and gamedata\\configs\\text\\rus\\.',
+        `3. Final XML path should be gamedata\\configs\\text\\${folder}\\.`,
         '',
+        `Language included: ${language === 'ru' ? 'Russian' : 'English'}.`,
+        'Each storyline is kept in its own XML file. A collection manifest XML tells P.A.N.D.A which story prefixes to scan.',
         'Use one active collection pack at a time to avoid storyline ID clashes.',
       ].join('\r\n'),
     },
   ];
 
   for (const [faction, groups] of byFaction.entries()) {
+    const factionKey = FACTION_XML_KEYS[faction];
+    const prefixes: string[] = [];
+    const usedSlugs = new Map<string, number>();
+
     groups.forEach((group, index) => {
-      const exportId = index + 1;
-      (['en', 'ru'] as UiLanguage[]).forEach((language) => {
-        const story = pickBestVariant(group.variants, language) ?? group.variants[0]!;
-        const project = createEmptyProject(faction);
-        const conversation = structuredClone(story.data.conversations[0]) as Conversation;
-        conversation.id = exportId;
-        conversation.language = language;
-        project.conversations = [conversation];
-        const xml = generateXml(project, undefined, undefined, {
-          ...ZIP_EXPORT_CONFIG,
-          conversationIdOffset: exportId - 1,
-        }, language);
-        const folder = language === 'ru' ? 'rus' : 'eng';
-        const suffix = language === 'ru' ? 'rus' : 'eng';
-        const factionKey = FACTION_XML_KEYS[faction];
-        files.push({
-          path: `gamedata/configs/text/${folder}/st_PANDA_panda_${factionKey}_${String(exportId).padStart(2, '0')}_${slugify(story.label)}_${suffix}.xml`,
-          content: xml,
-        });
+      const story = pickBestVariant(group.variants, language) ?? group.variants[0]!;
+      const sourceConversation = story.data.conversations[0] as Conversation | undefined;
+      if (!sourceConversation) return;
+
+      const baseSlug = slugify(sourceConversation.storyline_id || story.label || group.rootId || `story_${index + 1}`);
+      const nextCount = (usedSlugs.get(baseSlug) ?? 0) + 1;
+      usedSlugs.set(baseSlug, nextCount);
+      const storySlug = nextCount === 1 ? baseSlug : `${baseSlug}_${nextCount}`;
+      const storyPrefix = `panda_${storySlug}`;
+      prefixes.push(storyPrefix);
+
+      const project = createEmptyProject(faction);
+      const conversation = structuredClone(sourceConversation) as Conversation;
+      conversation.id = 1;
+      conversation.language = language;
+      conversation.label = story.label || conversation.label;
+      project.conversations = [conversation];
+      const xml = generateXml(project, undefined, undefined, {
+        ...ZIP_EXPORT_CONFIG,
+        conversationKeyPrefix: storyPrefix,
+        useStoryKeyPrefixes: false,
+      }, language);
+      files.push({
+        path: `gamedata/configs/text/${folder}/st_PANDA_${storyPrefix}_${factionKey}_${suffix}.xml`,
+        content: xml,
       });
     });
+
+    if (prefixes.length > 0) {
+      files.push({
+        path: `gamedata/configs/text/${folder}/st_PANDA_panda_${factionKey}_collection_manifest_${suffix}.xml`,
+        content: createCollectionManifestXml(factionKey, prefixes),
+      });
+    }
   }
 
   downloadBlob(createZipBlob(files), `${slugify(title || 'panda_collection')}.zip`);
   if (collectionId) await incrementCollectionDownload(collectionId).catch(() => undefined);
+}
+
+function createCollectionManifestXml(factionKey: string, prefixes: string[]): string {
+  return [
+    '<?xml version="1.0" encoding="utf-8"?>',
+    '<string_table>',
+    '',
+    `    <string id="st_pda_ic_panda_${factionKey}_prefixes">`,
+    `        <text>${Array.from(new Set(prefixes)).join(',')}</text>`,
+    '    </string>',
+    '',
+    '</string_table>',
+  ].join('\n');
 }
 
 function pickBestVariant(variants: NormalizedStory[], language: UiLanguage): NormalizedStory | null {

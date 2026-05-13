@@ -170,6 +170,10 @@ function escapeIlike(value: string): string {
   return value.replace(/[%_,]/g, c => `\\${c}`);
 }
 
+function normalizeCommunityLabel(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
 function normalizeConversationRow(row: Record<string, unknown>) {
   return {
     publisher_id: typeof row.publisher_id === 'string' ? row.publisher_id : '',
@@ -1685,15 +1689,15 @@ app.post('/api/conversations', async (req, res) => {
 
     if (!isTranslationPayloadData(data)) {
       const duplicateParams = new URLSearchParams({
-        select: 'id',
-        limit: '1',
-        label: `ilike.${escapeIlike(normalizedLabel)}`,
+        select: 'id,label',
+        limit: '25',
+        label: `ilike.*${escapeIlike(normalizedLabelKey)}*`,
       });
       const duplicate = await fetch(`${sbEndpoint(TABLE)}?${duplicateParams}`, { headers: sbHeaders() });
       if (duplicate.ok) {
-        const rows = await duplicate.json() as Array<{ id: string }>;
-        if (rows.length > 0) {
-          res.status(409).json({ error: 'A community conversation with this title already exists.' });
+        const rows = await duplicate.json() as Array<{ id: string; label?: string }>;
+        if (rows.some(row => normalizeCommunityLabel(row.label ?? '') === normalizedLabelKey)) {
+          res.status(409).json({ error: 'Story title already exists. Rename story before publishing.' });
           return;
         }
       }
@@ -1837,6 +1841,7 @@ async function handleConversationReplace(req: express.Request, res: express.Resp
     }
     const normalizedPublisherId = publisherAuth.publisherId;
     const normalizedLabel = typeof label === 'string' ? label.trim() : '';
+    const normalizedLabelKey = normalizeCommunityLabel(normalizedLabel);
     if (!id || !normalizedPublisherId || !normalizedLabel || !data) {
       res.status(400).json({ error: 'Missing required fields: id, publisher_id, label, data' });
       return;
@@ -1873,16 +1878,16 @@ async function handleConversationReplace(req: express.Request, res: express.Resp
 
     if (!isTranslationPayloadData(data)) {
       const duplicateParams = new URLSearchParams({
-        select: 'id',
-        limit: '1',
-        label: `ilike.${escapeIlike(normalizedLabel)}`,
+        select: 'id,label',
+        limit: '25',
+        label: `ilike.*${escapeIlike(normalizedLabelKey)}*`,
         id: `neq.${id}`,
       });
       const duplicate = await fetch(`${sbEndpoint(TABLE)}?${duplicateParams}`, { headers: sbHeaders() });
       if (duplicate.ok) {
-        const rows = await duplicate.json() as Array<{ id: string }>;
-        if (rows.length > 0) {
-          res.status(409).json({ error: 'A different community conversation with this title already exists.' });
+        const rows = await duplicate.json() as Array<{ id: string; label?: string }>;
+        if (rows.some(row => row.id !== id && normalizeCommunityLabel(row.label ?? '') === normalizedLabelKey)) {
+          res.status(409).json({ error: 'Story title already exists. Rename story before publishing.' });
           return;
         }
       }

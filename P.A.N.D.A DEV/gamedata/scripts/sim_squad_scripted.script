@@ -1,8 +1,4 @@
---'******************************************************
--- Edited by Alundaio
---
--- edited 1/14/2016: Added ability to create squad npcs without specifying a smart
---'******************************************************
+
 
 -- Current Action: 0 - Reach Target | 1 - Stay Point
 

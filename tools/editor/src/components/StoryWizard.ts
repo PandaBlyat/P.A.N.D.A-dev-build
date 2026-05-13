@@ -20,10 +20,19 @@ import { createCatalogPickerPanelEditor, createSmartTerrainPickerEditor } from '
 import { createCustomNpcBuilderEditor } from './NpcTemplatePanel';
 import { createIcon, setButtonContent } from './icons';
 import { t } from '../lib/i18n';
+import { getStoredUsername } from '../lib/api-client';
 
 let overlayEl: HTMLElement | null = null;
 let focusTrap: FocusTrapController | null = null;
 let autoOpenSpeakerPicker = false;
+
+type StoryWizardOptions = {
+  skipAuthGate?: boolean;
+};
+
+type LoginModalOptions = {
+  onComplete?: () => void;
+};
 
 type StoryRecipeGroup = typeof STORY_RECIPES[number]['group'];
 
@@ -36,8 +45,25 @@ const STORY_RECIPE_GROUP_COPY: Record<StoryRecipeGroup, string> = {
   Setpiece: 'Bigger scripted scenes, rescue, custom encounter.',
 };
 
-export function openStoryWizard(): void {
+function shouldGateStoryWizardAuth(): boolean {
+  const profile = (globalThis as typeof globalThis & { __pandaUserProfile?: unknown }).__pandaUserProfile;
+  return !getStoredUsername() && !profile;
+}
+
+function getLoginAction(): ((options?: LoginModalOptions) => void) | null {
+  const candidate = (globalThis as typeof globalThis & { __pandaOpenLoginModal?: unknown }).__pandaOpenLoginModal;
+  return typeof candidate === 'function' ? candidate as (options?: LoginModalOptions) => void : null;
+}
+
+export function openStoryWizard(options: StoryWizardOptions = {}): void {
   if (overlayEl) return;
+  if (!options.skipAuthGate && shouldGateStoryWizardAuth()) {
+    const openLogin = getLoginAction();
+    if (openLogin) {
+      openLogin({ onComplete: () => openStoryWizard({ skipAuthGate: true }) });
+      return;
+    }
+  }
 
   let draft: StoryWizardDraft = createDefaultStoryDraft(store.get().project);
 

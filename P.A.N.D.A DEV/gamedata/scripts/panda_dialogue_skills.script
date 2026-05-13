@@ -1,0 +1,553 @@
+panda_dialogue_skills = panda_dialogue_skills or {}
+local M = panda_dialogue_skills
+
+local CONFIG_PATH = "misc\\panda_dialogue_skill_modifiers.ltx"
+local CORE_STATS = {
+    charisma = true,
+    luck = true,
+    intimidation = true,
+    perception = true,
+    rank = true,
+}
+
+local config_loaded = false
+local config_ini = nil
+local exact_mods = {}
+local pattern_mods = {}
+local kind_mods = {}
+local context_rules = {}
+local tooltip_patch_installed = false
+local tooltip_original_update = nil
+
+local function trim(s)
+    return tostring(s or ""):match("^%s*(.-)%s*$")
+end
+
+local function clamp(v, lo, hi)
+    v = tonumber(v) or 0
+    if v < lo then return lo end
+    if v > hi then return hi end
+    return v
+end
+
+local function get_opt(key, default)
+    if PANDA and type(PANDA.get_config) == "function" then
+        local value = PANDA.get_config(key)
+        if value ~= nil then return value end
+    end
+    return default
+end
+
+local function modifiers_enabled()
+    return get_opt("enable_dialogue_skill_modifiers", true) ~= false
+end
+
+local function parse_modifier_string(raw)
+    local out = {}
+    for token in string.gmatch(tostring(raw or ""), "([^,]+)") do
+        local stat, value = token:match("^%s*([%w_]+)%s*[:=]%s*([%+%-]?%d+)%s*$")
+        if stat and value then
+            out[stat] = (out[stat] or 0) + (tonumber(value) or 0)
+        end
+    end
+    return out
+end
+
+local function read_section_lines(ini, section, target, as_pattern)
+    if not (ini and ini.section_exist and ini:section_exist(section)) then return end
+    local count = ini:line_count(section) or 0
+    for i = 0, count - 1 do
+        local ok, id, value = ini:r_line_ex(section, i, "", "")
+        if ok and id and id ~= "" then
+            local parsed = parse_modifier_string(value)
+            if next(parsed) ~= nil then
+                if as_pattern then
+                    target[#target + 1] = { pattern = id, mods = parsed }
+                else
+                    target[id] = parsed
+                end
+            end
+        end
+    end
+end
+
+local function ensure_config()
+    if config_loaded then return end
+    config_loaded = true
+    exact_mods = {}
+    pattern_mods = {}
+    kind_mods = {}
+    context_rules = {}
+
+    local ok, ini = pcall(function() return ini_file(CONFIG_PATH) end)
+    if ok then config_ini = ini end
+    if not config_ini then
+        printf("PANDA dialogue skills: unable to load %s", CONFIG_PATH)
+        return
+    end
+
+    read_section_lines(config_ini, "section_modifiers", exact_mods, false)
+    read_section_lines(config_ini, "pattern_modifiers", pattern_mods, true)
+    read_section_lines(config_ini, "kind_modifiers", kind_mods, false)
+    read_section_lines(config_ini, "context_modifiers", context_rules, false)
+end
+
+function M.reload_config()
+    config_loaded = false
+    ensure_config()
+end
+
+local function wildcard_match(value, wildcard)
+    value = tostring(value or "")
+    wildcard = tostring(wildcard or "")
+    local pat = "^" .. wildcard:gsub("([%.%+%-%^%$%(%)%%])", "%%%1"):gsub("%*", ".*") .. "$"
+    return string.match(value, pat) ~= nil
+end
+
+local function safe_section(obj)
+    if obj and obj.section then
+        local ok, sec = pcall(function() return obj:section() end)
+        if ok then return sec end
+    end
+    return nil
+end
+
+local function safe_condition(obj)
+    if obj and obj.condition then
+        local ok, cond = pcall(function() return obj:condition() end)
+        if ok and tonumber(cond) then return clamp(cond, 0, 1) end
+    end
+    return 1
+end
+
+local function condition_scale(obj)
+    local pct = safe_condition(obj) * 100
+    if pct >= 75 then return 1, "full" end
+    if pct >= 50 then return 0.75, "worn" end
+    if pct >= 25 then return 0.5, "damaged" end
+    return 0, "broken"
+end
+
+local function add_mod(out, stat, value, source, label, scale, scaled)
+    if not stat or stat == "" or stat == "rank" then return end
+    value = tonumber(value) or 0
+    if value == 0 then return end
+    out.total[stat] = (out.total[stat] or 0) + value
+    out.rows[#out.rows + 1] = {
+        stat = stat,
+        value = value,
+        source = source or "modifier",
+        label = label or source or "Modifier",
+        scale = scale,
+        scaled = scaled == true,
+    }
+end
+
+local function add_mod_table(out, mods, source, label, obj)
+    if not mods then return end
+    local scale, scale_label = condition_scale(obj)
+    for stat, value in pairs(mods) do
+        local v = tonumber(value) or 0
+        local scaled = false
+        if obj and v > 0 then
+            v = math.floor((v * scale) + 0.5)
+            scaled = scale < 1
+        end
+        add_mod(out, stat, v, source, label, scale_label, scaled)
+    end
+end
+
+local function get_kind(sec)
+    if not sec then return nil end
+    return ini_sys and ini_sys.r_string_ex and ini_sys:r_string_ex(sec, "kind") or nil
+end
+
+local function item_label(sec)
+    if not sec then return "Item" end
+    if ui_item and ui_item.get_sec_name then
+        local ok, label = pcall(ui_item.get_sec_name, sec)
+        if ok and label and label ~= "" then return label end
+    end
+    return sec
+end
+
+local function collect_section_modifiers(sec, obj, out)
+    if not sec then return end
+    ensure_config()
+    add_mod_table(out, exact_mods[sec], sec, item_label(sec), obj)
+
+    for _, entry in ipairs(pattern_mods) do
+        if wildcard_match(sec, entry.pattern) then
+            add_mod_table(out, entry.mods, entry.pattern, item_label(sec), obj)
+        end
+    end
+
+    local kind = get_kind(sec)
+    if kind and kind_mods[kind] then
+        add_mod_table(out, kind_mods[kind], kind, item_label(sec), obj)
+    end
+end
+
+local function same_obj(a, b)
+    if not (a and b and a.id and b.id) then return false end
+    local ok_a, id_a = pcall(function() return a:id() end)
+    local ok_b, id_b = pcall(function() return b:id() end)
+    return ok_a and ok_b and id_a == id_b
+end
+
+local function add_unique_item(list, seen, obj)
+    if not obj then return end
+    local sec = safe_section(obj)
+    if not sec then return end
+    local id = nil
+    if obj.id then
+        local ok, value = pcall(function() return obj:id() end)
+        if ok then id = value end
+    end
+    local key = id or sec
+    if seen[key] then return end
+    seen[key] = true
+    list[#list + 1] = obj
+end
+
+local function collect_equipped_items()
+    local items, seen = {}, {}
+    local act = db and db.actor or nil
+    if not act then return items end
+
+    for _, slot in ipairs({ 7, 12, 13, 1, 2, 3 }) do
+        local ok, obj = pcall(function() return act:item_in_slot(slot) end)
+        if ok then add_unique_item(items, seen, obj) end
+    end
+
+    local ok_active, active = pcall(function()
+        return act.active_item and act:active_item() or nil
+    end)
+    if ok_active and active and IsWeapon and IsWeapon(active) then
+        add_unique_item(items, seen, active)
+    end
+
+    return items
+end
+
+local function is_weapon_section(sec, obj)
+    if obj and IsWeapon then
+        local ok, result = pcall(IsWeapon, obj)
+        if ok and result then return true end
+    end
+    return sec and ini_sys and ini_sys:r_string_ex(sec, "ammo_class") ~= nil
+end
+
+local function item_is_equipped(obj, sec)
+    local act = db and db.actor or nil
+    if not act then return false end
+    if obj then
+        for _, slot in ipairs({ 7, 12, 13, 1, 2 }) do
+            local ok, equipped = pcall(function() return act:item_in_slot(slot) end)
+            if ok and same_obj(obj, equipped) then return true end
+        end
+        local ok_active, active = pcall(function()
+            return act.active_item and act:active_item() or nil
+        end)
+        if ok_active and same_obj(obj, active) then return true end
+    end
+    return false
+end
+
+local function get_actor_community()
+    if db and db.actor and db.actor.character_community then
+        local ok, comm = pcall(function() return db.actor:character_community() end)
+        if ok then return comm end
+    end
+    return nil
+end
+
+local function get_context_npc(ctx)
+    if ctx and ctx.npc_se then return ctx.npc_se end
+    if ctx and ctx.npc_id and level and level.object_by_id then
+        local obj = level.object_by_id(ctx.npc_id)
+        if obj then return obj end
+    end
+    if pda_interactive_conv and pda_interactive_conv.get_current_conversation_npc then
+        local ok, npc = pcall(pda_interactive_conv.get_current_conversation_npc)
+        if ok then return npc end
+    end
+    return nil
+end
+
+local function get_npc_community(npc)
+    if not npc then return nil end
+    if npc.community then
+        local ok, comm = pcall(function() return npc:community() end)
+        if ok then return comm end
+    end
+    if npc.character_community then
+        local ok, comm = pcall(function() return npc:character_community() end)
+        if ok then return comm end
+    end
+    return nil
+end
+
+local function add_named_context_rule(out, key, label)
+    ensure_config()
+    add_mod_table(out, context_rules[key], key, label or key, nil)
+end
+
+local function actor_health_percent(act)
+    if not act then return 100 end
+    local h = tonumber(act.health)
+    if h then
+        if h <= 1 then return h * 100 end
+        return h
+    end
+    return 100
+end
+
+local function actor_radiation_percent(act)
+    if act and act.get_radiation then
+        local ok, rad = pcall(function() return act:get_radiation() end)
+        if ok and tonumber(rad) then return rad * 100 end
+    end
+    return 0
+end
+
+local function actor_is_overweight(act)
+    if not act then return false end
+    local ok_cur, cur = pcall(function()
+        return act.get_total_weight and act:get_total_weight() or 0
+    end)
+    local ok_max, max = pcall(function()
+        return act.get_actor_max_weight and act:get_actor_max_weight() or 60
+    end)
+    return ok_cur and ok_max and tonumber(cur) and tonumber(max) and cur > max
+end
+
+local function actor_is_thirsty(act)
+    if not (act and act.cast_Actor) then return false end
+    local ok, thirsty = pcall(function()
+        local actor = act:cast_Actor()
+        local cond = actor and actor:conditions()
+        if cond and cond.GetThirsty then return cond:GetThirsty() > 0 end
+        return false
+    end)
+    return ok and thirsty == true
+end
+
+local function is_night()
+    if not (game and game.get_game_time) then return false end
+    local gt = game.get_game_time()
+    local Y, Mth, D, h = 0, 0, 0, 0
+    Y, Mth, D, h = gt:get(Y, Mth, D, h, 0, 0, 0)
+    return h < 6 or h >= 20
+end
+
+local function add_context_modifiers(out, ctx)
+    local act = db and db.actor or nil
+    if not act then return end
+
+    if actor_health_percent(act) < 30 then add_named_context_rule(out, "low_health", "Low health") end
+    if tonumber(act.bleeding) and act.bleeding > 0 then add_named_context_rule(out, "bleeding", "Bleeding") end
+    if actor_radiation_percent(act) >= 30 then add_named_context_rule(out, "high_radiation", "Radiation") end
+    if actor_is_overweight(act) then add_named_context_rule(out, "overweight", "Overweight") end
+    if actor_status and actor_status.get_satienty then
+        local satiety = actor_status.get_satienty(true) or 0
+        if satiety >= 2 then add_named_context_rule(out, "hungry", "Hungry") end
+    end
+    if actor_is_thirsty(act) then add_named_context_rule(out, "thirsty", "Thirsty") end
+    if is_night() then add_named_context_rule(out, "night", "Night") end
+
+    local surge_active = false
+    if surge_manager and surge_manager.is_started then
+        surge_active = surge_manager.is_started()
+    elseif xr_conditions and xr_conditions.surge_started then
+        surge_active = xr_conditions.surge_started()
+    elseif xr_conditions and xr_conditions.is_surge_started then
+        surge_active = xr_conditions.is_surge_started()
+    end
+    if surge_active then
+        add_named_context_rule(out, "surge_active", "Emission")
+    end
+
+    local psi_storm_active = false
+    if psi_storm_manager and psi_storm_manager.is_started then
+        psi_storm_active = psi_storm_manager.is_started()
+    elseif xr_conditions and xr_conditions.psi_storm_started then
+        psi_storm_active = xr_conditions.psi_storm_started()
+    end
+    if psi_storm_active then
+        add_named_context_rule(out, "psi_storm_active", "Psi storm")
+    end
+
+    local npc = get_context_npc(ctx)
+    local actor_comm = get_actor_community()
+    local npc_comm = get_npc_community(npc)
+    if actor_comm and npc_comm then
+        if actor_comm == npc_comm then
+            add_named_context_rule(out, "same_faction", "Same faction")
+        elseif game_relations and game_relations.is_factions_enemies and game_relations.is_factions_enemies(actor_comm, npc_comm) then
+            add_named_context_rule(out, "enemy_faction", "Enemy faction")
+        end
+
+        if relation_registry and relation_registry.community_goodwill and AC_ID then
+            local gw = relation_registry.community_goodwill(npc_comm, AC_ID) or 0
+            if gw >= 1000 then
+                add_named_context_rule(out, "high_goodwill", "High goodwill")
+            elseif gw <= -500 then
+                add_named_context_rule(out, "low_goodwill", "Low goodwill")
+            end
+        end
+    end
+end
+
+function M.collect_modifiers(ctx)
+    local out = { total = {}, rows = {} }
+    if not modifiers_enabled() then return out end
+
+    for _, obj in ipairs(collect_equipped_items()) do
+        collect_section_modifiers(safe_section(obj), obj, out)
+    end
+    add_context_modifiers(out, ctx)
+    return out
+end
+
+function M.get_effective_stat(stat_key, base_value, ctx)
+    local base = tonumber(base_value) or 0
+    if stat_key == "rank" then
+        return base, { base = base, modifier = 0, effective = base, rows = {} }
+    end
+    local mods = M.collect_modifiers(ctx)
+    local mod = tonumber(mods.total[stat_key]) or 0
+    local effective = clamp(base + mod, 0, 100)
+    return effective, {
+        base = base,
+        modifier = mod,
+        effective = effective,
+        rows = mods.rows,
+    }
+end
+
+function M.get_item_modifier_preview(obj, sec)
+    ensure_config()
+    sec = sec or safe_section(obj)
+    if not sec then return nil end
+
+    local out = { total = {}, rows = {} }
+    collect_section_modifiers(sec, obj, out)
+    if next(out.total) == nil then return nil end
+
+    local equipped = item_is_equipped(obj, sec)
+    local weapon = is_weapon_section(sec, obj)
+    return {
+        section = sec,
+        equipped = equipped,
+        weapon = weapon,
+        rows = out.rows,
+        total = out.total,
+    }
+end
+
+local STAT_LABELS = {
+    charisma = "Charisma",
+    luck = "Luck",
+    intimidation = "Intimidation",
+    perception = "Perception",
+}
+
+local function stat_label(stat)
+    local key = "st_panda_stat_" .. tostring(stat or "")
+    if game and game.translate_string then
+        local translated = game.translate_string(key)
+        if translated and translated ~= "" and translated ~= key then return translated end
+    end
+    return STAT_LABELS[stat] or tostring(stat or "")
+end
+
+function M.format_modifier_total(total)
+    local order = { "charisma", "luck", "intimidation", "perception" }
+    local parts = {}
+    for _, stat in ipairs(order) do
+        local value = tonumber(total and total[stat]) or 0
+        if value ~= 0 then
+            parts[#parts + 1] = string.format("%s%d %s", value > 0 and "+" or "", value, stat_label(stat))
+        end
+    end
+    if #parts == 0 then return nil end
+    return table.concat(parts, ", ")
+end
+
+function M.get_item_tooltip_text(obj, sec)
+    if get_opt("show_dialogue_modifiers_in_item_tooltips", true) == false then return nil end
+    local preview = M.get_item_modifier_preview(obj, sec)
+    if not preview then return nil end
+    local text = M.format_modifier_total(preview.total)
+    if not text then return nil end
+    local suffix_parts = {}
+    if not preview.equipped then
+        suffix_parts[#suffix_parts + 1] = preview.weapon and "when equipped/active" or "when equipped"
+    end
+    for _, row in ipairs(preview.rows or {}) do
+        if row.scaled then
+            suffix_parts[#suffix_parts + 1] = "condition-scaled"
+            break
+        end
+    end
+    local suffix = (#suffix_parts > 0) and (" (" .. table.concat(suffix_parts, ", ") .. ")") or ""
+    return "Dialogue: " .. text .. suffix
+end
+
+local function patch_item_info_update()
+    if tooltip_patch_installed then return end
+    if not (utils_ui and utils_ui.UIInfoItem and utils_ui.UIInfoItem.Update) then return end
+
+    tooltip_original_update = utils_ui.UIInfoItem.Update
+    utils_ui.UIInfoItem.Update = function(self, obj, sec, flags)
+        local result = tooltip_original_update(self, obj, sec, flags)
+        if not (self and self.dialog and self.dialog:IsShown() and self.desc) then return result end
+
+        local item_sec = obj and safe_section(obj) or sec or self.section
+        if not item_sec then return result end
+
+        local base_desc = nil
+        if obj and ui_item and ui_item.get_obj_desc then
+            local ok_desc, desc = pcall(ui_item.get_obj_desc, obj)
+            if ok_desc then base_desc = desc end
+        elseif ui_item and ui_item.get_sec_desc then
+            local ok_desc, desc = pcall(ui_item.get_sec_desc, item_sec)
+            if ok_desc then base_desc = desc end
+        end
+        if not base_desc then return result end
+
+        local tooltip = M.get_item_tooltip_text(obj, item_sec)
+        if tooltip and tooltip ~= "" then
+            self.desc:SetText(base_desc .. "\n%c[255,190,220,160]" .. tooltip .. "%c[default]")
+        else
+            self.desc:SetText(base_desc)
+        end
+        self.desc:AdjustHeightToText()
+
+        local bottom = self.desc
+        if self.stats_dialog and self.stats_dialog:IsShown() then
+            self:Sync_Y(self.desc, self.stats_dialog, 10)
+            bottom = self.stats_dialog
+        end
+        if self.ammo and self.ammo:IsShown() then
+            self:Sync_Y(bottom, self.ammo, 10)
+            bottom = self.ammo
+        end
+        if self.frame and bottom then
+            self:Sync_H(bottom, self.frame, 10)
+        end
+        self:Show(true)
+        return result
+    end
+
+    tooltip_patch_installed = true
+    printf("PANDA dialogue skills: item tooltip patch installed")
+end
+
+function M.on_game_start()
+    ensure_config()
+    patch_item_info_update()
+end
+
+return M

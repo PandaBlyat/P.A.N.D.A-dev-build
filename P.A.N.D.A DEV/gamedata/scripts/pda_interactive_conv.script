@@ -1,17 +1,7 @@
 --[[
 ================================================================================
-    P.A.N.D.A by Panda 
-    pda_interactive_conv.script
-    
-    REFACTORED (v9.1) with fixes:
-    - Fixed non‑task conversations falling back to task dialogue due to missing prefixes.
-    - Fixed chance modifier string parsing error.
-    - Fixed reward_stash outcome to correctly use treasure_manager.
-    - Fixed faction goodwill changing function.
-    - Added NPC cooldown to avoid repetition.
-    - Added fallback to non‑task when task conversation not found.
-    - Fixed conversation restart issue by cancelling duplicate open_ui events.
-    - Added safe removal of time events to prevent crashes if the function is missing.
+    P.A.N.D.A by Panda (humble i know)
+
 ================================================================================
 --]]
 
@@ -34,6 +24,7 @@ local _panda_state = {
     f2f_bridge_checked = false,
     task_bridge_checked = false,
     npc_creator_checked = false,
+    dialogue_skills_checked = false,
     f2f_scanner_suppress_last_log_at = nil,
     f2f_scanner_suppress_last_source = nil,
     private_messages_section_alias_installed = false,
@@ -125,6 +116,40 @@ local function ensure_panda_npc_creator()
 end
 
 ensure_panda_npc_creator()
+
+local function ensure_panda_dialogue_skills()
+    if panda_dialogue_skills and type(panda_dialogue_skills.get_effective_stat) == "function" then
+        _panda_state.dialogue_skills_checked = true
+        return panda_dialogue_skills
+    end
+
+    if _panda_state.dialogue_skills_checked then
+        return panda_dialogue_skills
+    end
+
+    _panda_state.dialogue_skills_checked = true
+
+    if not panda_dialogue_skills then
+        local ok = pcall(function()
+            if require then
+                require("panda_dialogue_skills")
+            end
+        end)
+
+        if not ok then
+            pcall(function()
+                dofile("gamedata\\scripts\\panda_dialogue_skills.script")
+            end)
+        end
+    end
+
+    if not panda_dialogue_skills then
+        printf("PANDA_IC: warning: panda_dialogue_skills unavailable after module load")
+        return nil
+    end
+
+    return panda_dialogue_skills
+end
 
 local function get_anomaly_artifact_adapter()
     if panda_anomaly_artifact_adapter and panda_anomaly_artifact_adapter.ensure_state then
@@ -647,6 +672,48 @@ function get_dialogue_stat(key)
     return tonumber(player_dialogue_stats[key]) or 0
 end
 
+local function get_dialogue_skill_context()
+    local ctx = {}
+    if CONV then
+        ctx.npc_id = CONV.npc_id
+        ctx.contact_id = CONV.contact_id
+        ctx.npc_se = CONV.npc_se
+    end
+    return ctx
+end
+
+function get_current_conversation_npc()
+    local ctx = get_dialogue_skill_context()
+    if ctx.npc_se then return ctx.npc_se end
+    if ctx.npc_id and level and level.object_by_id then
+        return level.object_by_id(ctx.npc_id)
+    end
+    return nil
+end
+
+function get_dialogue_stat_breakdown(key)
+    local base = get_dialogue_stat(key)
+    local skill_mods = ensure_panda_dialogue_skills()
+    if skill_mods and type(skill_mods.get_effective_stat) == "function" then
+        local ok, effective, breakdown = pcall(
+            skill_mods.get_effective_stat,
+            key,
+            base,
+            get_dialogue_skill_context()
+        )
+        if ok and breakdown then return breakdown end
+        if ok and tonumber(effective) then
+            return { base = base, modifier = tonumber(effective) - base, effective = tonumber(effective), rows = {} }
+        end
+    end
+    return { base = base, modifier = 0, effective = base, rows = {} }
+end
+
+function get_effective_dialogue_stat(key)
+    local info = get_dialogue_stat_breakdown(key)
+    return tonumber(info.effective) or get_dialogue_stat(key)
+end
+
 local DIALOGUE_STAT_MIN = 0
 local DIALOGUE_STAT_MAX = 100
 
@@ -680,6 +747,18 @@ function get_all_dialogue_stats()
     out.rank = get_dialogue_stat("rank")
     for k, v in pairs(player_dialogue_stats) do
         if out[k] == nil then out[k] = v end
+    end
+    return out
+end
+
+function get_all_effective_dialogue_stats()
+    local out = {}
+    for _, key in ipairs(CORE_DIALOGUE_STATS) do
+        out[key] = get_effective_dialogue_stat(key)
+    end
+    out.rank = get_dialogue_stat("rank")
+    for k, _ in pairs(player_dialogue_stats) do
+        if out[k] == nil then out[k] = get_effective_dialogue_stat(k) end
     end
     return out
 end
@@ -771,8 +850,10 @@ end
 -- If required_level is nil/0, falls back to a flat 50 baseline so legacy calls
 -- (pre-level format) still resolve sensibly.
 function evaluate_dialogue_check(stat_key, required_level, difficulty)
-    local stat_val = get_dialogue_stat(stat_key)
-    local luck = get_dialogue_stat("luck")
+    local stat_info = get_dialogue_stat_breakdown(stat_key)
+    local luck_info = get_dialogue_stat_breakdown("luck")
+    local stat_val = tonumber(stat_info.effective) or get_dialogue_stat(stat_key)
+    local luck = tonumber(luck_info.effective) or get_dialogue_stat("luck")
     local req = tonumber(required_level)
     local diff = tonumber(difficulty) or 0
     local base
@@ -786,8 +867,9 @@ function evaluate_dialogue_check(stat_key, required_level, difficulty)
     local chance = clamp(base + luck_bonus - diff, 5, 95)
     local roll = math.random(1, 100)
     local result = (roll <= chance) and "success" or "fail"
-    printf("PANDA_IC: skill check stat=%s req=%s val=%d luck=%d diff=%d chance=%d roll=%d -> %s",
-        tostring(stat_key), tostring(req), stat_val, luck, diff, chance, roll, result)
+    printf("PANDA_IC: skill check stat=%s req=%s val=%d mod=%d luck=%d luck_mod=%d diff=%d chance=%d roll=%d -> %s",
+        tostring(stat_key), tostring(req), stat_val, tonumber(stat_info.modifier) or 0,
+        luck, tonumber(luck_info.modifier) or 0, diff, chance, roll, result)
     return result
 end
 
@@ -822,8 +904,10 @@ end
 -- Predicts the chance of a dialogue_skill_check exactly like
 -- evaluate_dialogue_check, minus the RNG roll.
 local function predict_dialogue_check_chance(stat_key, required_level, difficulty)
-    local stat_val = get_dialogue_stat(stat_key)
-    local luck = get_dialogue_stat("luck")
+    local stat_info = get_dialogue_stat_breakdown(stat_key)
+    local luck_info = get_dialogue_stat_breakdown("luck")
+    local stat_val = tonumber(stat_info.effective) or get_dialogue_stat(stat_key)
+    local luck = tonumber(luck_info.effective) or get_dialogue_stat("luck")
     local req = tonumber(required_level)
     local diff = tonumber(difficulty) or 0
     local base
@@ -833,7 +917,17 @@ local function predict_dialogue_check_chance(stat_key, required_level, difficult
         base = 50 + stat_val
     end
     local luck_bonus = (stat_key == "luck") and 0 or luck
-    return clamp(base + luck_bonus - diff, 5, 95), stat_val
+    return clamp(base + luck_bonus - diff, 5, 95), stat_val, stat_info
+end
+
+local function format_effective_stat_value(current, info)
+    local mod = info and tonumber(info.modifier) or 0
+    if mod ~= 0 then
+        local base = info and tonumber(info.base) or current
+        local sign = (mod > 0) and "+" or ""
+        return string.format("%d (%s%d)", base, sign, mod)
+    end
+    return tostring(current)
 end
 
 -- Scans an outcome string for a dialogue check or a stat reward/penalty
@@ -878,13 +972,14 @@ function build_dialogue_check_hint(outcome_str)
                     required_level = 0
                     difficulty = tonumber(parts[3]) or 0
                 end
-                local chance, current = predict_dialogue_check_chance(stat, required_level, difficulty)
+                local chance, current, stat_info = predict_dialogue_check_chance(stat, required_level, difficulty)
+                local current_text = format_effective_stat_value(current, stat_info)
                 if required_level and required_level > 0 then
-                    check_hint = string.format("[%s %d/%d - %d%% chance]",
-                        format_stat_label(stat), current, required_level, chance)
+                    check_hint = string.format("[%s %s/%d - %d%% chance]",
+                        format_stat_label(stat), current_text, required_level, chance)
                 else
-                    check_hint = string.format("[%s %d - %d%% chance]",
-                        format_stat_label(stat), current, chance)
+                    check_hint = string.format("[%s %s - %d%% chance]",
+                        format_stat_label(stat), current_text, chance)
                 end
             elseif cmd == "random_chance_check" and not check_hint then
                 local pct = tonumber(parts[2]) or 50
@@ -1766,6 +1861,10 @@ local function read_turn_channel_from_registry(prefix, faction, conv_id, turn)
 
     local registry_key = base_key .. "_panda_f2f_registry"
     local raw = game.translate_string(registry_key)
+    if raw == registry_key then
+        registry_key = base_key .. "_registry"
+        raw = game.translate_string(registry_key)
+    end
     if not raw or raw == registry_key then
         return "pda"
     end
@@ -4772,6 +4871,23 @@ local function is_conversation_repeatable(prefix, faction, conv_id)
     return not (raw == "0" or raw == "false" or raw == "no" or raw == "once")
 end
 
+local function get_panda_story_prefixes(faction)
+    local prefixes = { "panda" }
+    local seen = { panda = true }
+    local key = "st_pda_ic_panda_" .. tostring(faction) .. "_prefixes"
+    local raw = game.translate_string(key)
+    if raw and raw ~= key then
+        for prefix in tostring(raw):gmatch("[^,%s]+") do
+            prefix = tostring(prefix):gsub("^%s+", ""):gsub("%s+$", "")
+            if prefix ~= "" and not seen[prefix] then
+                prefixes[#prefixes + 1] = prefix
+                seen[prefix] = true
+            end
+        end
+    end
+    return prefixes
+end
+
 function pick_random_conv_id_generic(prefix, xml_fac, category, npc_se)
     local base
     if prefix == "task" or not prefix then
@@ -6402,6 +6518,10 @@ function load_choices_for_turn(prefix, faction, conv_id, turn, npc_name, contact
     local function load_registry_choice_metadata(choice_idx)
         local registry_key = base_key .. "_panda_f2f_registry"
         local raw = game.translate_string(registry_key)
+        if raw == registry_key then
+            registry_key = base_key .. "_registry"
+            raw = game.translate_string(registry_key)
+        end
         if not raw or raw == registry_key then
             return nil
         end
@@ -8288,7 +8408,7 @@ local function collect_story_npc_conversations(xml_fac, prefix)
                     local weight = 100
 
                     if last then
-                        if not is_conversation_repeatable("task", xml_fac, cid) then
+                        if not is_conversation_repeatable(prefix, xml_fac, cid) then
                             skip = true
                         else
                             local seconds_since = game.get_game_time():diffSec(last)
@@ -8352,10 +8472,13 @@ local function attempt_interactive_conversation()
     local xml_fac = (player_comm == "stalker") and "loner" or player_comm
 
     -- Phase 1: Collect targeted NPC conversation candidates
+    local panda_prefixes = get_panda_story_prefixes(xml_fac)
     local story_matches = collect_story_npc_conversations(xml_fac)
-    local panda_story_matches = collect_story_npc_conversations(xml_fac, "panda")
-    for _, m in ipairs(panda_story_matches) do
-        table.insert(story_matches, m)
+    for _, panda_prefix in ipairs(panda_prefixes) do
+        local panda_story_matches = collect_story_npc_conversations(xml_fac, panda_prefix)
+        for _, m in ipairs(panda_story_matches) do
+            table.insert(story_matches, m)
+        end
     end
     printf(string.format("Found %d targeted NPC conversation candidates", #story_matches))
 
@@ -8380,14 +8503,18 @@ local function attempt_interactive_conversation()
             )
         else
             local candidate_conv = pick_random_conv_id_generic(nil, xml_fac, nil, candidate)
-            local panda_candidate_conv = pick_random_conv_id_generic("panda", xml_fac, nil, candidate)
-            if candidate_conv or panda_candidate_conv then
-                if candidate_conv then
-                    table.insert(sim_matches, {npc_se = candidate, conv_id = candidate_conv, prefix = nil, weight = 100})
-                end
+            local found_candidate = candidate_conv ~= nil
+            if candidate_conv then
+                table.insert(sim_matches, {npc_se = candidate, conv_id = candidate_conv, prefix = nil, weight = 100})
+            end
+            for _, panda_prefix in ipairs(panda_prefixes) do
+                local panda_candidate_conv = pick_random_conv_id_generic(panda_prefix, xml_fac, nil, candidate)
                 if panda_candidate_conv then
-                    table.insert(sim_matches, {npc_se = candidate, conv_id = panda_candidate_conv, prefix = "panda", weight = 100})
+                    table.insert(sim_matches, {npc_se = candidate, conv_id = panda_candidate_conv, prefix = panda_prefix, weight = 100})
+                    found_candidate = true
                 end
+            end
+            if found_candidate then
                 -- Stop after finding one simulated match (preserves existing behavior
                 -- where one random NPC is selected from the pool)
                 break
@@ -9157,6 +9284,11 @@ function on_game_start()
     if _callbacks_registered then return end
 
     panda_ic_shutdown_in_progress = false
+
+    local dialogue_skills_mod = ensure_panda_dialogue_skills()
+    if dialogue_skills_mod and type(dialogue_skills_mod.on_game_start) == "function" then
+        dialogue_skills_mod.on_game_start()
+    end
 
     -- Wire optional f2f bridge integration early at startup
     ensure_panda_f2f_bridge()

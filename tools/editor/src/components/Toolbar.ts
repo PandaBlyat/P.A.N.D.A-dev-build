@@ -65,9 +65,13 @@ function graphicsQualityLabel(quality: FlowGraphicsQuality): string {
   return 'High';
 }
 
-function getLoginAction(): (() => void) | null {
+type LoginModalOptions = {
+  onComplete?: () => void;
+};
+
+function getLoginAction(): ((options?: LoginModalOptions) => void) | null {
   const candidate = (globalThis as typeof globalThis & { __pandaOpenLoginModal?: unknown }).__pandaOpenLoginModal;
-  return typeof candidate === 'function' ? candidate as () => void : null;
+  return typeof candidate === 'function' ? candidate as (options?: LoginModalOptions) => void : null;
 }
 
 function accent(value: string): HTMLSpanElement {
@@ -137,7 +141,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
     classes: ['btn-community', 'toolbar-button-primary'],
   });
   setBeginnerTooltip(collectionsBtn, 'toolbar-collections');
-  const communityBtn = btn('share', ui('Community', 'Сообщество'), openSharePanel, ui('Author tools: publish, edit, translate, and import individual community stories', 'Инструменты автора: публикация, редактирование, перевод и импорт отдельных историй'), {
+  const communityBtn = btn('share', ui('Publish', 'Опубликовать'), openSharePanel, ui('Author tools: publish, edit, translate, and import individual community stories', 'Инструменты автора: публикация, редактирование, перевод и импорт отдельных историй'), {
     classes: ['btn-subtle'],
   });
   setBeginnerTooltip(communityBtn, 'toolbar-community');

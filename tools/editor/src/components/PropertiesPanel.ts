@@ -40,7 +40,7 @@ import { createOnboardingNudge } from './Onboarding';
 import { createItemChainPickerPanelEditor, createItemPickerPanelEditor } from './ItemPickerPanel';
 import { createCatalogPickerPanelEditor, type CatalogPickerOption } from './CatalogPickerPanel';
 import { createCustomNpcBuilderEditor } from './NpcTemplatePanel';
-import { formatGameItemLabel } from '../lib/item-catalog';
+import { findGameItem, formatGameItemLabel, getCategoryGroup } from '../lib/item-catalog';
 import { requestFlowCenter } from '../lib/flow-navigation';
 import { createUiText } from '../lib/ui-language';
 import {
@@ -2450,6 +2450,14 @@ export function renderParamEditors(
   }
 
   schema.params.forEach((paramDef, i) => {
+    if (schema.name === 'give_item' && paramDef.name === 'condition_percent') {
+      const selectedItem = findGameItem((currentParams[0] || '').trim());
+      const selectedGroup = selectedItem ? getCategoryGroup(selectedItem.category) : null;
+      const hasConditionParam = (currentParams[i] || '').trim() !== '';
+      if (!hasConditionParam && selectedGroup !== 'Weapons & Attachments' && selectedGroup !== 'Outfits & Gear') {
+        return;
+      }
+    }
     if (schema.name === 'panda_task_escort') {
       const targetKind = (currentParams[4] || '').trim();
       if (paramDef.name === 'target_id') {

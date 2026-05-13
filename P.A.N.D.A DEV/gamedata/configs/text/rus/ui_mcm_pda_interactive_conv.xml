@@ -1054,6 +1054,18 @@
 	<string id="pda_interactive_conv_show_check_hints_in_choices_desc">
 		<text>Добавляет, например, "[Харизма 5]" или "[60% шанс]" к вариантам с проверкой.</text>
 	</string>
+	<string id="pda_interactive_conv_enable_dialogue_skill_modifiers">
+		<text>Enable Dynamic Skill Modifiers</text>
+	</string>
+	<string id="pda_interactive_conv_enable_dialogue_skill_modifiers_desc">
+		<text>Applies temporary dialogue skill modifiers from equipped gear, item condition, actor condition, faction context, goodwill, and world state.</text>
+	</string>
+	<string id="pda_interactive_conv_show_dialogue_modifiers_in_item_tooltips">
+		<text>Show Dialogue Modifiers on Items</text>
+	</string>
+	<string id="pda_interactive_conv_show_dialogue_modifiers_in_item_tooltips_desc">
+		<text>Adds dialogue skill modifier lines to item hover tooltips when equipment has configured modifiers.</text>
+	</string>
 	<string id="pda_interactive_conv_title_typing">
 		<text>NPC Typing Personality</text>
 	</string>

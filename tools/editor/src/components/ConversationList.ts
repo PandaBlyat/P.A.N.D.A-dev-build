@@ -162,9 +162,73 @@ export function renderConversationList(container: HTMLElement): void {
       }
     };
 
+    const labelRow = document.createElement('div');
+    labelRow.className = 'conv-label-row';
+
     const label = document.createElement('span');
     label.className = 'conv-label';
     label.textContent = conversationLabel;
+    label.tabIndex = 0;
+    label.setAttribute('role', 'button');
+    label.title = ui('Rename story', 'Переименовать историю');
+    label.setAttribute('aria-label', ui(`Rename ${conversationLabel}`, `Переименовать ${conversationLabel}`));
+
+    const renameBtn = document.createElement('button');
+    renameBtn.type = 'button';
+    renameBtn.className = 'conv-rename-btn';
+    renameBtn.title = ui('Rename story', 'Переименовать историю');
+    renameBtn.setAttribute('aria-label', ui(`Rename ${conversationLabel}`, `Переименовать ${conversationLabel}`));
+    renameBtn.append(createIcon('draw'));
+    renameBtn.onpointerdown = (event) => event.stopPropagation();
+    const startRename = (): void => {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'conv-rename-input';
+      input.value = conversationLabel;
+      input.setAttribute('aria-label', ui('Story name', 'Название истории'));
+      let cancelled = false;
+      const commit = () => {
+        if (cancelled) return;
+        const next = input.value.trim();
+        if (next && next !== conversationLabel) {
+          store.updateConversation(conv.id, { label: next });
+        } else {
+          labelRow.replaceChildren(label, renameBtn);
+        }
+      };
+      input.onclick = (e) => e.stopPropagation();
+      input.onpointerdown = (e) => e.stopPropagation();
+      input.onkeydown = (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          input.blur();
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          cancelled = true;
+          labelRow.replaceChildren(label, renameBtn);
+        }
+      };
+      input.onblur = commit;
+      labelRow.replaceChildren(input);
+      input.focus();
+      input.select();
+    };
+    label.onpointerdown = (event) => event.stopPropagation();
+    label.onclick = (event) => {
+      event.stopPropagation();
+      startRename();
+    };
+    label.onkeydown = (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      event.stopPropagation();
+      startRename();
+    };
+    renameBtn.onclick = (event) => {
+      event.stopPropagation();
+      startRename();
+    };
+    labelRow.append(label, renameBtn);
 
     const meta = document.createElement('div');
     meta.className = 'conv-meta';
@@ -213,7 +277,7 @@ export function renderConversationList(container: HTMLElement): void {
 
     const textWrap = document.createElement('div');
     textWrap.className = 'conv-text';
-    textWrap.append(label, meta, badges);
+    textWrap.append(labelRow, meta, badges);
 
     const controls = document.createElement('div');
     controls.className = 'conv-controls';

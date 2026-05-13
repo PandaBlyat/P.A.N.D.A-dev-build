@@ -1201,6 +1201,21 @@ function validateOutcome(
           fieldLabel: 'Stat',
           message: `Stat key "${statKey}" is not registered. Add it in the Dialogue Stats ledger or use a core stat.`,
         });
+      } else if (statKey === 'rank') {
+        pushMessage(messages, {
+          code: 'check-rank-derived',
+          group: 'schema',
+          scope: 'outcome',
+          level: 'warning',
+          conversationId: conv.id,
+          turnNumber: turn.turnNumber,
+          choiceIndex: choice.index,
+          outcomeIndex,
+          propertiesTab: 'selection',
+          fieldKey: getOutcomeParamFieldKey(conv.id, turn.turnNumber, choice.index, outcomeIndex, 0),
+          fieldLabel: 'Stat',
+          message: 'Rank is derived from character_rank and ignores temporary dialogue skill modifiers.',
+        });
       }
     }
 

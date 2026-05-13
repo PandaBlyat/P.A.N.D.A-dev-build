@@ -1923,16 +1923,27 @@ function pda_private_tab:RefreshPlayerStatsPanel()
     self.player_stats_panel:Show(true)
 
     local function read(key)
+        if conv_api and type(conv_api.get_dialogue_stat_breakdown) == "function" then
+            local ok, info = pcall(conv_api.get_dialogue_stat_breakdown, key)
+            if ok and type(info) == "table" then return info end
+        end
         if conv_api and type(conv_api.get_dialogue_stat) == "function" then
             local ok, val = pcall(conv_api.get_dialogue_stat, key)
-            if ok and tonumber(val) then return tonumber(val) end
+            if ok and tonumber(val) then
+                return { base = tonumber(val), modifier = 0, effective = tonumber(val) }
+            end
         end
-        return 0
+        return { base = 0, modifier = 0, effective = 0 }
     end
 
-    local function fmt(label_key, fallback_label, value)
+    local function fmt(label_key, fallback_label, info)
         local label = game.translate_string(label_key)
         if not label or label == "" or label == label_key then label = fallback_label end
+        local value = tonumber(info and info.effective) or 0
+        local mod = tonumber(info and info.modifier) or 0
+        if mod ~= 0 then
+            return string.format("%s: %d (%s%d)", label, value, mod > 0 and "+" or "", mod)
+        end
         return string.format("%s: %d", label, value)
     end
 

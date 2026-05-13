@@ -1894,7 +1894,7 @@ function buildPublishFormLegacy(): HTMLElement {
       && (!replaceId || entry.id !== replaceId),
     );
     if (duplicateLocal) {
-      setStatus('That title already exists in the current library view. Choose a more specific title before publishing.', 'danger');
+      setStatus('Story title already exists. Rename story before publishing.', 'danger');
       return;
     }
 
@@ -2043,7 +2043,8 @@ function buildPublishFormLegacy(): HTMLElement {
         loadConversations();
       }, 1200);
     } catch (err) {
-      setStatus(err instanceof Error ? err.message : 'Publish failed.', 'danger');
+      const message = err instanceof Error ? err.message : 'Publish failed.';
+      setStatus(/duplicate|title already exists/i.test(message) ? 'Story title already exists. Rename story before publishing.' : message, 'danger');
     } finally {
       submitBtn.disabled = false;
       cancelBtn.disabled = false;
@@ -2497,7 +2498,7 @@ function buildPublishForm(): HTMLElement {
       && (!replaceId || entry.id !== replaceId),
     );
     if (duplicateLocal) {
-      setStatus('That title already exists in the current library view. Choose a more specific title before publishing.', 'danger');
+      setStatus('Story title already exists. Rename story before publishing.', 'danger');
       return;
     }
 
@@ -2680,7 +2681,8 @@ function buildPublishForm(): HTMLElement {
         loadConversations();
       }, 1200);
     } catch (err) {
-      setStatus(err instanceof Error ? err.message : 'Publish failed.', 'danger');
+      const message = err instanceof Error ? err.message : 'Publish failed.';
+      setStatus(/duplicate|title already exists/i.test(message) ? 'Story title already exists. Rename story before publishing.' : message, 'danger');
     } finally {
       submitBtn.disabled = false;
       backBtn.disabled = false;

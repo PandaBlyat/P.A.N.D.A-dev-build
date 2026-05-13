@@ -1284,7 +1284,13 @@ local function is_pending_f2f_handoff_override(npc_id, owner_rec)
     return false
 end
 
-local function split_pending_handoff_overrides(owners)
+local function is_f2f_direct_override(owner_rec)
+    return type(owner_rec) == "table"
+        and owner_rec.owner == "f2f_direct"
+        and tostring(owner_rec.dialog or "") == "panda_f2f_direct_dialog"
+end
+
+local function split_dialog_close_overrides(owners)
     local restore = {}
     local preserve = {}
     if type(owners) ~= "table" then
@@ -1292,7 +1298,7 @@ local function split_pending_handoff_overrides(owners)
     end
 
     for npc_id, rec in pairs(owners) do
-        if is_pending_f2f_handoff_override(npc_id, rec) then
+        if is_pending_f2f_handoff_override(npc_id, rec) or is_f2f_direct_override(rec) then
             preserve[npc_id] = rec
         else
             restore[npc_id] = rec
@@ -1653,6 +1659,38 @@ local function key_exists(key)
     return true
 end
 
+local function get_panda_story_prefixes_for_faction(faction)
+    local prefixes = { "panda" }
+    local seen = { panda = true }
+    local key = "st_pda_ic_panda_" .. tostring(faction) .. "_prefixes"
+    local raw = tr(key)
+    if raw and raw ~= key then
+        for prefix in tostring(raw):gmatch("[^,%s]+") do
+            prefix = tostring(prefix):gsub("^%s+", ""):gsub("%s+$", "")
+            if prefix ~= "" and not seen[prefix] then
+                prefixes[#prefixes + 1] = prefix
+                seen[prefix] = true
+            end
+        end
+    end
+    return prefixes
+end
+
+local function get_conversation_scan_prefixes(faction)
+    local out = { false }
+    for _, prefix in ipairs(get_panda_story_prefixes_for_faction(faction)) do
+        out[#out + 1] = prefix
+    end
+    return out
+end
+
+local function build_conversation_stem(prefix, faction, cid)
+    if prefix and prefix ~= "task" then
+        return string.format("st_pda_ic_%s_%s_%d", tostring(prefix), tostring(faction), tonumber(cid) or 0)
+    end
+    return string.format("st_pda_ic_%s_%d", tostring(faction), tonumber(cid) or 0)
+end
+
 local function resolve_choice_precond_key(turn_stem, choice_idx)
     local authored_key = string.format("%s_choice_%d_precond", tostring(turn_stem or ""), tonumber(choice_idx) or 0)
     if key_exists(authored_key) then
@@ -1744,6 +1782,10 @@ end
 local function get_registry_raw(stem)
     local key = stem .. "_panda_f2f_registry"
     local raw = tr(key)
+    if raw == key then
+        key = stem .. "_registry"
+        raw = tr(key)
+    end
     if raw == key then
         return nil
     end
@@ -2850,7 +2892,7 @@ function panda_f2f_bridge.reset_runtime(reason)
     local owners_to_restore = runtime.override_owners
     local owners_to_preserve = {}
     if string.find(reason_s, "on_dialog_closed_finalize", 1, true) then
-        owners_to_restore, owners_to_preserve = split_pending_handoff_overrides(runtime.override_owners)
+        owners_to_restore, owners_to_preserve = split_dialog_close_overrides(runtime.override_owners)
     end
 
     local restored = restore_override_owners(owners_to_restore)
@@ -2862,7 +2904,7 @@ function panda_f2f_bridge.reset_runtime(reason)
         preserved_count = preserved_count + 1
     end
     bridge_warn(
-        "reset_runtime reason=%s restored_overrides=%s preserved_handoff_overrides=%s",
+        "reset_runtime reason=%s restored_overrides=%s preserved_dialog_overrides=%s",
         tostring(reason_s),
         tostring(restored == true),
         tostring(preserved_count)
@@ -3062,7 +3104,9 @@ local function collect_branches(npc_se, forced_context)
         end
 
         local registry_raw = nil
-        if key_exists(stem .. "_registry") then
+        if key_exists(stem .. "_panda_f2f_registry") then
+            registry_raw = tr(stem .. "_panda_f2f_registry")
+        elseif key_exists(stem .. "_registry") then
             registry_raw = tr(stem .. "_registry")
         end
 
@@ -3280,19 +3324,14 @@ local function collect_branches(npc_se, forced_context)
     if forced_handoff_active then
         scan_prefixes = { stem_prefix or false }
     else
-        scan_prefixes = { false, "panda" }
+        scan_prefixes = get_conversation_scan_prefixes(faction)
     end
 
     for cid = 1, MAX_CONV_SCAN do
         for _, prefix_candidate in ipairs(scan_prefixes) do
         stem_prefix = prefix_candidate or nil
         if not forced_conv_id or cid == forced_conv_id then
-            local stem
-            if stem_prefix and stem_prefix ~= "task" then
-                stem = string.format("st_pda_ic_%s_%s_%d", stem_prefix, faction, cid)
-            else
-                stem = string.format("st_pda_ic_%s_%d", faction, cid)
-            end
+            local stem = build_conversation_stem(stem_prefix, faction, cid)
             last_resolved_stem = stem
             local open_key = stem .. "_open"
             if not key_exists(open_key) and not forced_conv_id then
@@ -5131,7 +5170,6 @@ local function scan_f2f_direct_conversations(npc_se)
 
     local faction = actor_faction_key()
     local candidates = {}
-    local missing = 0
 
     -- Get cooldown config from main script API
     local api = get_conv_api()
@@ -5146,8 +5184,10 @@ local function scan_f2f_direct_conversations(npc_se)
         cooldown_hard_min_sec = (tonumber(PANDA.get_config("cooldown_hard_min")) or 5) * 60
     end
 
-    for cid = 1, MAX_CONV_SCAN do
-        local stem = string.format("st_pda_ic_%s_%d", faction, cid)
+    for _, scan_prefix in ipairs(get_conversation_scan_prefixes(faction)) do
+        local missing = 0
+        for cid = 1, MAX_CONV_SCAN do
+        local stem = build_conversation_stem(scan_prefix, faction, cid)
         local open_key = stem .. "_open"
 
         if not key_exists(open_key) then
@@ -5186,7 +5226,7 @@ local function scan_f2f_direct_conversations(npc_se)
                         local skip = false
 
                         if api and type(api.check_cooldown) == "function" then
-                            local on_cooldown, seconds_since = api.check_cooldown(cid, faction, "task")
+                            local on_cooldown, seconds_since = api.check_cooldown(cid, faction, scan_prefix or "task")
                             if on_cooldown then
                                 if cooldown_mode == 1 then
                                     skip = true
@@ -5206,7 +5246,7 @@ local function scan_f2f_direct_conversations(npc_se)
                                 turn = f2f_turn,
                                 stem = stem,
                                 faction = faction,
-                                prefix = nil,
+                                prefix = scan_prefix or nil,
                                 weight = weight,
                             }
                             bridge_debug(
@@ -5221,6 +5261,7 @@ local function scan_f2f_direct_conversations(npc_se)
                     end
                 end
             end
+        end
         end
     end
 
@@ -5249,13 +5290,14 @@ inject_f2f_direct_for_story_npcs = function()
     end
 
     local faction = actor_faction_key()
-    local missing = 0
     local now = time_global and time_global() or 0
     local sim = alife and alife()
     if not sim then return end
 
-    for cid = 1, MAX_CONV_SCAN do
-        local stem = string.format("st_pda_ic_%s_%d", faction, cid)
+    for _, scan_prefix in ipairs(get_conversation_scan_prefixes(faction)) do
+        local missing = 0
+        for cid = 1, MAX_CONV_SCAN do
+        local stem = build_conversation_stem(scan_prefix, faction, cid)
         local open_key = stem .. "_open"
 
         if not key_exists(open_key) then
@@ -5333,7 +5375,7 @@ inject_f2f_direct_for_story_npcs = function()
                                         -- Check cooldown
                                         local skip = false
                                         if api and type(api.check_cooldown) == "function" then
-                                            local on_cd = api.check_cooldown(cid, faction, "task")
+                                            local on_cd = api.check_cooldown(cid, faction, scan_prefix or "task")
                                             if on_cd and cooldown_mode == 1 then
                                                 skip = true
                                             end
@@ -5348,7 +5390,7 @@ inject_f2f_direct_for_story_npcs = function()
                                                     turn = f2f_turn,
                                                     stem = stem,
                                                     faction = faction,
-                                                    prefix = nil,
+                                                    prefix = scan_prefix or nil,
                                                     weight = 100,
                                                 }
 
@@ -5383,6 +5425,7 @@ inject_f2f_direct_for_story_npcs = function()
                     end
                 end
             end
+        end
         end
     end
 end

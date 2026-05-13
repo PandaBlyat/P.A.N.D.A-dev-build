@@ -2108,6 +2108,56 @@ label {
   font-weight: 700;
   letter-spacing: 0.01em;
   color: var(--text);
+  cursor: text;
+  border-radius: var(--radius);
+}
+
+.conv-label:hover,
+.conv-label:focus-visible {
+  color: var(--text-bright);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.conv-label-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.conv-rename-btn {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.conv-rename-btn .ui-icon svg {
+  width: 12px;
+  height: 12px;
+}
+
+.conv-rename-btn:hover {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.conv-rename-input {
+  width: 100%;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 3px 6px;
 }
 
 .conv-meta {
@@ -25691,6 +25741,7 @@ button.pa-avatar:focus-visible {
   flex-direction: column;
   gap: 5px;
   min-width: 0;
+  position: relative;
 }
 
 .item-picker-filter-label {
@@ -25709,6 +25760,18 @@ button.pa-avatar:focus-visible {
   background: color-mix(in srgb, var(--accent, #7aa2f7) 3%, var(--bg-input));
   color: var(--text);
   padding: 0 10px;
+}
+
+.item-picker-filter-select.is-expanded {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: min(320px, 44vh);
+  overflow-y: auto;
+  padding-block: 4px;
+  box-shadow: var(--shadow-lg), 0 0 0 1px color-mix(in srgb, var(--accent, #7aa2f7) 28%, transparent);
 }
 
 .item-picker-meta-row {
@@ -27637,6 +27700,119 @@ body.theme-soviet .profile-popover {
   --pa-text-primary: color-mix(in srgb, var(--accent) 42%, #d7dbe0 58%);
   --pa-text-secondary: color-mix(in srgb, var(--accent) 24%, #8b929a 76%);
   --pa-accent: var(--accent);
+}
+
+/* Final Soviet de-tint: neutral chrome, accent only for intent and selection. */
+body.theme-soviet {
+  --console-metal-light: #1b1e21;
+  --console-metal-mid: #111417;
+  --console-metal-dark: #07090b;
+  --console-rim: #343a40;
+  --console-rim-bright: color-mix(in srgb, var(--accent) 34%, #9aa0a6 66%);
+  --console-screen-tint: #030506;
+  --stalker-amber: #c9c2a4;
+  --stalker-amber-deep: #27251e;
+}
+
+body.theme-soviet .toolbar,
+body.theme-soviet .panel,
+body.theme-soviet .app-bottom-region,
+body.theme-soviet .bottom-workspace,
+body.theme-soviet .toolbar-overflow-menu,
+body.theme-soviet .mobile-sheet,
+body.theme-soviet .username-modal-card,
+body.theme-soviet .command-picker-panel,
+body.theme-soviet .item-picker-panel,
+body.theme-soviet .catalog-picker-panel,
+body.theme-soviet .npc-builder-panel,
+body.theme-soviet .share-modal,
+body.theme-soviet .help-modal,
+body.theme-soviet .support-panel,
+body.theme-soviet .bug-report-panel,
+body.theme-soviet .public-profile-modal,
+body.theme-soviet .profile-popover,
+body.theme-soviet .roadmap-modal,
+body.theme-soviet .roadmap-editor-form,
+body.theme-soviet .privilege-modal,
+body.theme-soviet .story-forge-panel,
+body.theme-soviet .pa-avatar-modal,
+body.theme-soviet .branch-inline-panel,
+body.theme-soviet .branch-author-popup {
+  background:
+    var(--stalker-noise),
+    linear-gradient(180deg, var(--console-metal-light) 0%, var(--console-metal-dark) 100%) !important;
+  border-color: var(--console-rim) !important;
+}
+
+body.theme-soviet .flow-controls,
+body.theme-soviet .conv-item,
+body.theme-soviet .choice-card,
+body.theme-soviet .props-section,
+body.theme-soviet .validation-msg,
+body.theme-soviet .validation-drawer-item,
+body.theme-soviet .command-picker-card,
+body.theme-soviet .item-picker-option,
+body.theme-soviet .item-picker-option.item-picker-option-static,
+body.theme-soviet .npc-builder-section,
+body.theme-soviet .share-card,
+body.theme-soviet .share-list-row,
+body.theme-soviet .public-profile-section,
+body.theme-soviet .public-profile-recent-card,
+body.theme-soviet .public-profile-badge-tile,
+body.theme-soviet .roadmap-card,
+body.theme-soviet .roadmap-column,
+body.theme-soviet .support-panel-card,
+body.theme-soviet .support-highlight,
+body.theme-soviet .story-forge-recipe-group {
+  background:
+    var(--stalker-noise),
+    linear-gradient(180deg, #171a1d 0%, #080a0c 100%) !important;
+  border-color: #32383e !important;
+}
+
+body.theme-soviet button,
+body.theme-soviet .btn,
+body.theme-soviet .btn-sm,
+body.theme-soviet .toolbar-button,
+body.theme-soviet .toolbar-overflow-toggle,
+body.theme-soviet .toolbar-overflow-item,
+body.theme-soviet .username-modal-skip,
+body.theme-soviet .username-modal-tab,
+body.theme-soviet .inspector-action-btn,
+body.theme-soviet .choice-author-action,
+body.theme-soviet .branch-inline-edit-btn,
+body.theme-soviet .item-picker-chip,
+body.theme-soviet .item-picker-subchip,
+body.theme-soviet .roadmap-upvote-btn,
+body.theme-soviet .support-upvote-button,
+body.theme-soviet .pa-avatar-tab-btn,
+body.theme-soviet .pa-avatar-modal-action,
+body.theme-soviet .mobile-sheet-action,
+body.theme-soviet .conversation-list-tab,
+body.theme-soviet .bottom-workspace-tab {
+  background: linear-gradient(180deg, #202428 0%, #0b0d10 100%) !important;
+  border-color: #3a4148 !important;
+  color: #d4d0bd !important;
+}
+
+body.theme-soviet .btn-primary,
+body.theme-soviet .toolbar-button-primary,
+body.theme-soviet .btn-community,
+body.theme-soviet .toolbar-support-trigger,
+body.theme-soviet .flow-add-turn-button,
+body.theme-soviet .roadmap-add-btn,
+body.theme-soviet .username-modal-submit,
+body.theme-soviet .pa-avatar-modal-action-primary,
+body.theme-soviet .conv-item.selected,
+body.theme-soviet .item-picker-option.is-active,
+body.theme-soviet .item-picker-option.is-selected,
+body.theme-soviet .item-picker-chip.is-active,
+body.theme-soviet .item-picker-subchip.is-active {
+  border-color: color-mix(in srgb, var(--accent) 66%, #4a4f55 34%) !important;
+  color: color-mix(in srgb, var(--accent) 78%, white 22%) !important;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--accent) 24%, transparent),
+    0 0 12px color-mix(in srgb, var(--accent) 16%, transparent) !important;
 }
 
 /* Conversation list uses story faction colour, never UI colour. */

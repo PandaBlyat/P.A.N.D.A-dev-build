@@ -1,9 +1,4 @@
---[[
-Изменения script_version:
-	3 - сохранение поля job_online
-	5 - сохранение поля was_in_smart_terrain
-	6 - сохранение поля death_droped
-]]
+
 
 class "se_stalker"	(cse_alife_human_stalker)
 local _panda_bad_stalker_smart_refs = {}
