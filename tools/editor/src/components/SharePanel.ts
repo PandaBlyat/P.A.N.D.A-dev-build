@@ -28,7 +28,8 @@ import { FACTION_COLORS } from '../lib/faction-colors';
 import { trapFocus, type FocusTrapController } from '../lib/focus-trap';
 import { createIcon, setButtonContent } from './icons';
 import { importConversations } from './App';
-import { downloadFile } from '../lib/project-io';
+import { downloadBlob } from '../lib/project-io';
+import { createZipBlob } from '../lib/zip';
 import { showXpToast, showLevelUpToast } from './XpToast';
 import { showPublishCelebration } from './PublishCelebration';
 import {
@@ -1659,19 +1660,35 @@ function rememberUpvote(id: string): void {
 
 async function handleDownloadAll(): Promise<void> {
   if (activeFaction === 'all') return;
+  const selectedFaction = activeFaction as FactionId;
   const btn = getDownloadAllBtn();
   if (btn) { btn.disabled = true; btn.textContent = getUiText()('Loading…', 'Загрузка…'); }
 
   try {
     // Final export uses curated stories only, independent of temporary UI
     // filters like search/length/sort.
-    const results = allResults.filter(entry => entry.faction === activeFaction && (entry.library_section ?? 'community') === 'curated');
+    const results = allResults.filter(entry => entry.faction === selectedFaction && (entry.library_section ?? 'community') === 'curated');
     if (results.length === 0) {
-      alert(`No curated ${FACTION_DISPLAY_NAMES[activeFaction as FactionId]} conversations to download.`);
+      alert(`No curated ${FACTION_DISPLAY_NAMES[selectedFaction]} conversations to download.`);
       return;
     }
 
-    const factionKey = FACTION_XML_KEYS[activeFaction];
+    const factionKey = FACTION_XML_KEYS[selectedFaction];
+    const files: Array<{ path: string; content: string }> = [
+      {
+        path: 'README_INSTALL.txt',
+        content: [
+          'P.A.N.D.A curated storyline pack',
+          '',
+          'Install:',
+          '1. Extract this ZIP.',
+          '2. Merge gamedata folder into your S.T.A.L.K.E.R. Anomaly folder.',
+          '3. Each storyline XML stays separate. Manifest XML tells P.A.N.D.A which prefixes to scan.',
+          '',
+          `Faction: ${FACTION_DISPLAY_NAMES[selectedFaction]}`,
+        ].join('\r\n'),
+      },
+    ];
 
     // Build stable story groups by root id (source story id). Each pack (eng/rus)
     // exports same story list + same sequential ids so string keys align.
@@ -1694,22 +1711,52 @@ async function handleDownloadAll(): Promise<void> {
 
     const languages: UiLanguage[] = ['en', 'ru'];
     for (const language of languages) {
-      const mergedProject = createEmptyProject(activeFaction);
-      let nextId = 1;
-      for (const group of groups) {
+      const folder = language === 'ru' ? 'rus' : 'eng';
+      const suffix = language === 'ru' ? 'rus' : 'eng';
+      const prefixes: string[] = [];
+      const usedSlugs = new Map<string, number>();
+
+      groups.forEach((group, index) => {
         const best = pickBestStoryVariant(group.variants, language) ?? group.root;
         const storyConv = best.data?.conversations?.[0];
-        if (!storyConv) continue;
-        const c = structuredClone(storyConv);
-        c.id = nextId++;
-        c.language = language;
-        mergedProject.conversations.push(c);
-      }
+        if (!storyConv) return;
 
-      const xml = generateXml(mergedProject, undefined, undefined, undefined, language);
-      const suffix = language === 'ru' ? 'rus' : 'eng';
-      downloadFile(xml, `st_PANDA_${factionKey}_interactive_conversations_${suffix}.xml`, 'application/xml');
+        const baseSlug = slugifyStoryFilePart(storyConv.storyline_id || best.label || group.rootId || `story_${index + 1}`);
+        const nextCount = (usedSlugs.get(baseSlug) ?? 0) + 1;
+        usedSlugs.set(baseSlug, nextCount);
+        const storySlug = nextCount === 1 ? baseSlug : `${baseSlug}_${nextCount}`;
+        const storyPrefix = `panda_${storySlug}`;
+        prefixes.push(storyPrefix);
+
+        const project = createEmptyProject(selectedFaction);
+        const c = structuredClone(storyConv);
+        c.id = 1;
+        c.language = language;
+        c.label = best.label || c.label;
+        project.conversations = [c];
+        const xml = generateXml(project, undefined, undefined, {
+          conversationKeyPrefix: storyPrefix,
+          useStoryKeyPrefixes: false,
+          strictDialogueValidation: true,
+          validateDialogueStrings: true,
+          autofillMissingOpenWhenNonStrict: true,
+          missingOpenPlaceholder: '[MISSING_OPEN_LINE]',
+        }, language);
+        files.push({
+          path: `gamedata/configs/text/${folder}/st_PANDA_${storyPrefix}_${factionKey}_${suffix}.xml`,
+          content: xml,
+        });
+      });
+
+      if (prefixes.length > 0) {
+        files.push({
+          path: `gamedata/configs/text/${folder}/st_PANDA_panda_${factionKey}_collection_manifest_${suffix}.xml`,
+          content: createCollectionManifestXml(factionKey, prefixes),
+        });
+      }
     }
+
+    downloadBlob(createZipBlob(files), `panda_${factionKey}_curated_storylines.zip`);
 
     for (const id of new Set(results.map((entry) => entry.id))) {
       incrementDownload(id);
@@ -1725,6 +1772,28 @@ async function handleDownloadAll(): Promise<void> {
     }
     renderContent();
   }
+}
+
+function createCollectionManifestXml(factionKey: string, prefixes: string[]): string {
+  return [
+    '<?xml version="1.0" encoding="utf-8"?>',
+    '<string_table>',
+    '',
+    `    <string id="st_pda_ic_panda_${factionKey}_prefixes">`,
+    `        <text>${Array.from(new Set(prefixes)).join(',')}</text>`,
+    '    </string>',
+    '',
+    '</string_table>',
+  ].join('\n');
+}
+
+function slugifyStoryFilePart(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 48) || 'story';
 }
 
 function buildPublishFormLegacy(): HTMLElement {

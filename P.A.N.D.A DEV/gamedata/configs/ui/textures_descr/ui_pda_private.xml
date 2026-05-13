@@ -37,6 +37,20 @@
         <texture id="ui_panda_box" x="0" y="0" width="20" height="60" />
     </file>
 
+    <!-- Private Messages Diegetic Skin. Tiny atlas, stretched/tinted in Lua/XML. -->
+    <file name="ui\ui_panda_private_skin">
+        <texture id="panda_private_panel" x="0" y="0" width="20" height="60" />
+        <texture id="panda_private_rail" x="0" y="0" width="20" height="60" />
+        <texture id="panda_private_header" x="0" y="0" width="20" height="60" />
+        <texture id="panda_private_thread" x="0" y="0" width="20" height="60" />
+        <texture id="panda_private_composer" x="0" y="0" width="20" height="60" />
+        <texture id="panda_private_contact" x="0" y="0" width="20" height="60" />
+        <texture id="panda_private_bubble_npc" x="0" y="0" width="20" height="60" />
+        <texture id="panda_private_bubble_actor" x="0" y="0" width="20" height="60" />
+        <texture id="panda_private_attachment" x="0" y="0" width="20" height="60" />
+        <texture id="panda_private_reply" x="0" y="0" width="20" height="60" />
+    </file>
+
     <!-- Conversation Presence Icons (40x40) -->
     <file name="ui\ui_panda_on_icon">
         <texture id="ui_panda_on_icon" x="0" y="0" width="40" height="40" />

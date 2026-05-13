@@ -209,6 +209,11 @@ make build-catalogs      # Run all build_editor_*.py → src/lib/generated/
 
 ---
 
+## Game logs location  (for finding bugs/issues)
+
+- `C:\Games\Anomaly\appdata\logs` - stalker anomaly vanilla log's location
+
+
 ## Testing the Mod
 
 1. Copy `P.A.N.D.A DEV/gamedata/` to your Anomaly install's `gamedata/`

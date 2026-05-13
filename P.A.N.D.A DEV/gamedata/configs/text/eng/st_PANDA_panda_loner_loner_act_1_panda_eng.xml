@@ -3,12 +3,6 @@
 
     <!-- ═══ NPC TEMPLATES ═══ -->
     <!-- Edit these via the "Spawn Custom NPC" outcome in the editor. -->
-    <string id="st_panda_npc_template_rabbit_mule">
-        <text>name=Rabbit|faction=freedom|rank=experienced|primary=wpn_k98|outfit=svoboda_heavy_outfit|items=cocaine:50|movement=smart|relation=companion|spawn_dist=30</text>
-    </string>
-    <string id="st_panda_npc_template_missing_mule">
-        <text>name=Slick|faction=freedom|rank=experienced|primary=wpn_ak74|outfit=svoboda_light_outfit|items=device_pda_2:1,cocaine:20|movement=smart|relation=friendly|spawn_mode=smart|smart_ref=st_mil_smart_terrain_2_4_name</text>
-    </string>
     <string id="st_panda_npc_template_mia">
         <text>name=Mia|faction=stalker|rank=veteran|primary=wpn_ak101|outfit=stalker_outfit|gender=female|spawn_dist=5</text>
     </string>
@@ -20,188 +14,188 @@
     <!-- ═══════════════════════════════════════════════════════════ -->
     <!-- CONVERSATION 1: Loner Act 1 panda -->
     <!-- ═══════════════════════════════════════════════════════════ -->
-    <string id="st_pda_ic_panda_loner_1_precond">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_precond">
         <text>req_story_npc:esc_2_12_stalker_wolf</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_repeatable">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_repeatable">
         <text>0</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_storyline_id">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_storyline_id">
         <text>loner_wolf_storyline</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_open">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_open">
         <text>Stalker, get over here. I need someone who knows which end of the rifle lead comes out of, and you look in shape. </text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_choice_1">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_choice_1">
         <text>You look like you haven't slept in days. What's the problem?</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_reply_1">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_reply_1">
         <text> There's a new smuggler baron named Kovalchuk. He’s set up a toll on the main route. He's bleeding our rookies dry, confiscating their artifacts, and leaving them to the mutants. I sent one of my scouts, a new kid named Artyom, to trail Kovalchuk to his main stash. We were going to hit him where it hurts.</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_outcome_1">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_outcome_1">
         <text>none</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_cont_1">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_cont_1">
         <text>2</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_cont_channel_1">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_cont_channel_1">
         <text>f2f</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_choice_2">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_choice_2">
         <text>Eh, find another guy.</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_reply_2">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_reply_2">
         <text>Don't come to rookie asking for help.</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_outcome_2">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_outcome_2">
         <text>punish_gw:500:stalker</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t2_choice_1">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t2_choice_1">
         <text>Let me guess. Artyom missed his check in.</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t2_reply_1">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t2_reply_1">
         <text>Two hours ago. Artyom is a ghost. His last coordinates were the tunnel on the eastern edge of  Cordon. I can't leave the village undefended to go looking for him. I need you to go up there, find Artyom, and find out what Kovalchuk is up to.</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t2_outcome_1">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t2_outcome_1">
         <text>give_skill_level:charisma:20</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t2_cont_1">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t2_cont_1">
         <text>3</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t2_cont_channel_1">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t2_cont_channel_1">
         <text>f2f</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t3_choice_1">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t3_choice_1">
         <text>I'll find him, Wolf. Hang tight. </text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t3_reply_1">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t3_reply_1">
         <text>Good man</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t3_outcome_1">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t3_outcome_1">
         <text>none</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t3_cont_1">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t3_cont_1">
         <text>6</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t3_cont_channel_1">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t3_cont_channel_1">
         <text>f2f</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t3_cont_npc_1">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t3_cont_npc_1">
         <text>npc:artyom</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t3_choice_2">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t3_choice_2">
         <text>Sorry, I'm not a charity. Sidorovich pays me for work. What are you offering?</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t3_reply_2">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t3_reply_2">
         <text>I don't have Sidorovich's rubles, but I have a stash of AP rounds and some meds but if you really impress me..I might throw something extra waiting for you if you bring me solid intel. Just get it done.</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t3_outcome_2">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t3_outcome_2">
         <text>none</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t3_cont_2">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t3_cont_2">
         <text>5</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t3_cont_channel_2">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t3_cont_channel_2">
         <text>f2f</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t3_choice_3">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t3_choice_3">
         <text>Kovalchuk? He has to be travelling with heavily armed guards? At least send me with someone. </text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t3_reply_3">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t3_reply_3">
         <text>Hmm to be truthful, I've been holding back Mia from going there herself, have a chat with her. She's new here. </text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t3_outcome_3">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t3_outcome_3">
         <text>none</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t3_cont_3">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t3_cont_3">
         <text>4</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t3_cont_channel_3">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t3_cont_channel_3">
         <text>f2f</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t3_cont_npc_3">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t3_cont_npc_3">
         <text>npc:mia</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t4_open">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t4_open">
         <text>Uhh, why are you staring?</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t4_choice_1">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t4_choice_1">
         <text>Wolf said you've been wanting to track down Artyom.
 </text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t4_reply_1">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t4_reply_1">
         <text>He did? Good. I've gone on a couple expeditions with him before and don't want to leave him behind.</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t4_outcome_1">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t4_outcome_1">
         <text>none</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t4_cont_1">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t4_cont_1">
         <text>7</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t4_cont_channel_1">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t4_cont_channel_1">
         <text>f2f</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t5_choice_1">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t5_choice_1">
         <text>I'll get to it. </text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t5_reply_1">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t5_reply_1">
         <text>Hope he's still alive.</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t5_outcome_1">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t5_outcome_1">
         <text>none</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t5_cont_1">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t5_cont_1">
         <text>6</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t5_cont_channel_1">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t5_cont_channel_1">
         <text>f2f</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t5_choice_2">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t5_choice_2">
         <text>Surely..you can do better?</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t5_outcome_2">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t5_outcome_2">
         <text>punish_gw:50:stalker,dialogue_skill_check:charisma:50:0:8:9</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t6_open">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t6_open">
         <text>Did Wolf send you?</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t6_choice_1">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t6_choice_1">
         <text>Yup</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t6_reply_1">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t6_reply_1">
         <text>Aight so</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t6_outcome_1">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t6_outcome_1">
         <text>none</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t7_choice_1">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t7_choice_1">
         <text>yo</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t7_reply_1">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t7_reply_1">
         <text>yo</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t7_outcome_1">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t7_outcome_1">
         <text>none</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t8_open">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t8_open">
         <text>Alright..maybe i got something stashed. Take it now and get it done. </text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t8_choice_1">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t8_choice_1">
         <text>Appreciate it.</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t8_outcome_1">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t8_outcome_1">
         <text>give_skill_level:charisma:5</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t9_open">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t9_open">
         <text>Who do you think you are? Go now or ill find someone else.</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t9_choice_1">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t9_choice_1">
         <text>My bad, on it.</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_t9_outcome_1">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_t9_outcome_1">
         <text>none</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_panda_f2f_registry">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_panda_f2f_registry">
         <text>{
   &quot;schema&quot;: &quot;panda_f2f_bridge_registry_v1&quot;,
   &quot;conversationId&quot;: 1,
@@ -490,7 +484,7 @@
   ]
 }</text>
     </string>
-    <string id="st_pda_ic_panda_loner_1_start_mode">
+    <string id="st_pda_ic_panda_loner_wolf_storyline_loner_1_start_mode">
         <text>f2f</text>
     </string>
 

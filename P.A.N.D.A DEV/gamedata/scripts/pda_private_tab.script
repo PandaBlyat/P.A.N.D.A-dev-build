@@ -456,6 +456,8 @@ function pda_private_tab:InitControls()
 
     -- Player dialogue stats panel (Charisma / Luck / Intimidation / Perception)
     self.player_stats_panel = self.xml:InitStatic("private_pda:info:description:player_stats_panel", self.desc_box)
+    self.player_stats_panel_bg = self.xml:InitStatic("private_pda:info:description:player_stats_panel:panel_bg", self.player_stats_panel)
+    self.player_stats_name = self.xml:InitTextWnd("private_pda:info:description:player_stats_panel:player_name", self.player_stats_panel)
     self.player_stat_charisma = self.xml:InitTextWnd("private_pda:info:description:player_stats_panel:stat_charisma", self.player_stats_panel)
     self.player_stat_luck = self.xml:InitTextWnd("private_pda:info:description:player_stats_panel:stat_luck", self.player_stats_panel)
     self.player_stat_intimidation = self.xml:InitTextWnd("private_pda:info:description:player_stats_panel:stat_intimidation", self.player_stats_panel)
@@ -504,13 +506,13 @@ function pda_private_tab:ReflowLayoutToContainer()
     local desc_h = (self.desc_box.GetHeight and self.desc_box:GetHeight()) or 608
     if desc_w <= 0 or desc_h <= 0 then return end
 
-    local composer_h = 34
-    local composer_margin_bottom = 10
+    local composer_h = 44
+    local composer_margin_bottom = 0
     local composer_y = math.max(0, desc_h - composer_h - composer_margin_bottom)
 
-    local header_h = 120
+    local header_h = 126
     local scroll_top = header_h + 10
-    local scroll_h = math.max(180, composer_y - scroll_top - 2)
+    local scroll_h = math.max(180, composer_y - scroll_top - 4)
 
     if self.composer_container then
         self.composer_container:SetWndPos(vector2():set(0, composer_y))
@@ -529,17 +531,17 @@ function pda_private_tab:ReflowLayoutToContainer()
     local btn_w = 30
     local btn_gap = 4
 
-    if self.composer_quick_1_bg then self.composer_quick_1_bg:SetWndPos(vector2():set(2, 2)) end
-    if self.composer_quick_1_btn then self.composer_quick_1_btn:SetWndPos(vector2():set(2, 2)) end
+    if self.composer_quick_1_bg then self.composer_quick_1_bg:SetWndPos(vector2():set(6, 7)) end
+    if self.composer_quick_1_btn then self.composer_quick_1_btn:SetWndPos(vector2():set(6, 7)) end
 
-    local quick2_x = 2 + btn_w + btn_gap
-    if self.composer_quick_2_bg then self.composer_quick_2_bg:SetWndPos(vector2():set(quick2_x, 2)) end
-    if self.composer_quick_2_btn then self.composer_quick_2_btn:SetWndPos(vector2():set(quick2_x, 2)) end
+    local quick2_x = 6 + btn_w + btn_gap
+    if self.composer_quick_2_bg then self.composer_quick_2_bg:SetWndPos(vector2():set(quick2_x, 7)) end
+    if self.composer_quick_2_btn then self.composer_quick_2_btn:SetWndPos(vector2():set(quick2_x, 7)) end
 
     local send_w = 36
-    local send_x = math.max(quick2_x + btn_w + btn_gap + 4, desc_w - send_w - 22)
-    if self.composer_send_bg then self.composer_send_bg:SetWndPos(vector2():set(send_x, 2)) end
-    if self.composer_send_btn then self.composer_send_btn:SetWndPos(vector2():set(send_x, 2)) end
+    local send_x = math.max(quick2_x + btn_w + btn_gap + 4, desc_w - send_w - 10)
+    if self.composer_send_bg then self.composer_send_bg:SetWndPos(vector2():set(send_x, 7)) end
+    if self.composer_send_btn then self.composer_send_btn:SetWndPos(vector2():set(send_x, 7)) end
 
     local input_x = quick2_x + btn_w + btn_gap + 4
     local input_right_gap = 6
@@ -548,12 +550,12 @@ function pda_private_tab:ReflowLayoutToContainer()
     local input_shell_x = math.max(0, input_x)
     local input_shell_w = math.max(130, input_w)
     if self.composer_input_shell then
-        self.composer_input_shell:SetWndPos(vector2():set(input_shell_x, 4))
-        self.composer_input_shell:SetWndSize(vector2():set(input_shell_w, 26))
+        self.composer_input_shell:SetWndPos(vector2():set(input_shell_x, 7))
+        self.composer_input_shell:SetWndSize(vector2():set(input_shell_w, 30))
     end
     if self.composer_input_field then
-        self.composer_input_field:SetWndPos(vector2():set(input_shell_x + 12, 4))
-        self.composer_input_field:SetWndSize(vector2():set(math.max(110, input_shell_w - 20), 26))
+        self.composer_input_field:SetWndPos(vector2():set(input_shell_x + 12, 7))
+        self.composer_input_field:SetWndSize(vector2():set(math.max(110, input_shell_w - 20), 30))
     end
 end
 
@@ -588,14 +590,14 @@ function pda_private_tab:IsButtonFlashActive(key)
 end
 
 function pda_private_tab:UpdateHoverButtonTints()
-    local neutral_small = GetARGB(255, 180, 180, 180)
-    local hover_red_small = GetARGB(255, 255, 25, 25)
-    local hover_blue_small = GetARGB(255, 30, 120, 255)
+    local neutral_small = GetARGB(255, 130, 150, 145)
+    local hover_red_small = GetARGB(255, 230, 84, 74)
+    local hover_blue_small = GetARGB(255, 92, 156, 180)
     local flash_small = GetARGB(255, 255, 255, 255)
 
-    local neutral_chip = GetARGB(235, 18, 30, 85)      -- dark blue
-    local hover_blue_chip = GetARGB(255, 40, 110, 255)  -- bright blue
-    local flash_blue_chip = GetARGB(255, 90, 170, 255)  -- flash bright blue
+    local neutral_chip = GetARGB(235, 32, 43, 48)
+    local hover_blue_chip = GetARGB(255, 58, 92, 104)
+    local flash_blue_chip = GetARGB(255, 98, 150, 170)
 
     -- Composer quick buttons (keep existing logic)
     if self.composer_quick_1_btn and self.composer_quick_1_bg then
@@ -1457,10 +1459,10 @@ function pda_private_tab:UpdateReplyTriggerVisual()
 
     local now = time_global()
     if self.reply_trigger_btn_hint_until > now then
-        self.composer_input_field:SetText("No reply options now")
+        self.composer_input_field:SetText("No replies queued")
         return
     end
-    self.composer_input_field:SetText("Choose a reply...")
+    self.composer_input_field:SetText("Choose reply...")
 end
 
 function pda_private_tab:GetActiveConvForSelected()
@@ -1612,7 +1614,7 @@ function pda_private_tab:EnsureChoiceButtonPool(required_count, chip_h)
         bg:SetWndSize(vector2():set(120, button_h))
         btn:SetWndSize(vector2():set(120, button_h))
         label:SetWndSize(vector2():set(120, button_h))
-        if bg.SetTextureColor then bg:SetTextureColor(GetARGB(235, 18, 30, 85)) end
+        if bg.SetTextureColor then bg:SetTextureColor(GetARGB(235, 32, 43, 48)) end
         -- Override the 3t-button's texture with our custom atlas at alpha=0 so
         -- the vanilla button frame art is never drawn over our bg static.
         apply_button_quad_style(btn)
@@ -1643,7 +1645,7 @@ function pda_private_tab:RefreshChoiceButtons()
         if choice and choice.btn and choice.bg then
             local is_active = choice.idx ~= nil
             local label = choice.text or ""
-            if is_active and choice.idx == self.selected_choice_idx then label = "[Selected] " .. label end
+            if is_active and choice.idx == self.selected_choice_idx then label = "> " .. label end
 
             local wrapped_label = wrap_plain_text(label, 54)
             local text_ctrl = choice.btn.TextControl and choice.btn:TextControl() or nil
@@ -1652,9 +1654,9 @@ function pda_private_tab:RefreshChoiceButtons()
                 if text_ctrl.SetTextColor then
                     local has_hint = tostring(label):find("%[[^%]]+%]") ~= nil
                     if has_hint then
-                        text_ctrl:SetTextColor(GetARGB(255, 255, 220, 80))
+                        text_ctrl:SetTextColor(GetARGB(255, 235, 204, 100))
                     else
-                        text_ctrl:SetTextColor(GetARGB(255, 225, 232, 238))
+                        text_ctrl:SetTextColor(GetARGB(255, 218, 228, 222))
                     end
                 end
                 if text_ctrl.AdjustHeightToText then text_ctrl:AdjustHeightToText() end
@@ -1827,13 +1829,20 @@ function pda_private_tab:Reset(target_contact_id)
         local contact_id = entry.contact_id or entry.contact_name or "Unknown"
         
         if not contacts[contact_id] then
-            contacts[contact_id] = { latest_text = tostring(entry.text or ""), timestamp = entry.timestamp, icon = (not entry.is_player) and entry.sender_icon or nil, message_count = 1, display_name = entry.contact_name or contact_id }
+            contacts[contact_id] = { latest_text = tostring(entry.text or ""), timestamp = entry.timestamp, icon = (not entry.is_player) and entry.sender_icon or nil, message_count = 1, display_name = entry.contact_name or contact_id, last_index = i }
             table.insert(contact_order, contact_id)
         else
             contacts[contact_id].message_count = contacts[contact_id].message_count + 1
+            contacts[contact_id].latest_text = tostring(entry.text or contacts[contact_id].latest_text or "")
+            contacts[contact_id].timestamp = entry.timestamp or contacts[contact_id].timestamp
+            contacts[contact_id].last_index = i
         end
         if entry.sender_icon and not entry.is_player then contacts[contact_id].icon = entry.sender_icon end
     end
+
+    table.sort(contact_order, function(a, b)
+        return (contacts[a].last_index or 0) > (contacts[b].last_index or 0)
+    end)
 
     for _, contact_id in ipairs(contact_order) do
         local data = contacts[contact_id]
@@ -1867,8 +1876,27 @@ function pda_private_tab:Reset(target_contact_id)
         self.npc_list:SetSelectedIndex(0)
         self:OnSelectNPC()
     else
-        self.empty_state:SetText("SELECT A CONTACT")
+        self.empty_state:SetText("NO THREAD SELECTED")
         self.empty_state:Show(true)
+    end
+end
+
+function pda_private_tab:RefreshContactRowStates(selected_contact_id)
+    if not self.npc_list or not self.npc_list.GetSize then return end
+    local selected = tostring(selected_contact_id or "")
+    for i = 0, self.npc_list:GetSize() - 1 do
+        local list_item = self.npc_list:GetItemByIndex(i)
+        if list_item then
+            local is_selected = tostring(list_item.contact_id or "") == selected
+            if list_item.row_bg and list_item.row_bg.SetTextureColor then
+                local tint = is_selected and GetARGB(215, 42, 55, 58) or GetARGB(145, 26, 31, 34)
+                if list_item.contact_id == "System" then tint = GetARGB(120, 28, 28, 28) end
+                list_item.row_bg:SetTextureColor(tint)
+            end
+            if list_item.str_name and list_item.str_name.SetTextColor then
+                list_item.str_name:SetTextColor(is_selected and GetARGB(255, 255, 218, 116) or GetARGB(255, 232, 198, 96))
+            end
+        end
     end
 end
 
@@ -1921,6 +1949,16 @@ function pda_private_tab:RefreshPlayerStatsPanel()
         return
     end
     self.player_stats_panel:Show(true)
+    if self.player_stats_panel_bg and self.player_stats_panel_bg.SetTextureColor then
+        self.player_stats_panel_bg:SetTextureColor(GetARGB(220, 18, 24, 26))
+    end
+    if self.player_stats_name then
+        local player_name = (db and db.actor and db.actor.character_name and db.actor:character_name()) or "Player"
+        self.player_stats_name:SetText(player_name)
+        if self.player_stats_name.SetTextColor then
+            self.player_stats_name:SetTextColor(GetARGB(255, 160, 185, 178))
+        end
+    end
 
     local function read(key)
         if conv_api and type(conv_api.get_dialogue_stat_breakdown) == "function" then
@@ -2025,6 +2063,7 @@ function pda_private_tab:OnSelectNPC()
     if not is_game_world_alive() then return end
     local item = self.npc_list:GetSelectedItem()
     if not item or item.contact_id == "System" then
+        self:RefreshContactRowStates(item and item.contact_id or nil)
         self.quick_menu_open = false
         self:HideQuickMenuButtons()
         self:HideStats()
@@ -2034,6 +2073,7 @@ function pda_private_tab:OnSelectNPC()
         return 
     end
 
+    self:RefreshContactRowStates(item.contact_id)
     local pre_refresh_metrics = self:GetScrollMetrics()
 
     self.empty_state:Show(false)
@@ -2101,8 +2141,8 @@ function pda_private_tab:OnSelectNPC()
     local function style_message_lane(lane_root, lane_bg, is_player_lane, row_idx)
         local odd_row = (row_idx % 2 == 1)
         local lane_color
-        if is_player_lane then lane_color = odd_row and GetARGB(190, 50, 78, 50) or GetARGB(165, 42, 66, 42)
-        else lane_color = odd_row and GetARGB(200, 58, 58, 58) or GetARGB(175, 48, 48, 48) end
+        if is_player_lane then lane_color = odd_row and GetARGB(218, 38, 68, 54) or GetARGB(198, 32, 58, 48)
+        else lane_color = odd_row and GetARGB(226, 42, 48, 49) or GetARGB(206, 35, 40, 42) end
         lane_bg:SetTextureColor(lane_color)
     end
 
@@ -2156,13 +2196,13 @@ function pda_private_tab:OnSelectNPC()
 	end
 
 	local lane_insets = {
-		left = 6,
-		right = 4,
-		scrollbar_gutter = 16,
+		left = 12,
+		right = 8,
+		scrollbar_gutter = 18,
 	}
 
-	local notification_icon_size = 18
-	local notification_icon_gap = 6
+	local notification_icon_size = 16
+	local notification_icon_gap = 7
 
 	local desc_w = (self.desc_box and self.desc_box.GetWidth and self.desc_box:GetWidth()) or 0
 	local lane_width = (self.scrollbar and self.scrollbar.GetWidth and self.scrollbar:GetWidth())
@@ -2174,7 +2214,7 @@ function pda_private_tab:OnSelectNPC()
 	local content_left = lane_insets.left
 	local right_inset = lane_insets.right + lane_insets.scrollbar_gutter
 	local content_right = lane_width - right_inset
-	local player_spawn_shift_x = 10
+	local player_spawn_shift_x = 8
 	local maxBubbleWidth = math.max(220, content_right - content_left)
 
     local row_idx = 0
@@ -2228,8 +2268,10 @@ function pda_private_tab:OnSelectNPC()
                 local attach_box_bg = CUIStatic()
                 attach_box_bg:SetWndPos(vector2():set(content_left + 10, attach_box_y))
                 attach_box_bg:SetWndSize(vector2():set(attach_box_w, attach_box_h))
+                if attach_box_bg.InitTexture then attach_box_bg:InitTexture("panda_private_attachment") end
+                if attach_box_bg.SetStretchTexture then attach_box_bg:SetStretchTexture(true) end
                 if attach_box_bg.SetTextureColor then
-                    attach_box_bg:SetTextureColor(GetARGB(130, 15, 35, 55))
+                    attach_box_bg:SetTextureColor(GetARGB(180, 22, 40, 44))
                 end
                 lane_root:AttachChild(attach_box_bg)
 
@@ -2406,8 +2448,10 @@ function pda_private_tab:OnSelectNPC()
                     local audio_bg = CUIStatic()
                     audio_bg:SetWndPos(vector2():set(row_x, row_y))
                     audio_bg:SetWndSize(vector2():set(row_w, row_h))
+                    if audio_bg.InitTexture then audio_bg:InitTexture("panda_private_attachment") end
+                    if audio_bg.SetStretchTexture then audio_bg:SetStretchTexture(true) end
                     if audio_bg.SetTextureColor then
-                        audio_bg:SetTextureColor(GetARGB(125, 18, 32, 42))
+                        audio_bg:SetTextureColor(GetARGB(175, 22, 40, 44))
                     end
                     lane_root:AttachChild(audio_bg)
 
@@ -2548,15 +2592,21 @@ function pvt_contact_entry:__init(contact_id, display_name, preview, timestamp, 
     self.display_name = display_name or contact_id
     self.contact_icon = icon
 
+    self.row_bg = self:AddIconField(1)
+    self.row_bg:InitTexture("panda_private_contact")
+    self.row_bg:SetStretchTexture(true)
+    self.row_bg:SetTextureColor(GetARGB(145, 26, 31, 34))
+    self.row_bg:SetWndRect(Frect():set(0, 1, 210, 58))
+
     self.img_icon = self:AddIconField(1)
     self.img_icon:InitTexture(icon)
     self.img_icon:SetStretchTexture(true)
-    self.img_icon:SetWndRect(Frect():set(5, 5, 45, 45))
+    self.img_icon:SetWndRect(Frect():set(7, 8, 42, 42))
 
     self.str_name = self:AddTextField(string.format("%s", self.display_name), 1)
-    self.str_name:SetWndRect(Frect():set(58, 5, 136, 18))
+    self.str_name:SetWndRect(Frect():set(58, 6, 116, 18))
     self.str_name:SetFont(GetFontLetterica18Russian())
-    self.str_name:SetTextColor(GetARGB(255, 255, 200, 50)) 
+    self.str_name:SetTextColor(GetARGB(255, 232, 198, 96))
     self.str_name:SetEllipsis(true)
 
     if contact_id ~= "System" then
@@ -2564,19 +2614,27 @@ function pvt_contact_entry:__init(contact_id, display_name, preview, timestamp, 
         self.online_icon:InitTexture(is_online and "ui_panda_on_icon" or "ui_panda_off_icon")
         self.online_icon:SetStretchTexture(true)
         self.online_icon:SetTextureColor(GetARGB(255, 255, 255, 255))
-        self.online_icon:SetWndRect(Frect():set(196, 5, 14, 14))
+        self.online_icon:SetWndRect(Frect():set(190, 8, 13, 13))
+    end
+
+    if message_count and message_count > 1 then
+        self.str_count = self:AddTextField(tostring(message_count), 1)
+        self.str_count:SetWndRect(Frect():set(176, 31, 28, 14))
+        self.str_count:SetFont(GetFontLetterica16Russian())
+        self.str_count:SetTextColor(GetARGB(255, 135, 190, 178))
+        self.str_count:SetEllipsis(true)
     end
     
     self.str_time = self:AddTextField(timestamp or "", 1)
-    self.str_time:SetWndRect(Frect():set(58, 22, 160, 14))
+    self.str_time:SetWndRect(Frect():set(58, 24, 118, 14))
     self.str_time:SetFont(GetFontLetterica16Russian())
-    self.str_time:SetTextColor(GetARGB(255, 120, 120, 120))
+    self.str_time:SetTextColor(GetARGB(255, 122, 139, 136))
     self.str_time:SetEllipsis(true)
 
     self.str_msg = self:AddTextField(preview, 1)
-    self.str_msg:SetWndRect(Frect():set(58, 36, 160, 14)) 
+    self.str_msg:SetWndRect(Frect():set(58, 40, 118, 14))
     self.str_msg:SetFont(GetFontLetterica16Russian())
-    self.str_msg:SetTextColor(GetARGB(255, 150, 150, 150))
+    self.str_msg:SetTextColor(GetARGB(255, 166, 174, 168))
     self.str_msg:SetEllipsis(true)
 end
 

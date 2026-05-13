@@ -404,20 +404,36 @@ export function buildStoryRecipe(project: Project, options: StoryRecipeBuildOpti
 
 export function buildStoryFromDraft(project: Project, input: StoryWizardDraft): StoryGenerationResult {
   const draft = normalizeStoryDraft(project, input);
+  const storylineId = makeUniqueSlug(
+    slugifyDraftId(draft.title || recipeTitle(draft.recipeId)),
+    collectExistingStorylineIds(project),
+  );
+  const autonameCustomNpcId = shouldAutonameCustomNpcId(input);
+  const autonameCustomNpcName = shouldAutonameCustomNpcName(input);
+  const finalDraft: StoryWizardDraft = {
+    ...draft,
+    customNpcTemplateId: makeUniqueSlug(
+      autonameCustomNpcId ? `${storylineId}_informant` : draft.customNpcTemplateId,
+      collectExistingNpcTemplateIds(project),
+    ),
+    customNpcName: autonameCustomNpcName ? `${humanizeStoryTitle(draft.title || recipeTitle(draft.recipeId))} Contact` : draft.customNpcName,
+    infoId: draft.infoId === DEFAULT_STORY_DRAFT.infoId ? `${storylineId}_info` : draft.infoId,
+  };
   const startPattern = normalizeStartPatternForDraft(draft);
   const conversation = createConversation(project);
-  conversation.label = draft.title || recipeTitle(draft.recipeId);
-  conversation.faction = draft.faction;
-  conversation.preconditions = createDraftTargetRules(draft);
-  addDraftStartRules(conversation, draft);
+  conversation.label = finalDraft.title || recipeTitle(finalDraft.recipeId);
+  conversation.storyline_id = storylineId;
+  conversation.faction = finalDraft.faction;
+  conversation.preconditions = createDraftTargetRules(finalDraft);
+  addDraftStartRules(conversation, finalDraft);
   conversation.startMode = startPattern === 'f2f' || startPattern === 'f2f_to_pda' ? 'f2f' : 'pda';
   conversation.initialChannel = conversation.startMode;
   conversation.turns = createStartTurns(startPattern);
 
-  applyDraftContent(conversation, draft);
+  applyDraftContent(conversation, finalDraft);
 
-  const npcTemplates = draft.speakerTarget === 'custom_npc' || draft.recipeId === 'custom_npc_encounter'
-    ? [createDraftNpcTemplate(draft)]
+  const npcTemplates = finalDraft.speakerTarget === 'custom_npc' || finalDraft.recipeId === 'custom_npc_encounter'
+    ? [createDraftNpcTemplate(finalDraft)]
     : undefined;
 
   return {
@@ -467,6 +483,54 @@ function nonNegativeString(value: string, fallback: string): string {
 
 function slugifyDraftId(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 48) || 'informant';
+}
+
+function collectExistingStorylineIds(project: Project): Set<string> {
+  return new Set(
+    project.conversations
+      .map((conversation) => (conversation.storyline_id || '').trim())
+      .filter((id) => id.length > 0),
+  );
+}
+
+function collectExistingNpcTemplateIds(project: Project): Set<string> {
+  return new Set(
+    (project.npcTemplates ?? [])
+      .map((template) => template.id.trim())
+      .filter((id) => id.length > 0),
+  );
+}
+
+function makeUniqueSlug(baseSlug: string, existing: Set<string>): string {
+  const normalized = slugifyDraftId(baseSlug);
+  if (!existing.has(normalized)) return normalized;
+
+  let suffix = 2;
+  while (existing.has(`${normalized}_${suffix}`)) {
+    suffix += 1;
+  }
+  return `${normalized}_${suffix}`;
+}
+
+function shouldAutonameCustomNpcId(input: StoryWizardDraft): boolean {
+  const rawId = (input.customNpcTemplateId || '').trim();
+  return rawId === ''
+    || rawId === DEFAULT_STORY_DRAFT.customNpcTemplateId;
+}
+
+function shouldAutonameCustomNpcName(input: StoryWizardDraft): boolean {
+  const rawName = (input.customNpcName || '').trim();
+  return rawName === ''
+    || rawName === DEFAULT_STORY_DRAFT.customNpcName;
+}
+
+function humanizeStoryTitle(value: string): string {
+  return value
+    .trim()
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+    || 'Story';
 }
 
 function normalizeStartPatternForDraft(draft: StoryWizardDraft): StoryStartPattern {
