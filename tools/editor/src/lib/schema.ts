@@ -202,6 +202,7 @@ const PDA_TIP_SENDER_OPTIONS: ParamOption[] = [
   { value: 'custom', label: 'Custom NPC template', keywords: ['custom', 'template'] },
   { value: 'story', label: 'Story NPC', keywords: ['story', 'named npc'] },
   { value: 'faction', label: 'Random online faction NPC', keywords: ['faction', 'random'] },
+  { value: 'title', label: 'Custom title', keywords: ['title', 'custom sender name'] },
 ];
 
 const ESCORT_TARGET_OPTIONS: ParamOption[] = [
@@ -1548,8 +1549,8 @@ export const OUTCOME_SCHEMAS: CommandSchema[] = [
       { name: 'delay', type: 'number', required: false, label: 'Delay (s)', min: 0, placeholder: '0' },
       { name: 'sender_mode', type: 'string', required: false, label: 'Sender Mode', placeholder: 'system',
         editor: { kind: 'static_select', options: PDA_TIP_SENDER_OPTIONS, emptyLabel: 'System message' } },
-      { name: 'sender_ref', type: 'string', required: false, label: 'Sender Value', placeholder: 'story id, template id, faction, or custom name',
-        helpText: 'Used by story/custom/faction modes. System and unknown modes ignore this.' },
+      { name: 'sender_ref', type: 'string', required: false, label: 'Sender Value', placeholder: 'story id, template id, faction, or custom title',
+        helpText: 'Used by Story NPC, Custom NPC, Random faction sim NPC, and Custom title modes. System/current/unknown modes ignore this.' },
     ],
   },
   // Items (expanded)

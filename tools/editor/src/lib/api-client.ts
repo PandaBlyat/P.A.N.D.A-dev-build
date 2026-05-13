@@ -72,6 +72,7 @@ export type CommunityConversation = {
   upvotes?: number;
   created_at: string;
   updated_at?: string;
+  content_updated_at?: string;
   /** Single-conversation project snapshot: { version, faction, conversations: [conv] } */
   data: CommunityConversationData;
 };
@@ -99,7 +100,7 @@ export type PublishCollectionPayload = {
   story_ids: string[];
 };
 
-export type PublishPayload = Omit<CommunityConversation, 'id' | 'downloads' | 'upvotes' | 'created_at' | 'updated_at'> & {
+export type PublishPayload = Omit<CommunityConversation, 'id' | 'downloads' | 'upvotes' | 'created_at' | 'updated_at' | 'content_updated_at'> & {
   publisher_id?: string;
   replace_id?: string;
   collab_session_id?: string;
@@ -245,7 +246,7 @@ const LOCAL_PUBLISH_KEY = 'panda-community-last-publish-at';
 const LOCAL_PUBLISHER_ID_KEY = 'panda-community-publisher-id';
 const LOCAL_AUTH_TOKEN_KEY = 'panda-community-auth-token';
 const COMMUNITY_REQUIRED_COLUMNS = ['id', 'faction', 'label', 'description', 'author', 'data', 'downloads', 'created_at'] as const;
-const COMMUNITY_OPTIONAL_COLUMNS = ['summary', 'tags', 'branch_count', 'complexity', 'library_section', 'upvotes', 'updated_at', 'publisher_id', 'co_authors', 'co_author_usernames'] as const;
+const COMMUNITY_OPTIONAL_COLUMNS = ['summary', 'tags', 'branch_count', 'complexity', 'library_section', 'upvotes', 'updated_at', 'content_updated_at', 'publisher_id', 'co_authors', 'co_author_usernames'] as const;
 const COLLECTION_REQUIRED_COLUMNS = ['id', 'title', 'description', 'author', 'story_ids', 'downloads', 'upvotes', 'created_at'] as const;
 const COLLECTION_OPTIONAL_COLUMNS = ['updated_at', 'publisher_id', 'faction'] as const;
 
@@ -503,6 +504,7 @@ function normalizeConversationRow(row: Partial<CommunityConversation>): Communit
     upvotes: typeof row.upvotes === 'number' ? row.upvotes : 0,
     created_at: typeof row.created_at === 'string' ? row.created_at : new Date(0).toISOString(),
     updated_at: typeof row.updated_at === 'string' ? row.updated_at : typeof row.created_at === 'string' ? row.created_at : new Date(0).toISOString(),
+    content_updated_at: typeof row.content_updated_at === 'string' ? row.content_updated_at : typeof row.created_at === 'string' ? row.created_at : new Date(0).toISOString(),
     data: normalizeCommunityConversationData(row.data),
   };
 }
@@ -749,7 +751,7 @@ export async function fetchConversationById(id: string): Promise<CommunityConver
 export async function fetchConversations(faction?: FactionId): Promise<CommunityConversation[]> {
   const params = new URLSearchParams({
     select: [...COMMUNITY_REQUIRED_COLUMNS, ...COMMUNITY_OPTIONAL_COLUMNS].join(','),
-    order: 'updated_at.desc',
+    order: 'content_updated_at.desc.nullslast,created_at.desc',
   });
   if (faction) params.set('faction', `eq.${faction}`);
 
@@ -921,6 +923,7 @@ export async function publishConversation(payload: PublishPayload): Promise<Publ
     publisher_id: payload.publisher_id?.trim() || getPublisherId(),
     tagged_usernames: taggedUsernames,
     choice_xp: choiceXp,
+    content_updated_at: new Date().toISOString(),
     data: publishData,
   };
 
@@ -1004,6 +1007,8 @@ export async function publishConversation(payload: PublishPayload): Promise<Publ
         tags: replacePayload.tags,
         branch_count: replacePayload.branch_count,
         complexity: replacePayload.complexity,
+        library_section: replacePayload.library_section,
+        content_updated_at: new Date().toISOString(),
         data: replacePayload.data,
         author: replacePayload.author,
       };
@@ -1022,9 +1027,10 @@ export async function publishConversation(payload: PublishPayload): Promise<Publ
           || isMissingSchemaColumnError(errorMessage, 'summary')
           || isMissingSchemaColumnError(errorMessage, 'tags')
           || isMissingSchemaColumnError(errorMessage, 'library_section')
+          || isMissingSchemaColumnError(errorMessage, 'content_updated_at')
           || isCommunitySchemaMismatchError(errorMessage)
         ) {
-          const { summary: _s, tags: _t, branch_count: _b, complexity: _c, library_section: _l, ...fallbackBody } = updateBody;
+          const { summary: _s, tags: _t, branch_count: _b, complexity: _c, library_section: _l, content_updated_at: _cu, ...fallbackBody } = updateBody;
           res = await fetch(`${sbEndpoint(TABLE)}?id=eq.${encodeURIComponent(replaceId)}`, {
             method: 'PATCH',
             headers,
@@ -1117,6 +1123,7 @@ export async function publishConversation(payload: PublishPayload): Promise<Publ
         || isMissingSchemaColumnError(errorMessage, 'co_authors')
         || isMissingSchemaColumnError(errorMessage, 'co_author_usernames')
         || isMissingSchemaColumnError(errorMessage, 'library_section')
+        || isMissingSchemaColumnError(errorMessage, 'content_updated_at')
         || isMissingSchemaColumnError(errorMessage, 'tagged_usernames')
         || isMissingSchemaColumnError(errorMessage, 'choice_xp')
         || isMissingSchemaColumnError(errorMessage, 'collab_session_id')
@@ -1131,6 +1138,7 @@ export async function publishConversation(payload: PublishPayload): Promise<Publ
           co_authors: _coAuthors,
           co_author_usernames: _coAuthorUsernames,
           library_section: _librarySection,
+          content_updated_at: _contentUpdatedAt,
           tagged_usernames: _taggedUsernames,
           choice_xp: _choiceXp,
           ...fallbackBody
@@ -2302,8 +2310,8 @@ export async function fetchAuthoredCommunityConversations(publisherId: string): 
         deduped.set(row.id, row);
       }
       return Array.from(deduped.values()).sort((left, right) => {
-        const leftTime = Date.parse(left.updated_at ?? left.created_at);
-        const rightTime = Date.parse(right.updated_at ?? right.created_at);
+        const leftTime = Date.parse(left.content_updated_at ?? left.created_at);
+        const rightTime = Date.parse(right.content_updated_at ?? right.created_at);
         return rightTime - leftTime;
       });
     } catch {

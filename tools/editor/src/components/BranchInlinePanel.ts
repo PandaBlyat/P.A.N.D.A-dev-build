@@ -97,6 +97,7 @@ export function renderBranchInlinePanel(options: {
   panel.onwheel = (event) => event.stopPropagation();
 
   panel.appendChild(renderHeader(conv, turn, choice, safeMode, turnLabels, onClose, panel));
+  panel.appendChild(renderBranchSummary(conv, turn, choice, safeMode, turnLabels));
   const workspace = document.createElement('div');
   workspace.className = 'branch-inline-workspace';
   workspace.appendChild(renderSidebar(conv, turn, choice, safeMode));
@@ -169,6 +170,45 @@ function renderHeader(
   return header;
 }
 
+function renderBranchSummary(
+  conv: Conversation,
+  turn: Turn,
+  choice: Choice | null,
+  mode: BranchInlinePanelMode,
+  turnLabels: TurnLabels,
+): HTMLElement {
+  const ui = getUiText();
+  const summary = document.createElement('div');
+  summary.className = 'branch-inline-summary';
+
+  const scope = document.createElement('strong');
+  scope.textContent = choice ? ui(`Choice ${choice.index}`, `Выбор ${choice.index}`) : ui('Opener', 'Открытие');
+  summary.appendChild(scope);
+
+  const pills = [
+    modeLabel(mode, choice),
+    turnLabels.getLongLabel(turn.turnNumber),
+    `${choice ? (choice.preconditions?.length ?? 0) : turn.preconditions.length} ${ui('rules', 'правил')}`,
+  ];
+  if (choice) {
+    pills.push(`${choice.outcomes.length} ${ui('outcomes', 'результатов')}`);
+    pills.push(choice.continueTo ? `${ui('continues to', 'продолжает к')} ${turnLabels.getLongLabel(choice.continueTo)}` : ui('ends here', 'заканчивается здесь'));
+  } else {
+    pills.push(`${turn.choices.length} ${ui('choices', 'выборов')}`);
+    if (conv.storyline_id) {
+      pills.push(`${ui('storyline', 'сюжет')}: ${conv.storyline_id}`);
+    }
+  }
+
+  for (const text of pills) {
+    const pill = document.createElement('span');
+    pill.textContent = text;
+    summary.appendChild(pill);
+  }
+
+  return summary;
+}
+
 function renderSidebar(conv: Conversation, turn: Turn, choice: Choice | null, mode: BranchInlinePanelMode): HTMLElement {
   const ui = getUiText();
   const sidebar = document.createElement('nav');
@@ -178,14 +218,14 @@ function renderSidebar(conv: Conversation, turn: Turn, choice: Choice | null, mo
   const tabs: Array<{ mode: BranchInlinePanelMode; label: string; count?: number }> = choice
     ? [
       { mode: 'dialogue', label: ui('Dialogue', 'Диалог') },
-      { mode: 'preconditions', label: ui('Preconditions', 'Предусловия'), count: choice.preconditions?.length ?? 0 },
+      { mode: 'preconditions', label: ui('Rules', 'Правила'), count: choice.preconditions?.length ?? 0 },
       { mode: 'outcomes', label: ui('Outcomes', 'Результаты'), count: choice.outcomes.length },
-      { mode: 'skillCheck', label: ui('Skill Check', 'Проверка навыка'), count: checkCount },
+      { mode: 'skillCheck', label: ui('Checks', 'Проверки'), count: checkCount },
       { mode: 'continuation', label: ui('Continuation', 'Продолжение') },
     ]
     : [
       { mode: 'dialogue', label: ui('Dialogue', 'Диалог') },
-      { mode: 'preconditions', label: ui('Preconditions', 'Предусловия'), count: turn.preconditions.length },
+      { mode: 'preconditions', label: ui('Rules', 'Правила'), count: turn.preconditions.length },
     ];
 
   for (const tabInfo of tabs) {
@@ -2183,16 +2223,16 @@ function formatPreconditionLabel(entry: PreconditionEntry): string {
 
 function modeLabel(mode: BranchInlinePanelMode, choice: Choice | null): string {
   const ui = getUiText();
-  if (mode === 'preconditions') return ui('Preconditions', 'Предусловия');
+  if (mode === 'preconditions') return ui('Rules', 'Правила');
   if (mode === 'outcomes') return ui('Outcomes', 'Результаты');
   if (mode === 'continuation') return ui('Continuation', 'Продолжение');
-  if (mode === 'skillCheck') return ui('Skill Check', 'Проверка навыка');
+  if (mode === 'skillCheck') return ui('Checks', 'Проверки');
   return ui(choice ? 'Dialogue Text' : 'Dialogue', choice ? 'Текст диалога' : 'Диалог');
 }
 
 function stepMatchesMode(label: string, mode: BranchInlinePanelMode): boolean {
   if (label === 'Dialogue Text') return mode === 'dialogue';
-  if (label === 'Preconditions') return mode === 'preconditions';
+  if (label === 'Preconditions' || label === 'Rules') return mode === 'preconditions';
   if (label === 'Outcomes') return mode === 'outcomes';
   if (label === 'Continuation') return mode === 'continuation';
   return false;

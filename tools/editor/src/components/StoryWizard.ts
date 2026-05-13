@@ -192,13 +192,14 @@ function renderBody(draft: StoryWizardDraft, setDraft: (patch: Partial<StoryWiza
   form.className = 'story-forge-simple-form';
   form.append(
     renderFactionPicker(draft.faction, (faction) => setDraft({ faction })),
-    renderTextField('Title', draft.title, 'Supply run, missing courier, old debt...', (title) => setDraft({ title })),
-    renderSelectField('Start', STORY_START_OPTIONS
+    renderTextField('Story title *', draft.title, 'Missing courier, old debt, supply run...', (title) => setDraft({ title })),
+    !draft.title.trim() ? renderFieldHint('Name story before creating it. Keep it short; editor can rename it later.', true) : renderFieldHint('Short, specific title works best in flow view and Community Library.'),
+    renderSelectField('How it starts', STORY_START_OPTIONS
       .filter((option) => option.id === 'pda' || option.id === 'f2f')
       .map(option => [option.id, option.title]), draft.startPattern, (startPattern) => {
         setDraft({ startPattern: startPattern as StoryWizardDraft['startPattern'] });
       }),
-    renderSelectField('Speaker', STORY_TARGET_OPTIONS.map(option => [option.id, option.title]), draft.speakerTarget, (speakerTarget) => {
+    renderSelectField('Who starts it', STORY_TARGET_OPTIONS.map(option => [option.id, option.title]), draft.speakerTarget, (speakerTarget) => {
       const nextSpeakerTarget = speakerTarget as StorySpeakerTarget;
       autoOpenSpeakerPicker = nextSpeakerTarget === 'named_npc' || nextSpeakerTarget === 'custom_npc';
       setDraft({ speakerTarget: nextSpeakerTarget });
@@ -212,10 +213,17 @@ function renderBody(draft: StoryWizardDraft, setDraft: (patch: Partial<StoryWiza
   const recipe = STORY_RECIPES.find(item => item.id === draft.recipeId);
   const recipeGroup = recipe?.group ?? STORY_RECIPE_GROUP_ORDER[0];
   const speaker = STORY_TARGET_OPTIONS.find(item => item.id === draft.speakerTarget);
+  const speakerDetail = draft.speakerTarget === 'named_npc'
+    ? draft.storyNpcId
+    : draft.speakerTarget === 'custom_npc'
+      ? `${draft.customNpcTemplateId || 'custom_npc'} @ ${draft.customNpcSmartTerrain || 'spawn point'}`
+      : speaker?.title ?? draft.speakerTarget;
   preview.append(
+    renderPreviewRow('Title', draft.title.trim() || 'Needs title'),
     renderPreviewRow('Faction', FACTION_DISPLAY_NAMES[draft.faction]),
     renderPreviewRow('Start', draft.startPattern === 'f2f' ? 'Face-to-face talk' : 'PDA message'),
     renderPreviewRow('Speaker', speaker?.title ?? draft.speakerTarget),
+    renderPreviewRow('NPC', speakerDetail),
     renderPreviewRow('Goal', recipeGroup),
     renderPreviewRow('Flow', recipe?.description ?? recipe?.title ?? draft.recipeId),
   );
@@ -238,6 +246,10 @@ function renderFooter(draft: StoryWizardDraft): HTMLElement {
   create.type = 'button';
   create.className = 'btn-sm btn-primary story-forge-primary';
   setButtonContent(create, 'add', t('storyWizard.action.create'));
+  create.disabled = draft.title.trim() === '';
+  if (create.disabled) {
+    create.title = t('storyWizard.action.create.disabledTitle');
+  }
   create.onclick = () => createGeneratedStory(draft);
 
   footer.append(cancel, create);
@@ -279,6 +291,13 @@ function renderTextField(labelText: string, value: string, placeholder: string, 
   input.onchange = () => onChange(input.value.trim());
   label.append(span, input);
   return label;
+}
+
+function renderFieldHint(text: string, warning = false): HTMLElement {
+  const hint = document.createElement('div');
+  hint.className = `story-forge-field-hint${warning ? ' is-warning' : ''}`;
+  hint.textContent = text;
+  return hint;
 }
 
 function renderSelectField(labelText: string, options: Array<[string, string]>, value: string, onChange: (value: string) => void): HTMLElement {

@@ -647,6 +647,13 @@ export function importXml(xmlText: string): { project: Project; systemStrings: M
         conv.label = labelFromNamespace(namespace, nextConversationId);
       }
     }
+    const npcRefs = strings.get(`${prefix}_npc_refs`)?.trim();
+    if (npcRefs) {
+      conv.npc_refs = npcRefs
+        .split(',')
+        .map((ref) => ref.trim())
+        .filter((ref) => /^(story|custom):[^,\s]+$/.test(ref));
+    }
 
     // Timeout
     const timeoutStr = strings.get(`${prefix}_timeout`);

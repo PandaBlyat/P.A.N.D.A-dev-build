@@ -1146,6 +1146,10 @@ _panda_ic_runtime = _panda_ic_runtime or {
     pending_job_params = nil,
 }
 local has_values
+local normalize_npc_ref
+local normalize_npc_refs
+local get_conversation_npc_refs
+local npc_refs_overlap
 
 local function normalize_smart_name_from_ref(location_ref)
     if not location_ref or location_ref == "" then
@@ -1688,6 +1692,7 @@ function create_pending_job(contact_id, npc_id, npc_name, faction, squad_ids, ti
         conv_icon = conv and conv.npc_icon or FALLBACK_NPC_ICON,
         channel = conv and conv.channel or "pda",
         applied_outcomes = conv and conv.applied_outcomes or {},
+        npc_refs = conv and conv.npc_refs or nil,
         resume_npc_id = conv and conv.pending_resume_npc_id or nil,
         resume_npc_faction_filters = (conv and conv.pending_resume_allow_generic_stalker == true and has_values(conv.pending_resume_npc_faction_filters))
             and conv.pending_resume_npc_faction_filters or nil,
@@ -2239,6 +2244,7 @@ local function job_resume_conversation(job, turn, is_success)
             pending_in_person_token = handoff_token,
             pending_in_person_story_id = handoff_identity.story_id,
             pending_in_person_canonical_id = handoff_identity.canonical_id,
+            npc_refs = normalize_npc_refs(job.npc_refs),
         }
 
         active_conversations[resume_contact_id] = conv_data
@@ -2260,6 +2266,7 @@ local function job_resume_conversation(job, turn, is_success)
             story_id = handoff_identity.story_id,
             canonical_id = handoff_identity.canonical_id,
             fallback_name = handoff_identity.fallback_name,
+            npc_refs = normalize_npc_refs(job.npc_refs),
             applied_outcomes = job.applied_outcomes or {},
             route_owner = nil,
             route_dialog = handoff_dialog,
@@ -2329,6 +2336,7 @@ local function job_resume_conversation(job, turn, is_success)
         started_at = time_global(),
         reply_pending = false,
         channel = job.channel or "pda",
+        npc_refs = normalize_npc_refs(job.npc_refs),
     }
 
     if resume_contact_id ~= cid then
@@ -2725,6 +2733,7 @@ local function queue_pda_followup_internal(raw_entry)
         story_id = raw_entry.story_id,
         canonical_id = raw_entry.canonical_id,
         fallback_name = raw_entry.fallback_name,
+        npc_refs = normalize_npc_refs(raw_entry.npc_refs),
         applied_outcomes = clone_plain_table(raw_entry.applied_outcomes) or {},
     }
 
@@ -2821,6 +2830,7 @@ local function activate_pending_pda_followup(entry)
         story_id = entry.story_id,
         canonical_id = entry.canonical_id,
         fallback_name = entry.fallback_name,
+        npc_refs = normalize_npc_refs(entry.npc_refs),
         channel = "pda",
     }
 
@@ -2935,6 +2945,7 @@ local function queue_panda_task_pda_followup(record, turn)
         story_id = identity.story_id,
         canonical_id = identity.canonical_id,
         fallback_name = identity.fallback_name,
+        npc_refs = normalize_npc_refs(record.npc_refs),
         applied_outcomes = clone_plain_table(record.applied_outcomes) or {},
     })
     if ok then
@@ -3013,6 +3024,7 @@ local function queue_panda_task_f2f_followup(record, turn)
         story_id = handoff_identity.story_id,
         canonical_id = handoff_identity.canonical_id,
         fallback_name = handoff_identity.fallback_name,
+        npc_refs = normalize_npc_refs(record.npc_refs),
         applied_outcomes = clone_plain_table(record.applied_outcomes) or {},
         route_owner = nil,
         route_dialog = handoff_dialog,
@@ -4853,6 +4865,70 @@ local function get_conversation_storyline_id(prefix, faction, conv_id)
     raw = tostring(raw):gsub("^%s+", ""):gsub("%s+$", "")
     if raw == "" then return nil end
     return raw
+end
+
+normalize_npc_ref = function(value)
+    if value == nil then return nil end
+    local ref = tostring(value):lower():gsub("^%s+", ""):gsub("%s+$", "")
+    if ref == "" then return nil end
+    local kind, id = ref:match("^(story):([^,%s]+)$")
+    if not kind then
+        kind, id = ref:match("^(custom):([^,%s]+)$")
+    end
+    if not kind or not id or id == "" then return nil end
+    return kind .. ":" .. id
+end
+
+normalize_npc_refs = function(refs)
+    local out = {}
+    local seen = {}
+    if type(refs) == "string" then
+        for raw in tostring(refs):gmatch("([^,]+)") do
+            local ref = normalize_npc_ref(raw)
+            if ref and not seen[ref] then
+                out[#out + 1] = ref
+                seen[ref] = true
+            end
+        end
+    elseif type(refs) == "table" then
+        for _, raw in pairs(refs) do
+            local ref = normalize_npc_ref(raw)
+            if ref and not seen[ref] then
+                out[#out + 1] = ref
+                seen[ref] = true
+            end
+        end
+    end
+    return out
+end
+
+get_conversation_npc_refs = function(prefix, faction, conv_id)
+    if not (faction and conv_id) then return {} end
+    local base
+    if prefix == "task" or not prefix then
+        base = "st_pda_ic_" .. tostring(faction) .. "_" .. tostring(conv_id)
+    else
+        base = "st_pda_ic_" .. tostring(prefix) .. "_" .. tostring(faction) .. "_" .. tostring(conv_id)
+    end
+    return normalize_npc_refs(read_trimmed_string_key(base .. "_npc_refs"))
+end
+
+npc_refs_overlap = function(left_refs, right_refs)
+    if type(left_refs) ~= "table" or type(right_refs) ~= "table" then
+        return false, nil
+    end
+    local right = {}
+    for _, raw in pairs(right_refs) do
+        local ref = normalize_npc_ref(raw)
+        if ref then right[ref] = true end
+    end
+    for _, raw in pairs(left_refs) do
+        local ref = normalize_npc_ref(raw)
+        if ref and right[ref] then
+            return true, ref
+        end
+    end
+    return false, nil
 end
 
 local function is_conversation_repeatable(prefix, faction, conv_id)
@@ -6861,6 +6937,7 @@ function on_player_choice(idx, contact_id)
                                 delay_seconds = ch.pda_delay_seconds or 0,
                                 story_id      = ch.next_npc_id or tostring(new_npc_id),
                                 canonical_id  = ch.next_npc_id and ch.next_npc_id:lower() or tostring(new_npc_id),
+                                npc_refs      = c.npc_refs,
                                 task_id       = c.task_id,
                                 category      = c.category,
                                 applied_outcomes = clone_plain_table(c.applied_outcomes) or {},
@@ -6889,6 +6966,7 @@ function on_player_choice(idx, contact_id)
                                 story_id      = c.story_id,
                                 canonical_id  = c.canonical_id,
                                 fallback_name = c.fallback_name,
+                                npc_refs      = c.npc_refs,
                                 task_id       = c.task_id,
                                 category      = c.category,
                                 applied_outcomes = clone_plain_table(c.applied_outcomes) or {},
@@ -7022,6 +7100,7 @@ function on_player_choice(idx, contact_id)
                             story_id = handoff_identity.story_id,
                             canonical_id = handoff_identity.canonical_id,
                             fallback_name = handoff_identity.fallback_name,
+                            npc_refs = c.npc_refs,
                             task_id = c.task_id,
                             category = c.category,
                             applied_outcomes = clone_plain_table(c.applied_outcomes) or {},
@@ -7422,6 +7501,7 @@ local function normalize_pending_f2f_candidate(raw_handoff, source, match_mode)
         story_id = raw_handoff.story_id,
         canonical_id = raw_handoff.canonical_id,
         fallback_name = raw_handoff.fallback_name,
+        npc_refs = normalize_npc_refs(raw_handoff.npc_refs),
         route_owner = raw_handoff.route_owner,
         route_dialog = raw_handoff.route_dialog,
         route_status = raw_handoff.route_status,
@@ -7535,6 +7615,7 @@ register_pending_f2f_handoff = function(contact_id, handoff_row)
     end
 
     handoff_row.contact_id = contact_key
+    handoff_row.npc_refs = normalize_npc_refs(handoff_row.npc_refs)
     pda_f2f_handoffs[contact_key] = handoff_row
     sync_pda_f2f_handoff_globals()
     return true
@@ -7638,6 +7719,7 @@ local function get_pending_f2f_handoff_internal(npc_id)
                 story_id = conv.pending_in_person_story_id or conv.story_id,
                 canonical_id = conv.pending_in_person_canonical_id or conv.canonical_id,
                 fallback_name = conv.fallback_name,
+                npc_refs = conv.npc_refs,
                 route_dialog = pending_dialog,
             }
             push_candidate("active_conversations", raw_conv_handoff, get_match_mode(raw_conv_handoff), contact_id)
@@ -8052,9 +8134,14 @@ is_conversation_identity_in_use = function(npc_se, options)
         identity = {}
     end
     identity.npc_id = tonumber(options.npc_id or identity.npc_id or (npc_se and npc_se.id)) or identity.npc_id
+    identity.npc_refs = normalize_npc_refs(options.npc_refs or identity.npc_refs)
 
     for contact_key, conv in pairs(active_conversations or {}) do
         if type(conv) == "table" then
+            local refs_matched, ref = npc_refs_overlap(identity.npc_refs, conv.npc_refs)
+            if refs_matched then
+                return true, "active_conversation:npc_ref:" .. tostring(ref), tostring(contact_key)
+            end
             local matched, reason = identities_overlap(
                 identity,
                 conv.npc_id,
@@ -8074,6 +8161,10 @@ is_conversation_identity_in_use = function(npc_se, options)
                 actionable = is_handoff_actionable(handoff, time_global and time_global() or nil)
             end
             if actionable then
+                local refs_matched, ref = npc_refs_overlap(identity.npc_refs, handoff.npc_refs)
+                if refs_matched then
+                    return true, "pending_handoff:npc_ref:" .. tostring(ref), tostring(handoff.contact_id or key)
+                end
                 local matched, reason = identities_overlap(
                     identity,
                     handoff.npc_id,
@@ -8091,6 +8182,10 @@ is_conversation_identity_in_use = function(npc_se, options)
         if type(pending) == "table" then
             local contact_key = tostring(pending.contact_id or key)
             if not is_contact_blocked(contact_key) then
+                local refs_matched, ref = npc_refs_overlap(identity.npc_refs, pending.npc_refs)
+                if refs_matched then
+                    return true, "pending_pda_followup:npc_ref:" .. tostring(ref), contact_key
+                end
                 local matched, reason = identities_overlap(
                     identity,
                     pending.npc_id,
@@ -8206,6 +8301,8 @@ function start_interactive_conv(npc_se, conv_id, prefix, faction, task_id, categ
     local name = npc_se:character_name()
     local contact_id = make_contact_id(npc_se)
     local identity = build_f2f_handoff_identity(npc_se)
+    local npc_refs = get_conversation_npc_refs(prefix, faction, conv_id)
+    identity.npc_refs = npc_refs
 
     if is_contact_blocked(contact_id) then
         return false
@@ -8278,6 +8375,7 @@ function start_interactive_conv(npc_se, conv_id, prefix, faction, task_id, categ
         story_id = identity.story_id,
         canonical_id = identity.canonical_id,
         fallback_name = identity.fallback_name,
+        npc_refs = npc_refs,
     }
 
     -- Store in multi-conversation table keyed by contact_id
@@ -8372,6 +8470,7 @@ local function collect_story_npc_conversations(xml_fac, prefix)
         if story_id or custom_tpl_id then
             local npc_se = nil
             local target_desc = nil
+            local npc_refs = get_conversation_npc_refs(prefix, xml_fac, cid)
             if story_id then
                 npc_se = get_story_se_object(story_id)
                 target_desc = "story_id=" .. tostring(story_id)
@@ -8388,7 +8487,7 @@ local function collect_story_npc_conversations(xml_fac, prefix)
                 end
             end
             if npc_se and npc_se:alive() then
-                local identity_in_use, identity_reason, owner_key = is_conversation_identity_in_use(npc_se)
+                local identity_in_use, identity_reason, owner_key = is_conversation_identity_in_use(npc_se, { npc_refs = npc_refs })
                 if identity_in_use then
                     printf(
                         "PANDA_IC: skip targeted NPC candidate npc_id=%s target=%s conv_id=%s reason=%s owner=%s",
@@ -8431,7 +8530,7 @@ local function collect_story_npc_conversations(xml_fac, prefix)
                         if check_preconditions_generic(precond_key, npc_se)
                             and check_preconditions_generic(branch_precond_key, npc_se)
                         then
-                            table.insert(results, {npc_se = npc_se, conv_id = cid, prefix = prefix, weight = weight})
+                            table.insert(results, {npc_se = npc_se, conv_id = cid, prefix = prefix, weight = weight, npc_refs = npc_refs})
                             printf("Story NPC conv %s matched — NPC %s (story_id=%s, weight=%s)",
                                 tostring(tonumber(cid) or 0),
                                 tostring(npc_se:character_name()),
@@ -8503,15 +8602,41 @@ local function attempt_interactive_conversation()
             )
         else
             local candidate_conv = pick_random_conv_id_generic(nil, xml_fac, nil, candidate)
-            local found_candidate = candidate_conv ~= nil
+            local found_candidate = false
             if candidate_conv then
-                table.insert(sim_matches, {npc_se = candidate, conv_id = candidate_conv, prefix = nil, weight = 100})
+                local npc_refs = get_conversation_npc_refs(nil, xml_fac, candidate_conv)
+                local ref_in_use, ref_reason, ref_owner = is_conversation_identity_in_use(candidate, { npc_refs = npc_refs })
+                if ref_in_use then
+                    printf(
+                        "PANDA_IC: skip simulated conversation candidate npc_id=%s conv_id=%s reason=%s owner=%s",
+                        tostring(tonumber(candidate.id) or 0),
+                        tostring(tonumber(candidate_conv) or 0),
+                        tostring(ref_reason or "identity_in_use"),
+                        tostring(ref_owner or "nil")
+                    )
+                else
+                    table.insert(sim_matches, {npc_se = candidate, conv_id = candidate_conv, prefix = nil, weight = 100, npc_refs = npc_refs})
+                    found_candidate = true
+                end
             end
             for _, panda_prefix in ipairs(panda_prefixes) do
                 local panda_candidate_conv = pick_random_conv_id_generic(panda_prefix, xml_fac, nil, candidate)
                 if panda_candidate_conv then
-                    table.insert(sim_matches, {npc_se = candidate, conv_id = panda_candidate_conv, prefix = panda_prefix, weight = 100})
-                    found_candidate = true
+                    local npc_refs = get_conversation_npc_refs(panda_prefix, xml_fac, panda_candidate_conv)
+                    local ref_in_use, ref_reason, ref_owner = is_conversation_identity_in_use(candidate, { npc_refs = npc_refs })
+                    if ref_in_use then
+                        printf(
+                            "PANDA_IC: skip simulated conversation candidate npc_id=%s conv_id=%s prefix=%s reason=%s owner=%s",
+                            tostring(tonumber(candidate.id) or 0),
+                            tostring(tonumber(panda_candidate_conv) or 0),
+                            tostring(panda_prefix or "legacy"),
+                            tostring(ref_reason or "identity_in_use"),
+                            tostring(ref_owner or "nil")
+                        )
+                    else
+                        table.insert(sim_matches, {npc_se = candidate, conv_id = panda_candidate_conv, prefix = panda_prefix, weight = 100, npc_refs = npc_refs})
+                        found_candidate = true
+                    end
                 end
             end
             if found_candidate then
@@ -8997,6 +9122,7 @@ function save_state(m)
                 channel = c.channel,
                 applied_outcomes = c.applied_outcomes, started_at = c.started_at,
                 story_id = c.story_id, canonical_id = c.canonical_id, fallback_name = c.fallback_name,
+                npc_refs = c.npc_refs,
                 pending_in_person_continuation = c.pending_in_person_continuation,
                 pending_in_person_turn = c.pending_in_person_turn,
                 pending_in_person_target = c.pending_in_person_target,
@@ -9119,6 +9245,7 @@ function load_state(m)
             if type(job) == "table" then
                 local cloned_job = clone_plain_table(job) or {}
                 cloned_job.channel = cloned_job.channel or "pda"
+                cloned_job.npc_refs = normalize_npc_refs(cloned_job.npc_refs)
                 if task_bridge and type(task_bridge.is_task_family) == "function" and task_bridge.is_task_family(cloned_job.job_type) then
                     table.insert(legacy_task_jobs, cloned_job)
                 else
@@ -9142,6 +9269,7 @@ function load_state(m)
                 if not is_contact_blocked(contact_id) then
                     pending_pda_followups[key] = clone_plain_table(followup)
                     pending_pda_followups[key].contact_id = contact_id
+                    pending_pda_followups[key].npc_refs = normalize_npc_refs(pending_pda_followups[key].npc_refs)
                 end
             end
         end
@@ -9166,6 +9294,7 @@ function load_state(m)
                         cloned[field_name] = field_value
                     end
                     cloned.contact_id = contact_key
+                    cloned.npc_refs = normalize_npc_refs(cloned.npc_refs)
                     restored_handoffs[contact_key] = cloned
                 end
             end
@@ -9240,6 +9369,7 @@ function load_state(m)
                     saved.pending_in_person_token = saved.pending_in_person_token
                     saved.pending_in_person_story_id = saved.pending_in_person_story_id or saved.story_id
                     saved.pending_in_person_canonical_id = saved.pending_in_person_canonical_id or saved.canonical_id
+                    saved.npc_refs = normalize_npc_refs(saved.npc_refs)
                     if saved.pending_in_person_continuation == true then
                         clear_pda_choices_for_pending_handoff(saved)
                     end

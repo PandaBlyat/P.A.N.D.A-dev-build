@@ -61,6 +61,8 @@ export interface Conversation {
    * `req_completed_storyline` precondition to gate other conversations on
    * completion of this one. Should be a short, unique slug (e.g. `bandit_intro_arc`). */
   storyline_id?: string;
+  /** Export/import-only runtime lock hints. Values use `story:<id>` or `custom:<template_id>`. */
+  npc_refs?: string[];
   timeout?: number;
   timeoutMessage?: string;
   flowAnnotations?: FlowAnnotation[];

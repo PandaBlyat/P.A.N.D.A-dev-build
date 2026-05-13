@@ -180,7 +180,7 @@ type ItemPickerRow =
 
 const ITEM_PICKER_OVERSCAN_ROWS = 6;
 const ITEM_PICKER_HEADER_ROW_HEIGHT = 32;
-const ITEM_PICKER_OPTION_ROW_HEIGHT = 58;
+const ITEM_PICKER_OPTION_ROW_HEIGHT = 64;
 
 /* ── Modal picker panel ──────────────────────────────────── */
 

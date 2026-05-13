@@ -3252,6 +3252,33 @@ body.use-custom-cursor * {
   background: linear-gradient(180deg, rgba(12, 16, 22, 0.98), rgba(9, 12, 17, 0.98));
 }
 
+.branch-inline-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.branch-inline-summary strong,
+.branch-inline-summary span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.branch-inline-summary strong {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--accent, #7aa2f7) 28%, var(--border));
+}
+
 .branch-inline-workspace {
   flex: 1;
   min-height: 0;
@@ -25608,6 +25635,18 @@ button.pa-avatar:focus-visible {
   color: var(--text-bright);
 }
 
+.story-forge-field-hint {
+  grid-column: 1 / -1;
+  margin-top: -8px;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.story-forge-field-hint.is-warning {
+  color: var(--warning);
+}
+
 .story-forge-simple-factions {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
@@ -25803,14 +25842,19 @@ button.pa-avatar:focus-visible {
   background: rgba(0, 0, 0, 0.14);
 }
 
-.item-picker-option,
-.item-picker-option.item-picker-option-static {
-  position: static;
+.item-picker-option {
+  position: absolute;
+  left: 0;
+  right: 0;
   min-height: 64px;
   padding: 10px 12px;
   border: 1px solid transparent;
   border-radius: var(--radius);
   background: color-mix(in srgb, var(--accent, #7aa2f7) 2%, transparent);
+}
+
+.item-picker-option.item-picker-option-static {
+  position: static;
 }
 
 .item-picker-option:hover,

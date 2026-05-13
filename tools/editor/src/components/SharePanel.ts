@@ -71,6 +71,7 @@ type NormalizedConversation = CommunityConversation & {
   summary: string;
   upvotes: number;
   updated_at: string;
+  content_updated_at: string;
   source: LibrarySource;
   language: UiLanguage;
 };
@@ -461,6 +462,7 @@ function normalizeConversation(entry: CommunityConversation, source: LibrarySour
     complexity: entry.complexity ?? deriveConversationComplexity(branchCount),
     upvotes: entry.upvotes ?? 0,
     updated_at: entry.updated_at ?? entry.created_at,
+    content_updated_at: entry.content_updated_at ?? entry.created_at,
     source,
     language: entry.data?.language === 'ru' ? 'ru' : 'en',
   };
@@ -557,9 +559,9 @@ function getFilteredResults(): NormalizedConversation[] {
 
   filtered.sort((a, b) => {
     if (sortMode === 'upvoted') {
-      return b.upvotes - a.upvotes || Date.parse(b.updated_at) - Date.parse(a.updated_at);
+      return b.upvotes - a.upvotes || Date.parse(b.content_updated_at) - Date.parse(a.content_updated_at);
     }
-    return Date.parse(b.updated_at) - Date.parse(a.updated_at) || b.upvotes - a.upvotes;
+    return Date.parse(b.content_updated_at) - Date.parse(a.content_updated_at) || b.upvotes - a.upvotes;
   });
 
   return filtered;
@@ -592,7 +594,7 @@ function getStoryRootLanguage(rootId: string): UiLanguage {
 function pickBestStoryVariant(variants: NormalizedConversation[], language: UiLanguage): NormalizedConversation | null {
   const candidates = variants.filter((entry) => getStoryLanguage(entry) === language);
   if (candidates.length === 0) return null;
-  candidates.sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at));
+  candidates.sort((a, b) => Date.parse(b.content_updated_at) - Date.parse(a.content_updated_at));
   return candidates[0] ?? null;
 }
 
@@ -1104,7 +1106,7 @@ function buildCard(conv: NormalizedConversation): HTMLElement {
 
   const meta = document.createElement('div');
   meta.className = 'share-card-meta';
-  meta.textContent = `${conv.author || ui('Anonymous', 'Аноним')} · ${formatRelativeDate(conv.updated_at)} · ${conv.branch_count} ${ui('branches', 'веток')}`;
+  meta.textContent = `${conv.author || ui('Anonymous', 'Аноним')} · ${formatRelativeDate(conv.content_updated_at)} · ${conv.branch_count} ${ui('branches', 'веток')}`;
   card.appendChild(meta);
 
   const stats = document.createElement('div');
@@ -1297,7 +1299,7 @@ function buildPreviewDrawer(conv: NormalizedConversation | null): HTMLElement {
   const translationTarget = otherLanguage(sourceLanguage);
   const translationExistsForUi = hasTranslationForLanguage(rootId, currentLanguage);
   const needsTranslation = !hasTranslationForLanguage(rootId, translationTarget);
-  subtitle.textContent = `${FACTION_DISPLAY_NAMES[conv.faction]} · ${conv.author || getUiText()('Anonymous', 'Аноним')} · ${getUiText()('Updated', 'Обновлено')} ${formatRelativeDate(conv.updated_at)}`;
+  subtitle.textContent = `${FACTION_DISPLAY_NAMES[conv.faction]} · ${conv.author || getUiText()('Anonymous', 'Аноним')} · ${getUiText()('Updated', 'Обновлено')} ${formatRelativeDate(conv.content_updated_at)}`;
 
   header.append(title, subtitle);
   const coAuthorUsernames = conv.co_author_usernames ?? [];
@@ -1530,7 +1532,7 @@ async function handleImportCard(
     sourceCommunityId,
     sourcePublisherId: conv.publisher_id?.trim() || 'anonymous',
     sourceCoAuthors: conv.co_authors ?? [],
-    sourceUpdatedAt: conv.updated_at || undefined,
+    sourceUpdatedAt: conv.content_updated_at || undefined,
     sourceLanguage: rootLanguage,
     targetLanguage,
     isTranslationDraft: isTranslationImport,
@@ -1570,7 +1572,7 @@ async function handleEditImport(conv: CommunityConversation, btn: HTMLButtonElem
     sourceCommunityId: conv.id,
     sourcePublisherId: conv.publisher_id?.trim() || 'anonymous',
     sourceCoAuthors: conv.co_authors ?? [],
-    sourceUpdatedAt: conv.updated_at || undefined,
+    sourceUpdatedAt: conv.content_updated_at || undefined,
   });
   if (importedConversationId != null) {
     updateReplacementIntentState();

@@ -28,7 +28,7 @@ const ADMIN_PUBLISHER_IDS = new Set(
 );
 const ALLOW_LEGACY_PUBLISHER_ID = (process.env.PANDA_ALLOW_LEGACY_PUBLISHER_ID ?? '').trim() === '1';
 const COMMUNITY_REQUIRED_COLUMNS = ['id', 'faction', 'label', 'description', 'author', 'data', 'downloads', 'created_at'] as const;
-const COMMUNITY_OPTIONAL_COLUMNS = ['summary', 'tags', 'branch_count', 'complexity', 'library_section', 'upvotes', 'updated_at', 'publisher_id', 'co_authors', 'co_author_usernames'] as const;
+const COMMUNITY_OPTIONAL_COLUMNS = ['summary', 'tags', 'branch_count', 'complexity', 'library_section', 'upvotes', 'updated_at', 'content_updated_at', 'publisher_id', 'co_authors', 'co_author_usernames'] as const;
 const COLLECTION_REQUIRED_COLUMNS = ['id', 'title', 'description', 'author', 'story_ids', 'downloads', 'upvotes', 'created_at'] as const;
 const COLLECTION_OPTIONAL_COLUMNS = ['updated_at', 'publisher_id', 'faction'] as const;
 
@@ -194,6 +194,11 @@ function normalizeConversationRow(row: Record<string, unknown>) {
     created_at: typeof row.created_at === 'string' ? row.created_at : new Date(0).toISOString(),
     updated_at: typeof row.updated_at === 'string'
       ? row.updated_at
+      : typeof row.created_at === 'string'
+        ? row.created_at
+        : new Date(0).toISOString(),
+    content_updated_at: typeof row.content_updated_at === 'string'
+      ? row.content_updated_at
       : typeof row.created_at === 'string'
         ? row.created_at
         : new Date(0).toISOString(),
@@ -820,8 +825,8 @@ async function fetchAuthoredConversations(publisherId: string) {
     deduped.set(row.id, row);
   }
   return Array.from(deduped.values()).sort((left, right) => {
-    const leftTime = Date.parse(left.updated_at ?? left.created_at);
-    const rightTime = Date.parse(right.updated_at ?? right.created_at);
+    const leftTime = Date.parse(left.content_updated_at ?? left.created_at);
+    const rightTime = Date.parse(right.content_updated_at ?? right.created_at);
     return rightTime - leftTime;
   });
 }
@@ -904,7 +909,7 @@ app.get('/api/conversations', async (req, res) => {
   try {
     const params = new URLSearchParams({
       select: [...COMMUNITY_REQUIRED_COLUMNS, ...COMMUNITY_OPTIONAL_COLUMNS].join(','),
-      order: 'updated_at.desc',
+      order: 'content_updated_at.desc.nullslast,created_at.desc',
     });
     const { faction } = req.query;
     if (typeof faction === 'string' && faction) {
@@ -1682,6 +1687,7 @@ app.post('/api/conversations', async (req, res) => {
   try {
     const { faction, label, description, summary, author, data, tags, branch_count, complexity, library_section, publisher_id, collab_session_id, tagged_usernames, choice_xp } = req.body ?? {};
     const normalizedLabel = typeof label === 'string' ? label.trim() : '';
+    const normalizedLabelKey = normalizeCommunityLabel(normalizedLabel);
     if (!faction || !data || !normalizedLabel) {
       res.status(400).json({ error: 'Missing required fields: faction, label, data' });
       return;
@@ -1735,6 +1741,7 @@ app.post('/api/conversations', async (req, res) => {
       publisher_id: normalizedPublisherId,
       co_authors: coAuthors,
       co_author_usernames: coAuthorNames,
+      content_updated_at: new Date().toISOString(),
       data,
     };
 
@@ -1754,6 +1761,7 @@ app.post('/api/conversations', async (req, res) => {
         || isMissingSchemaColumnError(errorMessage, 'co_authors')
         || isMissingSchemaColumnError(errorMessage, 'co_author_usernames')
         || isMissingSchemaColumnError(errorMessage, 'library_section')
+        || isMissingSchemaColumnError(errorMessage, 'content_updated_at')
         || isCommunitySchemaMismatchError(errorMessage)
       ) {
         const {
@@ -1765,6 +1773,7 @@ app.post('/api/conversations', async (req, res) => {
           co_authors: _coAuthors,
           co_author_usernames: _coAuthorUsernames,
           library_section: _librarySection,
+          content_updated_at: _contentUpdatedAt,
           ...fallbackBody
         } = publishBody;
         r = await fetch(sbEndpoint(TABLE), {
@@ -1902,6 +1911,7 @@ async function handleConversationReplace(req: express.Request, res: express.Resp
       branch_count: typeof branch_count === 'number' ? branch_count : null,
       complexity: typeof complexity === 'string' ? complexity : null,
       library_section: library_section === 'curated' || library_section === 'demo' ? library_section : 'community',
+      content_updated_at: new Date().toISOString(),
       data,
       author: typeof author === 'string' && author.trim() ? author.trim() : undefined,
     };
@@ -1919,6 +1929,7 @@ async function handleConversationReplace(req: express.Request, res: express.Resp
         || isMissingSchemaColumnError(errorMessage, 'summary')
         || isMissingSchemaColumnError(errorMessage, 'tags')
         || isMissingSchemaColumnError(errorMessage, 'library_section')
+        || isMissingSchemaColumnError(errorMessage, 'content_updated_at')
         || isCommunitySchemaMismatchError(errorMessage)
       ) {
         const {
@@ -1927,6 +1938,7 @@ async function handleConversationReplace(req: express.Request, res: express.Resp
           branch_count: _branchCount,
           complexity: _complexity,
           library_section: _librarySection,
+          content_updated_at: _contentUpdatedAt,
           ...fallbackBody
         } = updateBody;
         r = await fetch(`${sbEndpoint(TABLE)}?id=eq.${encodeURIComponent(id)}`, {

@@ -2471,6 +2471,12 @@ export function renderParamEditors(
         }
       }
     }
+    if (schema.name === 'send_pda_msg_tip' && paramDef.name === 'sender_ref') {
+      const senderMode = (currentParams[2] || 'system').trim();
+      if (!['story', 'custom', 'faction', 'title'].includes(senderMode)) {
+        return;
+      }
+    }
     if (schema.name === 'panda_task_artifact' && paramDef.name === 'zone_mode') {
       if ((currentParams[i] || '') !== 'random_level') {
         const normalizedParams = [...currentParams];
@@ -2566,6 +2572,61 @@ export function renderParamEditors(
         select.value = value;
         select.onchange = () => updateParam(select.value);
         richEditor = select;
+      }
+    }
+    if (schema.name === 'send_pda_msg_tip' && paramDef.name === 'sender_ref') {
+      const senderMode = (currentParams[2] || 'system').trim();
+      const value = currentParams[i] || '';
+      if (senderMode === 'story') {
+        richEditor = createOptionPickerPanelEditor(value, updateParam, paramKey, {
+          title: 'Browse story NPCs',
+          subtitle: 'Pick named story NPC shown as PDA tip sender.',
+          searchPlaceholder: 'Search story NPC name or id...',
+          emptyLabel: '-- Search for a story NPC --',
+          options: STORY_NPC_OPTIONS,
+          facets: [
+            { label: 'Faction', field: 'faction', allLabel: 'All factions' },
+            { label: 'Role', field: 'role', allLabel: 'All roles' },
+            { label: 'Level', field: 'level', allLabel: 'All levels' },
+          ],
+          richRows: true,
+        });
+      } else if (senderMode === 'custom') {
+        richEditor = createCustomNpcBuilderEditor(value, updateParam, paramKey, { showSpawnDistance: false });
+      } else if (senderMode === 'faction') {
+        const select = document.createElement('select');
+        select.className = 'rich-editor-input';
+        select.setAttribute('data-field-key', paramKey);
+        const emptyOpt = document.createElement('option');
+        emptyOpt.value = '';
+        emptyOpt.textContent = t('properties.select.faction');
+        select.appendChild(emptyOpt);
+        for (const fid of FACTION_IDS) {
+          const opt = document.createElement('option');
+          opt.value = fid;
+          opt.textContent = FACTION_DISPLAY_NAMES[fid];
+          opt.selected = value === fid;
+          select.appendChild(opt);
+        }
+        if (value && !FACTION_IDS.includes(value as FactionId)) {
+          const customOpt = document.createElement('option');
+          customOpt.value = value;
+          customOpt.textContent = `Custom: ${value}`;
+          customOpt.selected = true;
+          select.appendChild(customOpt);
+        }
+        select.value = value;
+        select.onchange = () => updateParam(select.value);
+        richEditor = select;
+      } else if (senderMode === 'title') {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'rich-editor-input';
+        input.placeholder = t('properties.pdaTip.customTitle.placeholder');
+        input.value = value;
+        input.setAttribute('data-field-key', paramKey);
+        input.onchange = () => updateParam(input.value);
+        richEditor = input;
       }
     }
     if (!richEditor) {

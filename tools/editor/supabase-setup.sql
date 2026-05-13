@@ -21,7 +21,8 @@ CREATE TABLE IF NOT EXISTS community_conversations (
   downloads INT NOT NULL DEFAULT 0,
   upvotes INT NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  content_updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 ALTER TABLE community_conversations
@@ -34,7 +35,8 @@ ALTER TABLE community_conversations
   ADD COLUMN IF NOT EXISTS branch_count INT,
   ADD COLUMN IF NOT EXISTS complexity TEXT,
   ADD COLUMN IF NOT EXISTS upvotes INT,
-  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS content_updated_at TIMESTAMPTZ;
 
 ALTER TABLE community_conversations
   ALTER COLUMN label SET DEFAULT '',
@@ -48,7 +50,8 @@ ALTER TABLE community_conversations
   ALTER COLUMN downloads SET DEFAULT 0,
   ALTER COLUMN upvotes SET DEFAULT 0,
   ALTER COLUMN created_at SET DEFAULT now(),
-  ALTER COLUMN updated_at SET DEFAULT now();
+  ALTER COLUMN updated_at SET DEFAULT now(),
+  ALTER COLUMN content_updated_at SET DEFAULT now();
 
 UPDATE community_conversations
 SET
@@ -67,7 +70,8 @@ SET
   downloads = coalesce(downloads, 0),
   upvotes = coalesce(upvotes, 0),
   created_at = coalesce(created_at, now()),
-  updated_at = coalesce(updated_at, created_at, now());
+  updated_at = coalesce(updated_at, created_at, now()),
+  content_updated_at = coalesce(content_updated_at, created_at, updated_at, now());
 
 ALTER TABLE community_conversations
   ALTER COLUMN label SET NOT NULL,
@@ -82,11 +86,13 @@ ALTER TABLE community_conversations
   ALTER COLUMN downloads SET NOT NULL,
   ALTER COLUMN upvotes SET NOT NULL,
   ALTER COLUMN created_at SET NOT NULL,
-  ALTER COLUMN updated_at SET NOT NULL;
+  ALTER COLUMN updated_at SET NOT NULL,
+  ALTER COLUMN content_updated_at SET NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_community_conv_faction ON community_conversations (faction);
 CREATE INDEX IF NOT EXISTS idx_community_conv_created ON community_conversations (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_community_conv_updated ON community_conversations (updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_community_conv_content_updated ON community_conversations (content_updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_community_conv_publisher_id ON community_conversations (publisher_id);
 CREATE INDEX IF NOT EXISTS idx_community_conv_co_authors ON community_conversations USING GIN (co_authors);
 CREATE INDEX IF NOT EXISTS idx_community_conv_library_section ON community_conversations (library_section);

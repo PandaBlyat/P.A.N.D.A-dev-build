@@ -124,6 +124,93 @@ export function serializeOutcomes(outcomes: Outcome[]): string {
   return outcomes.map(serializeOutcome).join(',');
 }
 
+const CUSTOM_NPC_REF_PRECONDITIONS = new Set([
+  'req_custom_story_npc',
+  'req_custom_npc_alive',
+  'req_custom_npc_dead',
+  'req_custom_npc_near',
+]);
+
+const CUSTOM_NPC_REF_OUTCOMES = new Set([
+  'spawn_custom_npc',
+  'spawn_custom_npc_at',
+  'spawn_dead_custom_npc',
+  'spawn_dead_custom_npc_at',
+]);
+
+function addNpcRef(refs: Set<string>, kind: 'story' | 'custom', value: string | null | undefined): void {
+  const id = (value ?? '').trim();
+  if (!id) return;
+  refs.add(`${kind}:${id.startsWith('npc:') ? id.slice(4).trim() : id}`);
+}
+
+function addSpeakerNpcRef(refs: Set<string>, value: string | null | undefined): void {
+  const id = (value ?? '').trim();
+  if (!id) return;
+  if (id.startsWith('npc:')) {
+    addNpcRef(refs, 'custom', id);
+  } else {
+    addNpcRef(refs, 'story', id);
+  }
+}
+
+function collectNpcRefsFromPrecondition(entry: PreconditionEntry, refs: Set<string>): void {
+  if (entry.type === 'simple') {
+    if (entry.command === 'req_story_npc') {
+      addNpcRef(refs, 'story', entry.params[0]);
+    } else if (CUSTOM_NPC_REF_PRECONDITIONS.has(entry.command)) {
+      addNpcRef(refs, 'custom', entry.params[0]);
+    }
+    return;
+  }
+  if (entry.type === 'not') {
+    collectNpcRefsFromPrecondition(entry.inner, refs);
+    return;
+  }
+  if (entry.type === 'any') {
+    for (const option of entry.options) {
+      if (option.type === 'all') {
+        option.entries.forEach((nested) => collectNpcRefsFromPrecondition(nested, refs));
+      } else {
+        collectNpcRefsFromPrecondition(option, refs);
+      }
+    }
+  }
+}
+
+function collectConversationNpcRefs(conv: Conversation): string[] {
+  const refs = new Set<string>(conv.npc_refs ?? []);
+  conv.preconditions.forEach((entry) => collectNpcRefsFromPrecondition(entry, refs));
+
+  for (const turn of conv.turns) {
+    turn.preconditions.forEach((entry) => collectNpcRefsFromPrecondition(entry, refs));
+    addSpeakerNpcRef(refs, turn.speaker_npc_id);
+
+    for (const choice of turn.choices) {
+      choice.preconditions?.forEach((entry) => collectNpcRefsFromPrecondition(entry, refs));
+      addSpeakerNpcRef(refs, choice.story_npc_id);
+      addSpeakerNpcRef(refs, choice.cont_npc_id);
+
+      for (const outcome of choice.outcomes) {
+        if (CUSTOM_NPC_REF_OUTCOMES.has(outcome.command)) {
+          addNpcRef(refs, 'custom', outcome.params[0]);
+        }
+        if (outcome.command === 'panda_task_escort' && outcome.params[4] === 'custom_npc') {
+          addNpcRef(refs, 'custom', outcome.params[5]);
+        }
+        if (outcome.command === 'panda_task_escort' && outcome.params[4] === 'story_npc') {
+          addNpcRef(refs, 'story', outcome.params[5]);
+        }
+      }
+    }
+  }
+
+  return Array.from(refs)
+    .map((ref) => ref.trim())
+    .filter((ref) => /^(story|custom):[^,\s]+$/.test(ref))
+    .sort();
+}
+
 /** Emit a single XML string entry */
 function emitString(id: string, text: string): string {
   return `    <string id="${id}">\n        <text>${escapeXml(text)}</text>\n    </string>`;
@@ -331,6 +418,10 @@ function generateConversation(
   }
   if (conv.storyline_id && conv.storyline_id.trim() !== '') {
     lines.push(emitString(`${prefix}_storyline_id`, conv.storyline_id.trim()));
+  }
+  const npcRefs = collectConversationNpcRefs(conv);
+  if (npcRefs.length > 0) {
+    lines.push(emitString(`${prefix}_npc_refs`, npcRefs.join(',')));
   }
   const segmentStartTurns = collectBranchSegmentStartTurns(conv);
 
