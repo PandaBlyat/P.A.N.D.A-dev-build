@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="windows-1251"?>
+<?xml version="1.0" encoding="utf-8"?>
 <string_table>
 
 <!-- ================================================================
@@ -24,7 +24,7 @@
 	<string id="st_dyn_news_player_gossip_rep_1_conv_1_1"><text>Heads up: %player_name% is operating in the Zone. Known for leaving bodies behind. Eyes open.</text></string>
 	<string id="st_dyn_news_player_gossip_rep_1_conv_1_2"><text>%player_name% has a reputation for violence even by Zone standards. Don't mistake them for a neutral.</text></string>
 	<string id="st_dyn_news_player_gossip_rep_1_conv_1_3"><text>Heard they nearly wiped a whole squad last month over a disagreement about loot. Nobody walked away clean.</text></string>
-	<string id="st_dyn_news_player_gossip_rep_1_conv_1_4"><text>Point is — don't give %player_name% a reason. They don't need much of one.</text></string>
+	<string id="st_dyn_news_player_gossip_rep_1_conv_1_4"><text>Point is вЂ” don't give %player_name% a reason. They don't need much of one.</text></string>
 
 	<string id="st_dyn_news_player_gossip_rep_1_conv_2_1"><text>Word out of Rostok: %player_name% is someone you don't want to be in debt to.</text></string>
 	<string id="st_dyn_news_player_gossip_rep_1_conv_2_2"><text>The name %player_name% keeps coming up in connection with things I'd rather not repeat on an open channel.</text></string>
@@ -136,7 +136,7 @@
 	<string id="st_dyn_news_player_gossip_rank_1_conv_2_3"><text>True. The ones who don't make it usually think they know more than they do in the first week.</text></string>
 	<string id="st_dyn_news_player_gossip_rank_1_conv_2_4"><text>%player_name% asked good questions when I met them. The kind of questions a person asks when they know they don't know enough. That's promising.</text></string>
 
-	<string id="st_dyn_news_player_gossip_rank_1_conv_3_1"><text>Saw %player_name% near the Cordon this morning. Still has that look — eyes too wide, checking everything twice.</text></string>
+	<string id="st_dyn_news_player_gossip_rank_1_conv_3_1"><text>Saw %player_name% near the Cordon this morning. Still has that look вЂ” eyes too wide, checking everything twice.</text></string>
 	<string id="st_dyn_news_player_gossip_rank_1_conv_3_2"><text>Better too wide than half-closed. Some rookies walk around like they're on a stroll and end up in an anomaly.</text></string>
 	<string id="st_dyn_news_player_gossip_rank_1_conv_3_3"><text>Fair. I'll admit the alertness is reassuring. Shows they take it seriously.</text></string>
 	<string id="st_dyn_news_player_gossip_rank_1_conv_3_4"><text>Just needs to learn when to relax a little. Staying tense burns you out fast. Precision over constant dread.</text></string>
@@ -155,7 +155,7 @@
 
 	<!-- RANK TIER 2: experienced / professional -->
 
-	<string id="st_dyn_news_player_gossip_rank_2_conv_1_1"><text>%player_name% knows how to move in the Zone now. You can tell — no wasted steps, no panic.</text></string>
+	<string id="st_dyn_news_player_gossip_rank_2_conv_1_1"><text>%player_name% knows how to move in the Zone now. You can tell вЂ” no wasted steps, no panic.</text></string>
 	<string id="st_dyn_news_player_gossip_rank_2_conv_1_2"><text>Spent time at a camp with %player_name%. Solid. Respects the Zone, respects the people in it.</text></string>
 	<string id="st_dyn_news_player_gossip_rank_2_conv_1_3"><text>That respect thing is what separates the competent from the dead. You can be skilled and still get killed by arrogance.</text></string>
 	<string id="st_dyn_news_player_gossip_rank_2_conv_1_4"><text>%player_name% doesn't seem the arrogant type. Quiet confidence. Knows what they know, doesn't pretend beyond it.</text></string>
@@ -171,10 +171,10 @@
 	<string id="st_dyn_news_player_gossip_rank_2_conv_3_3"><text>They mapped a route on the way through, apparently. Posted it for anyone who needs it. Didn't charge for it.</text></string>
 	<string id="st_dyn_news_player_gossip_rank_2_conv_3_4"><text>That's the kind of thing that builds real goodwill. People remember that.</text></string>
 
-	<string id="st_dyn_news_player_gossip_rank_2_conv_4_1"><text>Saw %player_name% patch up a wounded stalker near the Swamp. Knew what they were doing — proper field dressing, checked for infection.</text></string>
+	<string id="st_dyn_news_player_gossip_rank_2_conv_4_1"><text>Saw %player_name% patch up a wounded stalker near the Swamp. Knew what they were doing вЂ” proper field dressing, checked for infection.</text></string>
 	<string id="st_dyn_news_player_gossip_rank_2_conv_4_2"><text>Field medicine is one of those skills that gets you taken seriously fast. Anyone can shoot straight. Not everyone can keep someone alive afterward.</text></string>
 	<string id="st_dyn_news_player_gossip_rank_2_conv_4_3"><text>The stalker made it, from what I heard. Walked out with %player_name% a few hours later.</text></string>
-	<string id="st_dyn_news_player_gossip_rank_2_conv_4_4"><text>Solid. %player_name%'s building the right kind of reputation — the kind that means people want to work alongside you.</text></string>
+	<string id="st_dyn_news_player_gossip_rank_2_conv_4_4"><text>Solid. %player_name%'s building the right kind of reputation вЂ” the kind that means people want to work alongside you.</text></string>
 
 	<string id="st_dyn_news_player_gossip_rank_2_conv_5_1"><text>%player_name% spotted a bandit ambush near the Garbage before it triggered. Warned the group and they skirted around it.</text></string>
 	<string id="st_dyn_news_player_gossip_rank_2_conv_5_2"><text>Good situational awareness. That's experience paying off.</text></string>
@@ -187,7 +187,7 @@
 
 	<string id="st_dyn_news_player_gossip_rank_3_conv_1_1"><text>%player_name% has been out here long enough to know what the Zone can do. And survived it anyway.</text></string>
 	<string id="st_dyn_news_player_gossip_rank_3_conv_1_2"><text>When %player_name% gives advice about the Zone, I listen. That's years of hard experience talking.</text></string>
-	<string id="st_dyn_news_player_gossip_rank_3_conv_1_3"><text>They told me once — every mistake the Zone lets you survive is a lesson. The ones it doesn't let you survive, someone else has to learn from your body.</text></string>
+	<string id="st_dyn_news_player_gossip_rank_3_conv_1_3"><text>They told me once вЂ” every mistake the Zone lets you survive is a lesson. The ones it doesn't let you survive, someone else has to learn from your body.</text></string>
 	<string id="st_dyn_news_player_gossip_rank_3_conv_1_4"><text>Grim way to put it. But accurate.</text></string>
 	<string id="st_dyn_news_player_gossip_rank_3_conv_1_5"><text>That's how they think. Unsentimental. Useful.</text></string>
 
@@ -235,7 +235,7 @@
 	<string id="st_dyn_news_player_gossip_rank_4_conv_3_4"><text>Maybe that's why they keep moving. Hard to be a myth when you're still making runs and sleeping in a camp like everyone else.</text></string>
 	<string id="st_dyn_news_player_gossip_rank_4_conv_3_5"><text>Or maybe they just don't think about it. People at that level usually don't have the luxury of philosophy.</text></string>
 
-	<string id="st_dyn_news_player_gossip_rank_4_conv_4_1"><text>They said %player_name% once navigated the Red Forest blind — detector damaged, in fog, after a blowout. Made it out without a scratch.</text></string>
+	<string id="st_dyn_news_player_gossip_rank_4_conv_4_1"><text>They said %player_name% once navigated the Red Forest blind вЂ” detector damaged, in fog, after a blowout. Made it out without a scratch.</text></string>
 	<string id="st_dyn_news_player_gossip_rank_4_conv_4_2"><text>I don't believe that.</text></string>
 	<string id="st_dyn_news_player_gossip_rank_4_conv_4_3"><text>Neither did I. Then I talked to the person who found them on the other side. They weren't joking.</text></string>
 	<string id="st_dyn_news_player_gossip_rank_4_conv_4_4"><text>How do you navigate the Red Forest without sensors?</text></string>
@@ -292,12 +292,12 @@
 	<string id="st_dyn_news_faction_join_freedom_conv_1_2"><text>We don't do initiation ceremonies. Someone pour %player_name% a drink and call it done.</text></string>
 	<string id="st_dyn_news_faction_join_freedom_conv_1_3"><text>I've got a fresh bottle of Cossacks waiting. First round is on the rookie!</text></string>
 
-	<string id="st_dyn_news_faction_join_freedom_conv_2_1"><text>Fresh blood in Freedom. %player_name% — heard the name before. Good to have them.</text></string>
-	<string id="st_dyn_news_faction_join_freedom_conv_2_2"><text>One more against the fascists. The Zone's a little freer tonight with %player_name% on the channel.</text></string>
+	<string id="st_dyn_news_faction_join_freedom_conv_2_1"><text>Fresh blood in Freedom. %player_name% - heard name before. Good to have them.</text></string>
+	<string id="st_dyn_news_faction_join_freedom_conv_2_2"><text>One more voice that refuses leash. Zone little freer tonight with %player_name% on channel.</text></string>
 	<string id="st_dyn_news_faction_join_freedom_conv_2_3"><text>Hell yeah! Let's show those Duty stiffs how to actually live out here.</text></string>
 
 	<string id="st_dyn_news_faction_join_freedom_conv_3_1"><text>Hey everyone, %player_name% just got their Freedom patch!</text></string>
-	<string id="st_dyn_news_faction_join_freedom_conv_3_2"><text>Awesome. Hope you like good weed and bad jokes, man.</text></string>
+	<string id="st_dyn_news_faction_join_freedom_conv_3_2"><text>Good. Freedom got all kinds - quiet hands, loud mouths, smart heads. Find your place.</text></string>
 	<string id="st_dyn_news_faction_join_freedom_conv_3_3"><text>Don't let the relaxed vibe fool you though. When the bullets fly, we hold our own.</text></string>
 	<string id="st_dyn_news_faction_join_freedom_conv_3_4"><text>Damn right we do. Welcome to the family.</text></string>
 	
@@ -309,7 +309,7 @@
 	<string id="st_dyn_news_faction_join_freedom_conv_5_1"><text>Good news, boys. %player_name% just officially told the military and Duty to shove it.</text></string>
 	<string id="st_dyn_news_faction_join_freedom_conv_5_2"><text>Haha! Man, I love watching our numbers go up while those stiffs march around in the mud.</text></string>
 	<string id="st_dyn_news_faction_join_freedom_conv_5_3"><text>No 6 AM reveille, no pointless saluting here. Just good company, great artifacts, and keeping the Zone free.</text></string>
-	<string id="st_dyn_news_faction_join_freedom_conv_5_4"><text>Just make sure you pull your weight in a firefight. Drop by the base, %player_name%, we'll light something up to celebrate.</text></string>
+	<string id="st_dyn_news_faction_join_freedom_conv_5_4"><text>Pull your weight in firefight. Drop by base, %player_name%. We pour drink, talk patrol routes.</text></string>
 
 
 <!-- DUTY (DOLG) -->
@@ -332,18 +332,18 @@
 	<string id="st_dyn_news_faction_join_dolg_conv_4_4"><text>If they survive the week, they'll be a proper soldier. Protect the innocent, %player_name%.</text></string>
 
 	<string id="st_dyn_news_faction_join_dolg_conv_5_1"><text>I see %player_name% finally realized the Zone isn't a playground.</text></string>
-	<string id="st_dyn_news_faction_join_dolg_conv_5_2"><text>Exactly. Leave the weed and the campfire songs to those anarchists in Freedom.</text></string>
+	<string id="st_dyn_news_faction_join_dolg_conv_5_2"><text>Exactly. Leave campfire philosophy to Freedom. We do work.</text></string>
 	<string id="st_dyn_news_faction_join_dolg_conv_5_3"><text>Our mission is to protect the outside world. I hope the rookie is ready to bleed for it.</text></string>
 	<string id="st_dyn_news_faction_join_dolg_conv_5_4"><text>We all bleed. Just make sure you take a dozen mutants down with you. Welcome aboard.</text></string>
 
 
 	<!-- BANDIT -->
-	<string id="st_dyn_news_faction_join_bandit_conv_1_1"><text>%player_name% threw their lot in with us. Brave, stupid, or both — either works here.</text></string>
+	<string id="st_dyn_news_faction_join_bandit_conv_1_1"><text>%player_name% threw their lot in with us. Brave, stupid, or both вЂ” either works here.</text></string>
 	<string id="st_dyn_news_faction_join_bandit_conv_1_2"><text>Welcome to the family, %player_name%. Don't touch the stash. Trust takes time.</text></string>
 	<string id="st_dyn_news_faction_join_bandit_conv_1_3"><text>Or just don't get caught. Hehe.</text></string>
 
 	<string id="st_dyn_news_faction_join_bandit_conv_2_1"><text>New blood. %player_name%. Keep them useful and they'll last. Start counting fingers if they don't.</text></string>
-	<string id="st_dyn_news_faction_join_bandit_conv_2_2"><text>Every new gun is a good gun out here. %player_name% — you're in. Don't make us regret it.</text></string>
+	<string id="st_dyn_news_faction_join_bandit_conv_2_2"><text>Every new gun is a good gun out here. %player_name% вЂ” you're in. Don't make us regret it.</text></string>
 	<string id="st_dyn_news_faction_join_bandit_conv_2_3"><text>I call dibs on their boots if they step into a burner anomaly.</text></string>
 
 	<string id="st_dyn_news_faction_join_bandit_conv_3_1"><text>Word is %player_name% is running with the boys now.</text></string>
@@ -362,17 +362,17 @@
 	<string id="st_dyn_news_faction_join_bandit_conv_5_4"><text>Fine. Just keep your hands off my cut, %player_name%, and we'll get along fine.</text></string>
 
 
-	<!-- RENEGADE / MERCENARY (KILLER) -->
-	<string id="st_dyn_news_faction_join_killer_conv_1_1"><text>%player_name% is running with us now. Don't get comfortable. Prove yourself first.</text></string>
-	<string id="st_dyn_news_faction_join_killer_conv_1_2"><text>New face: %player_name%. I'll believe they're solid when I see it. Out here, talk is cheap.</text></string>
-	<string id="st_dyn_news_faction_join_killer_conv_1_3"><text>Just make sure your safety is off when the client says 'go'.</text></string>
+	<!-- MERCENARY (KILLER) -->
+	<string id="st_dyn_news_faction_join_killer_conv_1_1"><text>Roster updated. %player_name% on contract. Keep it professional.</text></string>
+	<string id="st_dyn_news_faction_join_killer_conv_1_2"><text>New call sign: %player_name%. We judge by work, not talk.</text></string>
+	<string id="st_dyn_news_faction_join_killer_conv_1_3"><text>Trigger discipline, comm discipline. Client pays for results, not accidents.</text></string>
 
-	<string id="st_dyn_news_faction_join_killer_conv_2_1"><text>Loyalty out here is earned with blood. Clock starts now, %player_name%.</text></string>
+	<string id="st_dyn_news_faction_join_killer_conv_2_1"><text>Trust earned with results. Clock starts now, %player_name%.</text></string>
 	<string id="st_dyn_news_faction_join_killer_conv_2_2"><text>Keep your weapon clean and follow the contract. That's all that matters.</text></string>
-	<string id="st_dyn_news_faction_join_killer_conv_2_3"><text>And never ask what's in the package. Good luck.</text></string>
+	<string id="st_dyn_news_faction_join_killer_conv_2_3"><text>Need-to-know. You get brief when you need it. Good hunting.</text></string>
 
 	<string id="st_dyn_news_faction_join_killer_conv_3_1"><text>Syndicate command updated the roster. %player_name% is officially on the payroll.</text></string>
-	<string id="st_dyn_news_faction_join_killer_conv_3_2"><text>Hope they read the fine print. We don't do sick leave.</text></string>
+	<string id="st_dyn_news_faction_join_killer_conv_3_2"><text>Hope they read fine print. Zone got no sick leave.</text></string>
 	<string id="st_dyn_news_faction_join_killer_conv_3_3"><text>As long as they hit their targets, I don't care.</text></string>
 	<string id="st_dyn_news_faction_join_killer_conv_3_4"><text>Welcome to the private sector, %player_name%. Time is money.</text></string>
 
@@ -383,7 +383,7 @@
 
 	<string id="st_dyn_news_faction_join_killer_conv_5_1"><text>New contractor on the network. Goes by %player_name%.</text></string>
 	<string id="st_dyn_news_faction_join_killer_conv_5_2"><text>Don't care about the name. Do they know the rules of engagement?</text></string>
-	<string id="st_dyn_news_faction_join_killer_conv_5_3"><text>No witnesses, no loose ends. Same as always.</text></string>
+	<string id="st_dyn_news_faction_join_killer_conv_5_3"><text>Follow ROE, keep collateral low, keep trail cold. Same as always.</text></string>
 	<string id="st_dyn_news_faction_join_killer_conv_5_4"><text>Good. Welcome to the real money, %player_name%.</text></string>
 
 
@@ -392,7 +392,7 @@
 	<string id="st_dyn_news_faction_join_csky_conv_1_2"><text>%player_name%, welcome. The Zone rewards patience and observation. Impulse gets people killed here.</text></string>
 	<string id="st_dyn_news_faction_join_csky_conv_1_3"><text>We observe, we survive, we understand.</text></string>
 
-	<string id="st_dyn_news_faction_join_csky_conv_2_1"><text>New operative: %player_name%. Assign to anomaly mapping — everyone starts there.</text></string>
+	<string id="st_dyn_news_faction_join_csky_conv_2_1"><text>New operative: %player_name%. Assign to anomaly mapping - everyone starts there.</text></string>
 	<string id="st_dyn_news_faction_join_csky_conv_2_2"><text>Glad to have them. We need every disciplined mind working on understanding what this place is doing.</text></string>
 	<string id="st_dyn_news_faction_join_csky_conv_2_3"><text>Grab your Veles detector, %player_name%. There's work to do in the Swamps.</text></string>
 

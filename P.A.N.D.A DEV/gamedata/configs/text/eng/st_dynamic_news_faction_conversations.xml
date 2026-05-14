@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="windows-1251"?>
+<?xml version="1.0" encoding="utf-8"?>
 <string_table>
     <!-- LONER FACTION CONVERSATIONS -->
     <string id="st_dyn_news_conversation_faction_loner_1_meta"><text>artifacts,trading,loner</text></string>
@@ -2339,8 +2339,8 @@
 	<string id="st_dyn_news_conversation_faction_loner_314_turn_3"><text>A piano. Clear as day, but it sounded... distorted. Like it was underwater.</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_314_turn_4"><text>That's the spatial anomalies playing tricks on your ears. Or worse, a Controller messing with your head.</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_314_turn_5"><text>I didn't stick around to find out. My hair was standing on end. I just kept walking until I hit the Yantar border.</text></string>
-	<string id="st_dyn_news_conversation_faction_loner_314_turn_6"><text>Smart move. If the Zone starts playing you a tune, it�s usually for your funeral.</text></string>
-	<string id="st_dyn_news_conversation_faction_loner_314_turn_7"><text>Exactly. I�m sticking to the campfires for a few days. My nerves are shot.</text></string>
+	<string id="st_dyn_news_conversation_faction_loner_314_turn_6"><text>Smart move. If the Zone starts playing you a tune, it’s usually for your funeral.</text></string>
+	<string id="st_dyn_news_conversation_faction_loner_314_turn_7"><text>Exactly. I’m sticking to the campfires for a few days. My nerves are shot.</text></string>
 
 	<string id="st_dyn_news_conversation_faction_loner_315_meta"><text>survival,pseudodog,advice,loner</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_315_turn_1"><text>How do you tell the real pseudodog from the phantoms when they're charging?</text></string>
@@ -2352,12 +2352,12 @@
 	<string id="st_dyn_news_conversation_faction_loner_316_turn_1"><text>Is the path through the Great Swamps still clear of Renegades?</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_316_turn_2"><text>Clear? No. But they're disorganized. If you stick to the southern reeds, you can bypass their camps.</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_316_turn_3"><text>What about the Clear Sky guys? Do they still let loners pass through their base?</text></string>
-	<string id="st_dyn_news_conversation_faction_loner_316_turn_4"><text>Only if you have business with them. Otherwise, they'll just point you back toward the Cordon. They�re secretive for a bunch of scientists.</text></string>
+	<string id="st_dyn_news_conversation_faction_loner_316_turn_4"><text>Only if you have business with them. Otherwise, they'll just point you back toward the Cordon. They’re secretive for a bunch of scientists.</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_316_turn_5"><text>Secretive is better than shooting on sight. I'll take my chances with the water and the leeches.</text></string>
 
 	<string id="st_dyn_news_conversation_faction_loner_317_meta"><text>stash,bad_luck,loner</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_317_turn_1"><text>Walked three miles for a 'secret stash' I bought the coordinates for. Found a half-empty bottle of water and a single bandage.</text></string>
-	<string id="st_dyn_news_conversation_faction_loner_317_turn_2"><text>Who�d you buy it from?</text></string>
+	<string id="st_dyn_news_conversation_faction_loner_317_turn_2"><text>Who’d you buy it from?</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_317_turn_3"><text>A guy near the Flea Market. He looked desperate.</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_317_turn_4"><text>Desperate people sell lies, friend. Next time, find the stash yourself or stick to the veterans.</text></string>
 
@@ -2373,12 +2373,12 @@
 
 	<string id="st_dyn_news_conversation_faction_loner_319_meta"><text>lore,rumor,loner</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_319_turn_1"><text>You hear about the 'Stalker in White'? Supposedly he appears near the Brain Scorcher and guides people to safety.</text></string>
-	<string id="st_dyn_news_conversation_faction_loner_319_turn_2"><text>I heard he�s just a ghost of a Monolith soldier who regained his mind too late.</text></string>
+	<string id="st_dyn_news_conversation_faction_loner_319_turn_2"><text>I heard he’s just a ghost of a Monolith soldier who regained his mind too late.</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_319_turn_3"><text>Nonsense. There are no ghosts, just hallucinations from the emitters. If you see someone in white up there, it's probably a sniper in a winter ghillie. Shoot first.</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_319_turn_4"><text>True enough. Faith kills faster than bullets in the North.</text></string>
 
 	<string id="st_dyn_news_conversation_faction_loner_320_meta"><text>anomaly,warning,loner</text></string>
-	<string id="st_dyn_news_conversation_faction_loner_320_turn_1"><text>Avoid the hollow tree near the bridge. It�s developed a 'Spring' anomaly inside. It'll snap your spine if you lean on it.</text></string>
+	<string id="st_dyn_news_conversation_faction_loner_320_turn_1"><text>Avoid the hollow tree near the bridge. It’s developed a 'Spring' anomaly inside. It'll snap your spine if you lean on it.</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_320_turn_2"><text>Copy that. I'll mark it on the local map. Thanks.</text></string>
 
 	<string id="st_dyn_news_conversation_faction_loner_321_meta"><text>scarcity,food,loner</text></string>
@@ -2391,27 +2391,27 @@
 	<string id="st_dyn_news_conversation_faction_loner_322_meta"><text>military,snipers,warning,loner</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_322_turn_1"><text>Snipers at the Agroprom southern gate. They aren't firing warning shots anymore.</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_322_turn_2"><text>They never did. You just got lucky before.</text></string>
-	<string id="st_dyn_news_conversation_faction_loner_322_turn_3"><text>No, it's different. They�ve got thermal optics now. Saw the glow from their scopes. You can't even hide in the bushes.</text></string>
+	<string id="st_dyn_news_conversation_faction_loner_322_turn_3"><text>No, it's different. They’ve got thermal optics now. Saw the glow from their scopes. You can't even hide in the bushes.</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_322_turn_4"><text>Thermal? Shit. If the Military is bringing out the high-end tech, they're planning something big.</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_322_turn_5"><text>Either that or they're just tired of us 'intruders'. Stay low and stay behind concrete.</text></string>
 
 	<string id="st_dyn_news_conversation_faction_loner_323_meta"><text>gear,repair,loner</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_323_turn_1"><text>My SKS just jammed for the third time today. I think the return spring is shot.</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_323_turn_2"><text>Did you oil it? This dust in the Truck Cemetery eats metal for breakfast.</text></string>
-	<string id="st_dyn_news_conversation_faction_loner_323_turn_3"><text>Oiled it this morning. It�s just old. Everything in this Zone is falling apart, including me.</text></string>
+	<string id="st_dyn_news_conversation_faction_loner_323_turn_3"><text>Oiled it this morning. It’s just old. Everything in this Zone is falling apart, including me.</text></string>
 
 	<string id="st_dyn_news_conversation_faction_loner_324_meta"><text>barkeep,job,loner</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_324_turn_1"><text>Barkeep is offering a reward for the recovery of a 'lost briefcase' near the Wild Territory. Anyone interested in a joint op?</text></string>
-	<string id="st_dyn_news_conversation_faction_loner_324_turn_2"><text>I heard about that briefcase. Mercs were carrying it. That means there�s probably a squad still looking for it.</text></string>
-	<string id="st_dyn_news_conversation_faction_loner_324_turn_3"><text>Exactly. That�s why I need more than one gun. We ambush them, take the case, and split the bounty.</text></string>
-	<string id="st_dyn_news_conversation_faction_loner_324_turn_4"><text>Mercs are professionals. They don't just 'lose' briefcases. It�s likely a trap or a tracking beacon is inside.</text></string>
-	<string id="st_dyn_news_conversation_faction_loner_324_turn_5"><text>You�re too paranoid.</text></string>
+	<string id="st_dyn_news_conversation_faction_loner_324_turn_2"><text>I heard about that briefcase. Mercs were carrying it. That means there’s probably a squad still looking for it.</text></string>
+	<string id="st_dyn_news_conversation_faction_loner_324_turn_3"><text>Exactly. That’s why I need more than one gun. We ambush them, take the case, and split the bounty.</text></string>
+	<string id="st_dyn_news_conversation_faction_loner_324_turn_4"><text>Mercs are professionals. They don't just 'lose' briefcases. It’s likely a trap or a tracking beacon is inside.</text></string>
+	<string id="st_dyn_news_conversation_faction_loner_324_turn_5"><text>You’re too paranoid.</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_324_turn_6"><text>In the Zone, there's no such thing as 'too paranoid'. There's just 'dead' and 'not dead yet'. I'm sticking to the 'not dead' side.</text></string>
 	
 	<string id="st_dyn_news_conversation_faction_loner_325_meta"><text>superstition,ritual,survival,loner</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_325_turn_1"><text>Always leave a bullet on the stump before you enter the Red Forest. One for the Zone, so it doesn't take the rest in your mag.</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_325_turn_2"><text>You veterans and your campfire stories. It's an anomaly field, not a sentient god.</text></string>
-	<string id="st_dyn_news_conversation_faction_loner_325_turn_3"><text>Call it what you want. I�ve been here since '08. The ones who treated this place like a shooting gallery are all fertilizer now. Respect the silence, or it'll make you part of it.</text></string>
+	<string id="st_dyn_news_conversation_faction_loner_325_turn_3"><text>Call it what you want. I’ve been here since '08. The ones who treated this place like a shooting gallery are all fertilizer now. Respect the silence, or it'll make you part of it.</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_325_turn_4"><text>I'll stick to my detector and my calibrated AP rounds, thanks. Logic has kept me alive this long.</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_325_turn_5"><text>Logic dictates you don't go into a forest where the trees grow in circles. But you're going anyway. Just... watch your six, kid.</text></string>
 
@@ -2424,7 +2424,7 @@
 	<string id="st_dyn_news_conversation_faction_loner_327_turn_1"><text>Got a letter from my brother through the 'courier' service. Says things are getting expensive back in the Big Land.</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_327_turn_2"><text>Everything's a scam out there, too. Taxes, rent, bosses breathing down your neck. At least here, the thing trying to kill you is honest about it.</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_327_turn_3"><text>True. A Bloodsucker doesn't send you a bill after it tries to suck you dry.</text></string>
-	<string id="st_dyn_news_conversation_faction_loner_327_turn_4"><text>Exactly. I�d rather die in the mud here than spend forty years in a cubicle just to afford a coffin.</text></string>
+	<string id="st_dyn_news_conversation_faction_loner_327_turn_4"><text>Exactly. I’d rather die in the mud here than spend forty years in a cubicle just to afford a coffin.</text></string>
 
 	<string id="st_dyn_news_conversation_faction_loner_328_meta"><text>tactical,looting,ecologists,loner</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_328_turn_1"><text>Listen, I've been watching the Ecologist delivery flights. They've changed the drop-off point near Yantar to avoid the zombie clusters.</text></string>
@@ -2439,15 +2439,15 @@
 	<string id="st_dyn_news_conversation_faction_loner_329_turn_1"><text>Has anyone else seen the 'phantom' campfire near the burnt farmstead? You see the light from the ridge, but when you get down there, it's just cold ash.</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_329_turn_2"><text>I've seen it. Even heard someone coughing. I drew my gun and yelled, but the sound just... evaporated.</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_329_turn_3"><text>That place is a spatial tear. You're probably seeing a campfire from five years ago, or maybe five years from now.</text></string>
-	<string id="st_dyn_news_conversation_faction_loner_329_turn_4"><text>That�s what scares me. If it's the future, I didn't see myself sitting there.</text></string>
+	<string id="st_dyn_news_conversation_faction_loner_329_turn_4"><text>That’s what scares me. If it's the future, I didn't see myself sitting there.</text></string>
 
 	<string id="st_dyn_news_conversation_faction_loner_330_meta"><text>simple_warning,loner</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_330_turn_1"><text>Boar migration in the Cordon. Coming from the north. Hundreds of them. Don't be a hero, just get to high ground.</text></string>
 
 	<string id="st_dyn_news_conversation_faction_loner_331_meta"><text>resourcefulness,mutant_parts,loner</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_331_turn_1"><text>Don't bother selling Boar hide to the traders right now. Prices are bottomed out.</text></string>
-	<string id="st_dyn_news_conversation_faction_loner_331_turn_2"><text>What am I supposed to do with it? It�s heavy and smells like rot.</text></string>
-	<string id="st_dyn_news_conversation_faction_loner_331_turn_3"><text>Boil it down with some industrial grease. Makes a decent patch for boot soles or backpack straps. Better than paying 500 rubles for a 'repair kit' that�s just a needle and thread.</text></string>
+	<string id="st_dyn_news_conversation_faction_loner_331_turn_2"><text>What am I supposed to do with it? It’s heavy and smells like rot.</text></string>
+	<string id="st_dyn_news_conversation_faction_loner_331_turn_3"><text>Boil it down with some industrial grease. Makes a decent patch for boot soles or backpack straps. Better than paying 500 rubles for a 'repair kit' that’s just a needle and thread.</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_331_turn_4"><text>Interesting. I'll give it a shot. My left boot is basically held together by hope at this point.</text></string>
 
 	<string id="st_dyn_news_conversation_faction_loner_332_meta"><text>exoskeleton,mobility,debate,loner</text></string>
@@ -2460,11 +2460,11 @@
 	<string id="st_dyn_news_conversation_faction_loner_332_turn_7"><text>...Point taken. I'll avoid the tall ladders for now.</text></string>
 
 	<string id="st_dyn_news_conversation_faction_loner_333_meta"><text>exhaustion,mental_health,loner</text></string>
-	<string id="st_dyn_news_conversation_faction_loner_333_turn_1"><text>I�ve been staring at this same brick wall for two hours, waiting for the rain to stop. I think I�m starting to see patterns in the moss.</text></string>
-	<string id="st_dyn_news_conversation_faction_loner_333_turn_2"><text>That�s the 'Zone Stare.' Usually means you've been out in the field too long without a proper sleep.</text></string>
+	<string id="st_dyn_news_conversation_faction_loner_333_turn_1"><text>I’ve been staring at this same brick wall for two hours, waiting for the rain to stop. I think I’m starting to see patterns in the moss.</text></string>
+	<string id="st_dyn_news_conversation_faction_loner_333_turn_2"><text>That’s the 'Zone Stare.' Usually means you've been out in the field too long without a proper sleep.</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_333_turn_3"><text>Hard to sleep when every gust of wind sounds like a sliding bolt.</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_333_turn_4"><text>Head to the 100 Rads. The noise of people shouting and the bad music will drown out the Zone for a bit. It helps.</text></string>
-	<string id="st_dyn_news_conversation_faction_loner_333_turn_5"><text>Maybe you're right. I�m tired of being afraid of the wind.</text></string>
+	<string id="st_dyn_news_conversation_faction_loner_333_turn_5"><text>Maybe you're right. I’m tired of being afraid of the wind.</text></string>
 
 	<string id="st_dyn_news_conversation_faction_loner_334_meta"><text>bloodsucker,horror,tactical,loner</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_334_turn_1"><text>Found a 'nest' in the underground near the Agroprom. Five bloodsuckers, all dormant, hanging from the ceiling like bats.</text></string>
@@ -2478,21 +2478,21 @@
 	
 	<string id="st_dyn_news_conversation_faction_loner_336_meta"><text>snorks,hunting,tactical,loner</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_336_turn_1"><text>If you're hunting Snorks near the concrete factory, aim for the tanks on their backs. Sometimes they're still pressurized.</text></string>
-	<string id="st_dyn_news_conversation_faction_loner_336_turn_2"><text>That's a myth. I�ve put a dozen rounds into those canisters; they�re just rusted oxygen tanks. Better to hit the joints. If they can�t jump, they�re just ugly crawlers.</text></string>
+	<string id="st_dyn_news_conversation_faction_loner_336_turn_2"><text>That's a myth. I’ve put a dozen rounds into those canisters; they’re just rusted oxygen tanks. Better to hit the joints. If they can’t jump, they’re just ugly crawlers.</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_336_turn_3"><text>Suit yourself. Last one I hit popped like a party favor and took the mutant's head with it.</text></string>
 
 	<string id="st_dyn_news_conversation_faction_loner_337_meta"><text>yantar,psi,warning,loner</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_337_turn_1"><text>The psi-levels around the Yantar lake are fluctuating again. My ears have been ringing for two hours.</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_337_turn_2"><text>Did you calibrate your headgear at the bunker? Sakharov says the old 'prototypes' are losing their shielding.</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_337_turn_3"><text>Sakharov says a lot of things to get us to spend rubles. I think the machine in the center is just 'waking up' again.</text></string>
-	<string id="st_dyn_news_conversation_faction_loner_337_turn_4"><text>Waking up? Don't even joke about that. If that thing goes full-throttle, we�re all going to be shuffling around eating dirt by morning.</text></string>
-	<string id="st_dyn_news_conversation_faction_loner_337_turn_5"><text>Then move south. I'm already halfway to the Agroprom. I�d rather face Military lead than a brain-fryer.</text></string>
+	<string id="st_dyn_news_conversation_faction_loner_337_turn_4"><text>Waking up? Don't even joke about that. If that thing goes full-throttle, we’re all going to be shuffling around eating dirt by morning.</text></string>
+	<string id="st_dyn_news_conversation_faction_loner_337_turn_5"><text>Then move south. I'm already halfway to the Agroprom. I’d rather face Military lead than a brain-fryer.</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_337_turn_6"><text>Smart. I'm packing my kit now. Catch you at the transition point.</text></string>
 
 	<string id="st_dyn_news_conversation_faction_loner_338_meta"><text>economy,sidorovich,loner</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_338_turn_1"><text>Sidorovich is charging 400 rubles for a single tourist delight. Four hundred!</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_338_turn_2"><text>Supply and demand, brother. Mostly he supplies, and we demand to not starve.</text></string>
-	<string id="st_dyn_news_conversation_faction_loner_338_turn_3"><text>One day that fat leech is going to choke on a chicken wing, and I�m going to be there to loot his vest.</text></string>
+	<string id="st_dyn_news_conversation_faction_loner_338_turn_3"><text>One day that fat leech is going to choke on a chicken wing, and I’m going to be there to loot his vest.</text></string>
 
 	<string id="st_dyn_news_conversation_faction_loner_339_meta"><text>red_forest,horror,monolith,loner</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_339_turn_1"><text>Is it true the Monolith are moving back into the Limansk bridge area?</text></string>
@@ -2507,15 +2507,15 @@
 	<string id="st_dyn_news_conversation_faction_loner_340_meta"><text>equipment,maintenance,loner</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_340_turn_1"><text>Anyone know how to get the smell of Chimera blood out of a tactical vest? I've scrubbed it twice and I still smell like a butcher's shop.</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_340_turn_2"><text>Soak it in industrial alcohol and hope the fabric doesn't melt. Otherwise, just get used to it. Mutants will smell you coming from a mile away now anyway.</text></string>
-	<string id="st_dyn_news_conversation_faction_loner_340_turn_3"><text>Great. I�m basically a walking dinner bell.</text></string>
-	<string id="st_dyn_news_conversation_faction_loner_340_turn_4"><text>Look on the bright side, at least the Bandits will think you�re too dangerous to mess with if you smell like a monster.</text></string>
+	<string id="st_dyn_news_conversation_faction_loner_340_turn_3"><text>Great. I’m basically a walking dinner bell.</text></string>
+	<string id="st_dyn_news_conversation_faction_loner_340_turn_4"><text>Look on the bright side, at least the Bandits will think you’re too dangerous to mess with if you smell like a monster.</text></string>
 
 	<string id="st_dyn_news_conversation_faction_loner_341_meta"><text>ethics,looting,loner</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_341_turn_1"><text>Found a dead stalker near the Wild Territory. 'Pops'. Anyone know him?</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_341_turn_2"><text>Yeah, old timer. Used to hang out at the 100 Rads. Had a daughter back in Kyiv he was trying to send money to.</text></string>
-	<string id="st_dyn_news_conversation_faction_loner_341_turn_3"><text>I found his PDA and a locket. I�m taking his gear, but I�ll leave the personal stuff at the Bar for whoever heads out next. Maybe someone can get it to the Big Land.</text></string>
-	<string id="st_dyn_news_conversation_faction_loner_341_turn_4"><text>That�s decent of you. Most would�ve just wiped the PDA and sold the locket for scrap.</text></string>
-	<string id="st_dyn_news_conversation_faction_loner_341_turn_5"><text>We�re all going to end up face-down in the dirt eventually. I�d want someone to do the same for me.</text></string>
+	<string id="st_dyn_news_conversation_faction_loner_341_turn_3"><text>I found his PDA and a locket. I’m taking his gear, but I’ll leave the personal stuff at the Bar for whoever heads out next. Maybe someone can get it to the Big Land.</text></string>
+	<string id="st_dyn_news_conversation_faction_loner_341_turn_4"><text>That’s decent of you. Most would’ve just wiped the PDA and sold the locket for scrap.</text></string>
+	<string id="st_dyn_news_conversation_faction_loner_341_turn_5"><text>We’re all going to end up face-down in the dirt eventually. I’d want someone to do the same for me.</text></string>
 
 	<string id="st_dyn_news_conversation_faction_loner_342_meta"><text>night,survival,loner</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_342_turn_1"><text>Is it just me, or does the 'glow' from the anomalies seem brighter tonight?</text></string>
@@ -2525,17 +2525,17 @@
 	<string id="st_dyn_news_conversation_faction_loner_343_meta"><text>duty,smuggling,loner</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_343_turn_1"><text>Trying to slip a 'Fireball' past the Duty guards at the Rostok entrance. Any tips?</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_343_turn_2"><text>Put it in a lead-lined box inside a backpack full of raw boar meat. The smell throws off their scanners and their noses.</text></string>
-	<string id="st_dyn_news_conversation_faction_loner_343_turn_3"><text>And if they ask why I�m carrying ten pounds of rotting meat?</text></string>
+	<string id="st_dyn_news_conversation_faction_loner_343_turn_3"><text>And if they ask why I’m carrying ten pounds of rotting meat?</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_343_turn_4"><text>Tell them you're making a stew for the Barkeep. They're too lazy to check the bottom of the bag if it reeks that bad.</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_343_turn_5"><text>I tried that once. The guard made me open the bag. I ended up paying a 'sanitation tax' that cost more than the artifact was worth.</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_343_turn_6"><text>Then you didn't use enough meat. Or you didn't look pathetic enough.</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_343_turn_7"><text>I'll try the 'pathetic' angle. Thanks for nothing, guys.</text></string>
 
 	<string id="st_dyn_news_conversation_faction_loner_344_meta"><text>tech,pda,loner</text></string>
-	<string id="st_dyn_news_conversation_faction_loner_344_turn_1"><text>My PDA map is showing a massive red blip in the middle of the Pripyat outskirts. It�s not moving.</text></string>
+	<string id="st_dyn_news_conversation_faction_loner_344_turn_1"><text>My PDA map is showing a massive red blip in the middle of the Pripyat outskirts. It’s not moving.</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_344_turn_2"><text>Likely a ghost signal. The local network there is trashed from all the emissions.</text></string>
-	<string id="st_dyn_news_conversation_faction_loner_344_turn_3"><text>Or it�s a trap. Bandits have been known to spoof PDA signals to lure people into dead-ends.</text></string>
-	<string id="st_dyn_news_conversation_faction_loner_344_turn_4"><text>I'm staying away either way. If it�s big enough to show up on a glitchy map, I don�t want to meet it.</text></string>
+	<string id="st_dyn_news_conversation_faction_loner_344_turn_3"><text>Or it’s a trap. Bandits have been known to spoof PDA signals to lure people into dead-ends.</text></string>
+	<string id="st_dyn_news_conversation_faction_loner_344_turn_4"><text>I'm staying away either way. If it’s big enough to show up on a glitchy map, I don’t want to meet it.</text></string>
 
 	<string id="st_dyn_news_conversation_faction_loner_345_meta"><text>paranoia,survival,loner</text></string>
 	<string id="st_dyn_news_conversation_faction_loner_345_turn_1"><text>That feeling when you think you're alone, then you hear a twig snap behind you...</text></string>
@@ -3526,12 +3526,12 @@
 	
 	<!-- Conversation 16: Morning Smoke Session -->
 	<string id="st_dyn_news_conversation_faction_freedom_16_meta"><text>weed,morning,casual,freedom</text></string>
-	<string id="st_dyn_news_conversation_faction_freedom_16_turn_1"><text>%other_first_name%, you got any of that good shit left from last night?</text></string>
-	<string id="st_dyn_news_conversation_faction_freedom_16_turn_2"><text>Brother, I'm already two joints deep into breakfast. Come by the fire.</text></string>
-	<string id="st_dyn_news_conversation_faction_freedom_16_turn_3"><text>This new strain hits different. Where'd you get it?</text></string>
-	<string id="st_dyn_news_conversation_faction_freedom_16_turn_4"><text>Growing it myself near that weird anomaly. The radiation does something beautiful to the THC.</text></string>
-	<string id="st_dyn_news_conversation_faction_freedom_16_turn_5"><text>Mutant weed? That's either genius or suicide.</text></string>
-	<string id="st_dyn_news_conversation_faction_freedom_16_turn_6"><text>Little bit of both. That's freedom, baby.</text></string>
+	<string id="st_dyn_news_conversation_faction_freedom_16_turn_1"><text>%other_first_name%, you got any coffee left from last night?</text></string>
+	<string id="st_dyn_news_conversation_faction_freedom_16_turn_2"><text>Brother, I'm two cups deep and still freezing. Come by fire.</text></string>
+	<string id="st_dyn_news_conversation_faction_freedom_16_turn_3"><text>This tobacco tastes different. Where'd you get it?</text></string>
+	<string id="st_dyn_news_conversation_faction_freedom_16_turn_4"><text>Trader from outside. Charged double. Said it was fresh.</text></string>
+	<string id="st_dyn_news_conversation_faction_freedom_16_turn_5"><text>Outside tobacco? Either luxury or scam.</text></string>
+	<string id="st_dyn_news_conversation_faction_freedom_16_turn_6"><text>Zone taxes everything. Light up and watch perimeter.</text></string>
 
 	<!-- Conversation 17: Duty Mockery -->
 	<string id="st_dyn_news_conversation_faction_freedom_17_meta"><text>duty,mockery,humor,freedom</text></string>
@@ -3544,9 +3544,9 @@
 	<!-- Conversation 18: Philosophy Session -->
 	<string id="st_dyn_news_conversation_faction_freedom_18_meta"><text>philosophy,zone,freedom</text></string>
 	<string id="st_dyn_news_conversation_faction_freedom_18_turn_1"><text>You ever think the Zone is just trying to communicate?</text></string>
-	<string id="st_dyn_news_conversation_faction_freedom_18_turn_2"><text>Pass that joint and elaborate, philosopher.</text></string>
+	<string id="st_dyn_news_conversation_faction_freedom_18_turn_2"><text>Pass that cigarette and elaborate, philosopher.</text></string>
 	<string id="st_dyn_news_conversation_faction_freedom_18_turn_3"><text>Like... anomalies are words, emissions are sentences. We just don't speak the language yet.</text></string>
-	<string id="st_dyn_news_conversation_faction_freedom_18_turn_4"><text>And Duty wants to silence it before we can learn. Typical authoritarian bullshit.</text></string>
+	<string id="st_dyn_news_conversation_faction_freedom_18_turn_4"><text>And Duty wants to silence it before we can learn. Typical chain-of-command talk.</text></string>
 	<string id="st_dyn_news_conversation_faction_freedom_18_turn_5"><text>Exactly! They fear what they don't understand.</text></string>
 	<string id="st_dyn_news_conversation_faction_freedom_18_turn_6"><text>We embrace it. That's the difference between slaves and free men.</text></string>
 
@@ -3668,7 +3668,7 @@
 	<string id="st_dyn_news_conversation_faction_freedom_32_turn_3"><text>Better - use that glow-in-the-dark paint.</text></string>
 	<string id="st_dyn_news_conversation_faction_freedom_32_turn_4"><text>They'll see it for weeks! When do we strike?</text></string>
 	<string id="st_dyn_news_conversation_faction_freedom_32_turn_5"><text>Tonight. They have that boring ceremony at 2100.</text></string>
-	<string id="st_dyn_news_conversation_faction_freedom_32_turn_6"><text>Perfect. I'll bring the spray cans and joints for the mission.</text></string>
+	<string id="st_dyn_news_conversation_faction_freedom_32_turn_6"><text>Perfect. I'll bring spray cans and extra batteries. We go fast.</text></string>
 
 	<!-- Conversation 33: Music Discussion -->
 	<string id="st_dyn_news_conversation_faction_freedom_33_meta"><text>music,culture,freedom</text></string>
@@ -3676,7 +3676,7 @@
 	<string id="st_dyn_news_conversation_faction_freedom_33_turn_2"><text>I got a trader bringing Western music next week.</text></string>
 	<string id="st_dyn_news_conversation_faction_freedom_33_turn_3"><text>Rock? Metal? Please say psychedelic.</text></string>
 	<string id="st_dyn_news_conversation_faction_freedom_33_turn_4"><text>All of it. Freedom means choices, brother.</text></string>
-	<string id="st_dyn_news_conversation_faction_freedom_33_turn_5"><text>Hell yeah! I'll bring the weed.</text></string>
+	<string id="st_dyn_news_conversation_faction_freedom_33_turn_5"><text>Hell yeah. I'll bring batteries and speaker wire.</text></string>
 
 	<!-- Conversation 34: Injury Recovery -->
 	<string id="st_dyn_news_conversation_faction_freedom_34_meta"><text>injury,recovery,brotherhood,freedom</text></string>
@@ -3714,12 +3714,12 @@
 	<!-- Conversation 38: Duty Defector -->
 	<string id="st_dyn_news_conversation_faction_freedom_38_meta"><text>defector,duty,conversion,freedom</text></string>
 	<string id="st_dyn_news_conversation_faction_freedom_38_turn_1"><text>Another Duty defector showed up. Third this month.</text></string>
-	<string id="st_dyn_news_conversation_faction_freedom_38_turn_2"><text>Their fascist paradise cracking?</text></string>
+	<string id="st_dyn_news_conversation_faction_freedom_38_turn_2"><text>Their iron discipline cracking?</text></string>
 	<string id="st_dyn_news_conversation_faction_freedom_38_turn_3"><text>Kid said he joined to fight the Zone, but he saw the beauty in it.</text></string>
 	<string id="st_dyn_news_conversation_faction_freedom_38_turn_4"><text>Takes balls to admit you were wrong and change.</text></string>
 	<string id="st_dyn_news_conversation_faction_freedom_38_turn_5"><text>Yeah. Let's show him what real brotherhood looks like.</text></string>
-	<string id="st_dyn_news_conversation_faction_freedom_38_turn_6"><text>Get him stoned and tell him about anarchist theory.</text></string>
-	<string id="st_dyn_news_conversation_faction_freedom_38_turn_7"><text>One joint at a time, we'll deprogram that military bullshit.</text></string>
+	<string id="st_dyn_news_conversation_faction_freedom_38_turn_6"><text>Get him fed and show him how we run guard shifts.</text></string>
+	<string id="st_dyn_news_conversation_faction_freedom_38_turn_7"><text>One hot meal at a time, and he will stop missing barracks.</text></string>
 
 	<!-- Conversation 39: Barrier Skirmish -->
 	<string id="st_dyn_news_conversation_faction_freedom_39_meta"><text>combat,duty,victory,freedom</text></string>
@@ -3825,7 +3825,7 @@
 	<string id="st_dyn_news_conversation_faction_freedom_49_turn_5"><text>Bring it on. The Zone belongs to those who understand it.</text></string>
 	<string id="st_dyn_news_conversation_faction_freedom_49_turn_6"><text>Not those who fear it.</text></string>
 	<string id="st_dyn_news_conversation_faction_freedom_49_turn_7"><text>Exactly. We're not just fighting Duty. We're fighting ignorance.</text></string>
-	<string id="st_dyn_news_conversation_faction_freedom_49_turn_8"><text>One joint and one bullet at a time.</text></string>
+	<string id="st_dyn_news_conversation_faction_freedom_49_turn_8"><text>One patrol and one firefight at a time.</text></string>
 
 	<!-- Conversation 50: Morning Routine -->
 	<string id="st_dyn_news_conversation_faction_freedom_50_meta"><text>morning,routine,casual,freedom</text></string>
@@ -3906,7 +3906,7 @@
 	<string id="st_dyn_news_conversation_faction_freedom_58_meta"><text>celebration,victory,party,freedom</text></string>
 	<string id="st_dyn_news_conversation_faction_freedom_58_turn_1"><text>Heard from the front that we pushed Duty back from the warehouse district!</text></string>
 	<string id="st_dyn_news_conversation_faction_freedom_58_turn_2"><text>Fuck yes! This calls for a celebration.</text></string>
-	<string id="st_dyn_news_conversation_faction_freedom_58_turn_3"><text>Already rolling the victory joints.</text></string>
+	<string id="st_dyn_news_conversation_faction_freedom_58_turn_3"><text>Already stacking firewood for tonight.</text></string>
 	<string id="st_dyn_news_conversation_faction_freedom_58_turn_4"><text>I'll get the sound system set up.</text></string>
 	<string id="st_dyn_news_conversation_faction_freedom_58_turn_5"><text>Someone grab the good vodka from the stash.</text></string>
 	<string id="st_dyn_news_conversation_faction_freedom_58_turn_6"><text>Tonight we party like the free men we are!</text></string>
@@ -3935,7 +3935,7 @@
 	<string id="st_dyn_news_conversation_faction_freedom_61_turn_2"><text>They sharing their findings?</text></string>
 	<string id="st_dyn_news_conversation_faction_freedom_61_turn_3"><text>Full transparency, surprisingly</text></string>
 	<string id="st_dyn_news_conversation_faction_freedom_61_turn_4"><text>Maybe we're rubbing off on them. Let's do it.</text></string>
-	<string id="st_dyn_news_conversation_faction_freedom_61_turn_5"><text>Maybe they'll figure out how to enhance our weed with artifacts.</text></string>
+	<string id="st_dyn_news_conversation_faction_freedom_61_turn_5"><text>Maybe they'll figure out how to keep us alive in emissions.</text></string>
 	<string id="st_dyn_news_conversation_faction_freedom_61_turn_6"><text>You really need to lay off.</text></string>
 
 	<!-- Conversation 62: Territory Expansion -->
@@ -4001,11 +4001,11 @@
 
 	<!-- Conversation 68: The "Perfect" Joint -->
 	<string id="st_dyn_news_conversation_faction_freedom_68_meta"><text>weed,casual,philosophy,freedom</text></string>
-	<string id="st_dyn_news_conversation_faction_freedom_68_turn_1"><text>I've done it. I have rolled the perfect joint.</text></string>
-	<string id="st_dyn_news_conversation_faction_freedom_68_turn_2"><text>What makes it so perfect, oh wise one?</text></string>
-	<string id="st_dyn_news_conversation_faction_freedom_68_turn_3"><text>Perfectly cylindrical, burns evenly, and has a pinch of dried Zone moss for flavour.</text></string>
-	<string id="st_dyn_news_conversation_faction_freedom_68_turn_4"><text>You smoked Zone moss? Are you trying to grow a third eye?</text></string>
-	<string id="st_dyn_news_conversation_faction_freedom_68_turn_5"><text>A third eye would be useful for watching my back. Now, are you gonna share this spiritual experience or not?</text></string>
+	<string id="st_dyn_news_conversation_faction_freedom_68_turn_1"><text>I've done it. I brewed perfect camp tea.</text></string>
+	<string id="st_dyn_news_conversation_faction_freedom_68_turn_2"><text>What makes it perfect, oh wise one?</text></string>
+	<string id="st_dyn_news_conversation_faction_freedom_68_turn_3"><text>Strong, hot, and it does not taste like rusted canteen.</text></string>
+	<string id="st_dyn_news_conversation_faction_freedom_68_turn_4"><text>Miracle. What did you put in it?</text></string>
+	<string id="st_dyn_news_conversation_faction_freedom_68_turn_5"><text>Nothing fancy. Just boiled it twice. Now drink and stop whining.</text></string>
 
 	<!-- Conversation 69: A Risky Artifact Hunt -->
 	<string id="st_dyn_news_conversation_faction_freedom_69_meta"><text>artifact,risk,adventure,freedom</text></string>
@@ -4113,7 +4113,7 @@
 	<string id="st_dyn_news_conversation_faction_freedom_82_turn_1"><text>It's relaxing whenever an emission passes. Everything's quiet. Calm.</text></string>
 	<string id="st_dyn_news_conversation_faction_freedom_82_turn_2"><text>Yeah. The five minutes before the mutants start crawling out again.</text></string>
 	<string id="st_dyn_news_conversation_faction_freedom_82_turn_3"><text>Let's just enjoy it. This is why we fight. For these moments.</text></string>
-	<string id="st_dyn_news_conversation_faction_freedom_82_turn_4"><text>Pass the joint. Let's really enjoy it.</text></string>
+	<string id="st_dyn_news_conversation_faction_freedom_82_turn_4"><text>Pass the cigarette. Let's enjoy it.</text></string>
 
 	<!-- Conversation 83: New Anomaly Type -->
 	<string id="st_dyn_news_conversation_faction_freedom_83_meta"><text>anomaly,new,discovery,freedom</text></string>
@@ -4377,355 +4377,355 @@
 	
 	
 	<string id="st_dyn_news_conversation_faction_killer_1_meta"><text>loner,ambush,loot,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_1_turn_1"><text>Look! Loner wandering near the reeds. Looks lost.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_1_turn_2"><text>He's ours. I'll take the left flank. You flush him out.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_1_turn_3"><text>Fuck flanking. Just shoot the bastard. His gear looks like shit anyway.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_1_turn_4"><text>Fine. My bullet, my loot. You can have his boots if they fit.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_1_turn_1"><text>Contact by reeds. Loner gear. Might be courier.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_1_turn_2"><text>No rush. Check PDA tags. If he match contract, we move.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_1_turn_3"><text>Overwatch stays high. No shots till ID confirmed.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_1_turn_4"><text>Client pays for target, not random bodies. Keep it clean.</text></string>
 
 	<!-- Conversation 2: Failed Robbery -->
 	<string id="st_dyn_news_conversation_faction_killer_2_meta"><text>failure,blame,anger,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_2_turn_1"><text>He got away! You shot like a blind dog, you useless fuck!</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_2_turn_2"><text>Me? You were supposed to cut him off! You tripped on your own dick!</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_2_turn_3"><text>Next time I'm using you for bait. At least you're good at screaming.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_2_turn_4"><text>Shut up! Both of you! There's another one coming. Don't fuck this one up.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_2_turn_1"><text>Target slipped. You fired early. Bad call.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_2_turn_2"><text>I had no sight line. You broke contact. Stay on comms.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_2_turn_3"><text>Next time, one man calls shots. Other listens.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_2_turn_4"><text>Enough. Rally point in five. We do it right.</text></string>
 
 	<!-- Conversation 3: Squabbling over Loot -->
 	<string id="st_dyn_news_conversation_faction_killer_3_meta"><text>loot,argument,greed,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_3_turn_1"><text>That medkit is mine! I saw it first!</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_3_turn_2"><text>You can't even fucking read! I killed him, I get his shit!</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_3_turn_3"><text>Want to settle this with knives, then?</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_3_turn_4"><text>Both of you give me the fucking medkit. Now. Or I'll use it to patch up what's left of you.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_3_turn_1"><text>Mark salvage before you touch it.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_3_turn_2"><text>Split per rules. Ammo and meds go to team pool first.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_3_turn_3"><text>You want bonus? Put it in report, not in pocket.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_3_turn_4"><text>Stop. We finish job, then we settle shares.</text></string>
 
 	<!-- Conversation 4: Territorial Threats -->
 	<string id="st_dyn_news_conversation_faction_killer_4_meta"><text>territory,threat,hostile,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_4_turn_1"><text>Someone's coming. Smells like Clear Sky.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_4_turn_2"><text>Fuck those swamp pricks. This is our mudhole.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_4_turn_3"><text>Fire a warning shot?</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_4_turn_4"><text>Warning shots are for pussies. Shoot to kill. They'll get the message.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_4_turn_1"><text>Movement. Clear Sky patch, maybe.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_4_turn_2"><text>No contact unless paid. We not here for faction drama.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_4_turn_3"><text>Hold fire?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_4_turn_4"><text>Hold fire. Noise draws mutants. We slip away.</text></string>
 
 	<!-- Conversation 5: Dealing with Mutants -->
 	<string id="st_dyn_news_conversation_faction_killer_5_meta"><text>mutants,fear,chaos,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_5_turn_1"><text>FUCK! Snorks! In the fucking camp!</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_5_turn_2"><text>Shoot them! Shoot them you idiots!</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_5_turn_3"><text>I'm out of ammo!</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_5_turn_4"><text>Then throw a fucking rock! Every man for himself!</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_5_turn_1"><text>Snorks inside perimeter. Two, maybe three.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_5_turn_2"><text>Controlled fire. Short bursts. Keep crossfire clean.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_5_turn_3"><text>Reloading. Cover me.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_5_turn_4"><text>Copy. Left flank, now. Do not let them close.</text></string>
 
 	<!-- Conversation 6: "Diplomacy" -->
 	<string id="st_dyn_news_conversation_faction_killer_6_meta"><text>diplomacy,threat,crude,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_6_turn_1"><text>Loner wants to pass. Says he'll pay.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_6_turn_2"><text>Take his money.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_6_turn_3"><text>Then what?</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_6_turn_4"><text>Then we shoot him and take the rest of his shit. What kind of fucking question is that?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_6_turn_1"><text>Loner wants through. Says he will pay.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_6_turn_2"><text>We not toll collectors. Let him pass.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_6_turn_3"><text>Even if he carrying something good?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_6_turn_4"><text>Unless contract says take it, we keep hands off. Less heat.</text></string>
 
 	<!-- Conversation 7: A Bad Deal -->
 	<string id="st_dyn_news_conversation_faction_killer_7_meta"><text>deal,betrayal,bandit,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_7_turn_1"><text>That Bandit trader sold us watered-down vodka!</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_7_turn_2"><text>Even the regular bandits hate us. Fucking snobs.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_7_turn_3"><text>Next time we see him, we take his stall. And his kneecaps.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_7_turn_4"><text>Let's just burn his fucking camp down. Easier.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_7_turn_1"><text>Bandit trader shorted us on ammo. Half box was bad.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_7_turn_2"><text>Write his name down. We do not buy from him again.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_7_turn_3"><text>We could lean on him.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_7_turn_4"><text>No. Quiet blacklist. We stay invisible.</text></string>
 
 	<!-- Conversation 8: Spotting a Stronger Faction -->
 	<string id="st_dyn_news_conversation_faction_killer_8_meta"><text>duty,retreat,coward,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_8_turn_1"><text>Shit. Duty patrol. Five of them, in exoskeletons.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_8_turn_2"><text>Fuck that. We're getting out of here.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_8_turn_3"><text>We should fight them! Show them who's boss!</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_8_turn_4"><text>You wanna be a hero? You can be a dead hero. I'm leaving.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_8_turn_1"><text>Duty patrol. Five. One in exo.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_8_turn_2"><text>Not our fight. We bypass west and keep radios low.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_8_turn_3"><text>Unless they spot us?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_8_turn_4"><text>Then smoke and break contact. No hero games.</text></string>
 
 	<!-- Conversation 9: A Renegade's Treasure -->
 	<string id="st_dyn_news_conversation_faction_killer_9_meta"><text>loot,treasure,pathetic,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_9_turn_1"><text>Jackpot! Found a stash!</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_9_turn_2"><text>What's in it? Artifacts? Good gun?</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_9_turn_3"><text>Better! A whole can of beans and a half-eaten sausage!</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_9_turn_4"><text>Fuck you, the sausage is mine!</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_9_turn_1"><text>Found a stash. Marked by old pipe.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_9_turn_2"><text>Anything useful?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_9_turn_3"><text>Medkit, two mags, and batteries. Not bad.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_9_turn_4"><text>Bag it. Log it. We sell later, split even.</text></string>
 
 	<!-- Conversation 10: The Renegade Code -->
 	<string id="st_dyn_news_conversation_faction_killer_10_meta"><text>code,philosophy,brutal,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_10_turn_1"><text>You know what the difference is between us and them?</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_10_turn_2"><text>We're bigger assholes?</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_10_turn_3"><text>They got rules. Codes. All that bullshit. We got one rule.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_10_turn_4"><text>If you can take it, it's yours. That's it.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_10_turn_5"><text>Now give me your fucking beans.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_10_turn_1"><text>You know difference between us and locals?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_10_turn_2"><text>We got better guns?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_10_turn_3"><text>We got paperwork. Contract. Chain of command.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_10_turn_4"><text>Finish job, get paid, leave no loose ends.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_10_turn_5"><text>And no, I not stealing your beans.</text></string>
 
     <!-- Conversation 11: Paranoia and Mistrust -->
 	<string id="st_dyn_news_conversation_faction_killer_11_meta"><text>paranoia,mistrust,internal,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_11_turn_1"><text>You were looking at my stash.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_11_turn_2"><text>I was looking at the fucking swamp, you paranoid fuck.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_11_turn_3"><text>Keep your eyes off my shit, or I'll gouge them out.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_11_turn_4"><text>Try it. I need a new knife sheath anyway.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_11_turn_1"><text>Did you move my pack?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_11_turn_2"><text>No. I checked perimeter. Your gear stays sealed.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_11_turn_3"><text>Good. We keep our own kit, but mission gear is shared.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_11_turn_4"><text>Copy. Inventory after contact, not before.</text></string>
 
 	<!-- Conversation 12: Reaction to an Emission -->
 	<string id="st_dyn_news_conversation_faction_killer_12_meta"><text>emission,panic,chaos,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_12_turn_1"><text>SKY'S FUCKING GREEN! RUN!</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_12_turn_2"><text>TO WHERE?!</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_12_turn_3"><text>WHO FUCKING CARES! GET IN THE DITCH!</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_12_turn_4"><text>FUCK YOU, THAT'S MY DITCH!</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_12_turn_1"><text>Emission build-up. Sky going green.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_12_turn_2"><text>Hard cover, now. Nearest building.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_12_turn_3"><text>Negative, that roof is thin. Basement or tunnel.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_12_turn_4"><text>Move. No arguing. We live, then we get paid.</text></string>
 
 	<!-- Conversation 13: A "Plan" -->
 	<string id="st_dyn_news_conversation_faction_killer_13_meta"><text>plan,stupid,violence,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_13_turn_1"><text>Okay, here's the plan. We wait for the stalker to pass.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_13_turn_2"><text>And then?</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_13_turn_3"><text>Then we shoot him in his fucking face.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_13_turn_4"><text>...Genius. Why didn't I think of that?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_13_turn_1"><text>Plan: let contact pass choke point.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_13_turn_2"><text>Then?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_13_turn_3"><text>Then we tail him, confirm ID, grab package, exfil south.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_13_turn_4"><text>Finally, a plan with steps.</text></string>
 
 	<!-- Conversation 14: Failed Intimidation -->
 	<string id="st_dyn_news_conversation_faction_killer_14_meta"><text>intimidation,failure,anger,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_14_turn_1"><text>I told that loner to give me his stuff. He just laughed at me.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_14_turn_2"><text>So you shot him?</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_14_turn_3"><text>He shot me first! In the fucking leg!</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_14_turn_4"><text>Hah! You got robbed by your own victim. Fucking pathetic.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_14_turn_1"><text>I tried to shake down a loner for supplies. He laughed.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_14_turn_2"><text>Why are you shaking down locals? That not mission.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_14_turn_3"><text>Because quartermaster late. I needed meds.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_14_turn_4"><text>Then buy like everybody else. You make heat for all of us.</text></string>
 
 	<!-- Conversation 15: Scavenging -->
 	<string id="st_dyn_news_conversation_faction_killer_15_meta"><text>scavenging,corpse,disrespect,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_15_turn_1"><text>Found a dead bandit. Looks like mutants got him.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_15_turn_2"><text>Anything good on him?</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_15_turn_3"><text>Half a pack of smokes and one boot. Fucking useless even when he's dead.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_15_turn_4"><text>Take the boot. We can use it for kindling.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_15_turn_1"><text>Body on trail. Bandit patch. Mutant hit.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_15_turn_2"><text>Search quick. No souvenirs.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_15_turn_3"><text>Bandage, pistol mags, and a map note.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_15_turn_4"><text>Take map. Leave rest. We keep moving.</text></string>
 
 	<!-- Conversation 16: Disgust for other Factions -->
 	<string id="st_dyn_news_conversation_faction_killer_16_meta"><text>factions,disgust,hatred,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_16_turn_1"><text>Duty, Freedom, Bandits... all of them, they're all pretending.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_16_turn_2"><text>Pretending what?</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_16_turn_3"><text>That they got some fucking reason. Some code. We're the only honest ones here.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_16_turn_4"><text>Honest about what?</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_16_turn_5"><text>That we're all just animals trying to eat before we get eaten. Now shut the fuck up.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_16_turn_1"><text>Duty, Freedom, bandits... everybody got slogans.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_16_turn_2"><text>And we got what?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_16_turn_3"><text>Work. Money. Clean exit. Simple.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_16_turn_4"><text>No politics?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_16_turn_5"><text>No politics. Just risk and pay. Keep it that way.</text></string>
 
 	<!-- Conversation 17: Injury and Abandonment -->
 	<string id="st_dyn_news_conversation_faction_killer_17_meta"><text>injury,abandonment,cruel,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_17_turn_1"><text>Vitya's down. Leg's fucked. Snork got him.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_17_turn_2"><text>Can he walk?</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_17_turn_3"><text>No fucking way.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_17_turn_4"><text>Then take his ammo and let's go. He's dead weight.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_17_turn_1"><text>Vitya down. Leg hit. Snork.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_17_turn_2"><text>Tourniquet on. Can he move?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_17_turn_3"><text>Not fast.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_17_turn_4"><text>Then we carry to hard cover. We do not leave our own.</text></string>
 
 	<!-- Conversation 18: A Moment of Confusion -->
 	<string id="st_dyn_news_conversation_faction_killer_18_meta"><text>confusion,stupid,random,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_18_turn_1"><text>Why is the sky... purple?</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_18_turn_2"><text>Who gives a fuck? Just means it's about to rain shit or radiation.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_18_turn_3"><text>I think it's pretty.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_18_turn_4"><text>I think you're a fucking idiot. Get under cover.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_18_turn_1"><text>Sky tint looks wrong.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_18_turn_2"><text>Storm front. Could be psy weather. Keep helmet sealed.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_18_turn_3"><text>You ever see it this color?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_18_turn_4"><text>Once. It ended in an emission. Find cover.</text></string>
 
 	<!-- Conversation 19: Checkpoint "Toll" -->
 	<string id="st_dyn_news_conversation_faction_killer_19_meta"><text>checkpoint,toll,violence,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_19_turn_1"><text>Another stalker coming. Your turn to shake him down.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_19_turn_2"><text>Fuck shaking. I'm just gonna shoot him.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_19_turn_3"><text>Why?</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_19_turn_4"><text>Less talking, more looting.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_19_turn_1"><text>Stalker approaching. Keep low.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_19_turn_2"><text>We stop him?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_19_turn_3"><text>Negative. If we not paid to, we do not start fights.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_19_turn_4"><text>Copy. Let him pass. Save rounds for contract.</text></string>
 
 	<!-- Conversation 20: "Leadership" -->
 	<string id="st_dyn_news_conversation_faction_killer_20_meta"><text>leadership,threat,internal,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_20_turn_1"><text>I'm in charge now. Got it?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_20_turn_1"><text>Command put me lead for this run.</text></string>
 	<string id="st_dyn_news_conversation_faction_killer_20_turn_2"><text>Since when?</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_20_turn_3"><text>Since I put a knife through the last guy who said he was in charge. Any other fucking questions?</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_20_turn_4"><text>...No. You're the boss.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_20_turn_3"><text>Since last update. You want argue, send it to command, not me.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_20_turn_4"><text>Fine. Give orders.</text></string>
 
 	<!-- Conversation 21: Anomaly Encounter -->
 	<string id="st_dyn_news_conversation_faction_killer_21_meta"><text>anomaly,fear,stupid,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_21_turn_1"><text>Did you see that? The air got all... wobbly.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_21_turn_2"><text>That's an anomaly, you fucking virgin. Stay back or it'll turn your guts into soup.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_21_turn_3"><text>What if we threw Igor in it?</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_21_turn_4"><text>Igor's a prick. Let's do it.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_21_turn_1"><text>See that shimmer? Anomaly.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_21_turn_2"><text>Mark it and go around. We not losing legs for pride.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_21_turn_3"><text>Throw a bolt?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_21_turn_4"><text>Do it. Then note location for next pass.</text></string>
 
 	<!-- Conversation 22: Defending a Shithole -->
 	<string id="st_dyn_news_conversation_faction_killer_22_meta"><text>territory,defense,pointless,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_22_turn_1"><text>Someone's coming! Get ready to defend the camp!</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_22_turn_2"><text>Defend what? This pile of scrap metal and mud?</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_22_turn_3"><text>It's OUR pile of scrap metal and mud! Now start fucking shooting!</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_22_turn_1"><text>Contact moving in. Two signatures.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_22_turn_2"><text>Hold angles. We defend position till pickup.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_22_turn_3"><text>Copy. No chasing. Just deny approach.</text></string>
 
 	<!-- Conversation 23: Betraying for Nothing -->
 	<string id="st_dyn_news_conversation_faction_killer_23_meta"><text>betrayal,stupid,greed,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_23_turn_1"><text>I killed Pavel while he was sleeping.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_23_turn_2"><text>Why? He was one of ours.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_23_turn_3"><text>I thought he had food in his pack.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_23_turn_4"><text>And did he?</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_23_turn_5"><text>...No. Just rocks.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_23_turn_6"><text>You are the dumbest motherfucker in the whole Zone.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_23_turn_1"><text>Pavel skimmed from team stash.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_23_turn_2"><text>You sure?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_23_turn_3"><text>Two medkits missing. I found one in his pack.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_23_turn_4"><text>Then he answers to command. Not to your knife.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_23_turn_5"><text>Command far.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_23_turn_6"><text>Still. We stay professionals, or we end up like bandits.</text></string>
 
 	<!-- Conversation 24: A Simple Threat -->
 	<string id="st_dyn_news_conversation_faction_killer_24_meta"><text>threat,simple,crude,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_24_turn_1"><text>Hey. You.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_24_turn_2"><text>What?</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_24_turn_3"><text>Give me your fucking gun.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_24_turn_4"><text>Or what?</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_24_turn_5"><text>Or I'll be using two guns in a minute.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_24_turn_1"><text>Swap mags. You got AP?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_24_turn_2"><text>Two left.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_24_turn_3"><text>Good. Keep one. Give one to point man.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_24_turn_4"><text>Why?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_24_turn_5"><text>Client warned: armored target. We prep now.</text></string>
 
 	<!-- Conversation 25: The Sound of Violence -->
 	<string id="st_dyn_news_conversation_faction_killer_25_meta"><text>violence,sound,satisfaction,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_25_turn_1"><text>You hear that? Gunfire over the ridge.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_25_turn_2"><text>Sounds like Duty and Freedom killing each other again.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_25_turn_3"><text>Beautiful music.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_25_turn_4"><text>Yeah. Let's go pick the pockets of the losers.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_25_turn_1"><text>Gunfire over ridge.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_25_turn_2"><text>Duty and Freedom again.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_25_turn_3"><text>We stay out. Let them burn ammo.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_25_turn_4"><text>And we move on objective. Client not paying for sightseeing.</text></string>
 
 	<!-- Conversation 26: A Renegade's Dream -->
 	<string id="st_dyn_news_conversation_faction_killer_26_meta"><text>dream,pathetic,simple,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_26_turn_1"><text>You know what I want? One day. Just one fucking day.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_26_turn_2"><text>What?</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_26_turn_3"><text>Where I have a full magazine, a full bottle of vodka, and a warm place to shit.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_26_turn_4"><text>Dream big, asshole.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_26_turn_1"><text>You know what I want? Quiet job.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_26_turn_2"><text>Wrong place for quiet.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_26_turn_3"><text>One week, no emissions, no mutants, full pay.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_26_turn_4"><text>Keep dreaming. Check your optics.</text></string>
 
 	<!-- Conversation 27: Hunger -->
 	<string id="st_dyn_news_conversation_faction_killer_27_meta"><text>hunger,desperation,threat,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_27_turn_1"><text>I'm so hungry I could eat a fucking snork.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_27_turn_2"><text>You look at my bread again, and I'll cut your fucking hand off.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_27_turn_3"><text>Wasn't looking at your bread.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_27_turn_4"><text>Good.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_27_turn_5"><text>...I was looking at your hand.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_27_turn_1"><text>Rations low. Quartermaster owe us.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_27_turn_2"><text>We stretch till resupply. No stealing from team.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_27_turn_3"><text>If resupply fails?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_27_turn_4"><text>Then we buy local, and we bill it. Like adults.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_27_turn_5"><text>Zone prices hurt more than mutants.</text></string>
 
 	<!-- Conversation 28: Seeing other factions -->
 	<string id="st_dyn_news_conversation_faction_killer_28_meta"><text>factions,hatred,envy,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_28_turn_1"><text>Look at them. Freedom pussies with their fancy NATO shit.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_28_turn_2"><text>They got clean gear. Warm fires.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_28_turn_3"><text>Fuck 'em. I hope they all choke on their imported cigarettes.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_28_turn_4"><text>One day we'll take it all from them.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_28_turn_1"><text>Freedom camp got NATO crates again.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_28_turn_2"><text>They got friends. We got clients.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_28_turn_3"><text>Still, their traders pay on time.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_28_turn_4"><text>Keep it civil. No bad blood unless contract says so.</text></string>
 
 	<!-- Conversation 29: Complete Chaos -->
 	<string id="st_dyn_news_conversation_faction_killer_29_meta"><text>chaos,random,violence,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_29_turn_1"><text>I'm bored.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_29_turn_2"><text>So?</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_29_turn_3"><text>Let's go shoot something.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_29_turn_4"><text>Fine. You or the dog?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_29_turn_1"><text>No contact all day.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_29_turn_2"><text>Good. Silence means we doing job right.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_29_turn_3"><text>I hate waiting.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_29_turn_4"><text>Then clean your rifle. Waiting pays.</text></string>
 
 	<!-- Conversation 30: Motivation -->
 	<string id="st_dyn_news_conversation_faction_killer_30_meta"><text>motivation,simple,brutal,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_30_turn_1"><text>What keeps you going in this shithole?</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_30_turn_2"><text>Spite.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_30_turn_3"><text>Spite?</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_30_turn_4"><text>Yeah. This whole fucking Zone wants me dead. So I wake up every day just to piss it off.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_30_turn_1"><text>Why you stay in Zone?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_30_turn_2"><text>Pay.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_30_turn_3"><text>Only that?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_30_turn_4"><text>Pay, and I am good at this. Better than factory work.</text></string>
 
 	<!-- Conversation 31: Questioning Orders -->
 	<string id="st_dyn_news_conversation_faction_killer_31_meta"><text>orders,questioning,stupid,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_31_turn_1"><text>The boss says we gotta move camp.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_31_turn_2"><text>Why? I like this mud pit.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_31_turn_3"><text>He says mutants are getting too close.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_31_turn_4"><text>Fuck him. I'm staying here.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_31_turn_5"><text>Okay. Your funeral. Can I have your boots after the snorks are done with you?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_31_turn_1"><text>Command says relocate camp.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_31_turn_2"><text>Why?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_31_turn_3"><text>Too much traffic. Too many eyes. Risk up.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_31_turn_4"><text>Copy. Pack in ten. Leave no trace.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_31_turn_5"><text>And no fires tonight. We ghost.</text></string>
 
 	<!-- Conversation 32: Aftermath of a Lost Fight -->
 	<string id="st_dyn_news_conversation_faction_killer_32_meta"><text>failure,loss,blame,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_32_turn_1"><text>We're all that's left. They wiped us the fuck out.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_32_turn_2"><text>It was your stupid fucking plan!</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_32_turn_3"><text>My plan was fine! You cowards ran!</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_32_turn_4"><text>Yeah, ran from fucking grenades! What did you want us to do, catch them?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_32_turn_1"><text>We lost half squad. Ambush was set.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_32_turn_2"><text>Who leaked route?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_32_turn_3"><text>No idea. But we change codes and go dark.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_32_turn_4"><text>And next run, we bring drone eyes, not blind faith.</text></string>
 
 	<!-- Conversation 33: "Teamwork" -->
 	<string id="st_dyn_news_conversation_faction_killer_33_meta"><text>teamwork,unreliable,self_interest,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_33_turn_1"><text>Okay, on three, we both start shooting.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_33_turn_2"><text>What about my 'three' or your 'three'?</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_33_turn_3"><text>...Just shoot when I start shooting, you fuckwit.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_33_turn_4"><text>What if I shoot first? Then you owe me half your loot.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_33_turn_5"><text>Just fucking shoot the guy!</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_33_turn_1"><text>On my mark, you take right window.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_33_turn_2"><text>Your mark or my mark?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_33_turn_3"><text>One voice. My mark. Keep comms clear.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_33_turn_4"><text>And stop talking about loot on open net.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_33_turn_5"><text>Copy. Eyes up.</text></string>
 
 	<!-- Conversation 34: A Renegade's Health Plan -->
 	<string id="st_dyn_news_conversation_faction_killer_34_meta"><text>health,injury,crude,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_34_turn_1"><text>My tooth hurts.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_34_turn_2"><text>Hit it with a rock.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_34_turn_3"><text>What?</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_34_turn_4"><text>Either it gets better or it falls out. Problem solved either way.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_34_turn_1"><text>My tooth killing me.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_34_turn_2"><text>Painkillers in med pouch. Two max.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_34_turn_3"><text>And after?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_34_turn_4"><text>After job, you see medic. Till then, keep mouth shut and sights steady.</text></string>
 
 	<!-- Conversation 35: The Perfect Crime -->
 	<string id="st_dyn_news_conversation_faction_killer_35_meta"><text>crime,stupid,humor,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_35_turn_1"><text>Okay, listen. We find a rookie.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_35_turn_2"><text>Yeah...</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_35_turn_3"><text>We convince him we're his long lost fucking brothers.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_35_turn_4"><text>Okay...</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_35_turn_5"><text>Then we take all his shit as part of a "family inheritance tax."</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_35_turn_6"><text>You are the dumbest smart person I know.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_35_turn_1"><text>Listen. We need cover story for checkpoint.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_35_turn_2"><text>Go on.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_35_turn_3"><text>We claim we escort ecologists. Paperwork and clean kit.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_35_turn_4"><text>They buy that?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_35_turn_5"><text>Most of them only read stamps. We walk through.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_35_turn_6"><text>That almost sounds professional.</text></string>
 
 	<!-- Conversation 36: Responding to a Distress Call -->
 	<string id="st_dyn_news_conversation_faction_killer_36_meta"><text>distress_call,opportunity,predator,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_36_turn_1"><text>Someone's screaming for help on the open channel.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_36_turn_2"><text>Sounds like dinner.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_36_turn_3"><text>Could be a trap.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_36_turn_4"><text>Who cares? If it's real, we kill him and take his stuff. If it's a trap, we kill them and take their stuff. It's win-win.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_36_turn_1"><text>SOS on open channel.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_36_turn_2"><text>Could be bait.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_36_turn_3"><text>We respond?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_36_turn_4"><text>Only if contract says. Otherwise we keep moving and stay unseen.</text></string>
 
 	<!-- Conversation 37: "Trading" -->
 	<string id="st_dyn_news_conversation_faction_killer_37_meta"><text>trade,threat,robbery,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_37_turn_1"><text>I call this 'aggressive negotiations'.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_37_turn_2"><text>You're just pointing your gun at him.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_37_turn_3"><text>And he is being 'aggressively convinced' to give me his stuff for free. See? Negotiation.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_37_turn_1"><text>I call this buying supplies.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_37_turn_2"><text>Then put gun down and pay.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_37_turn_3"><text>Fine. We need batteries, not a blood feud.</text></string>
 
 	<!-- Conversation 38: Watching Faction Fights -->
 	<string id="st_dyn_news_conversation_faction_killer_38_meta"><text>factions,fight,scavenge,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_38_turn_1"><text>There they go again. Duty and Freedom shooting each other over some rusty fucking bridge.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_38_turn_2"><text>Idiots. Let 'em soften each other up.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_38_turn_3"><text>The winner gets the bridge. We get the loot off all the dead bodies.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_38_turn_4"><text>We're the only ones who ever really win in this shithole.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_38_turn_1"><text>Duty and Freedom trading fire at bridge again.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_38_turn_2"><text>Good. Their patrol routes will shift.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_38_turn_3"><text>We use noise to mask movement. Stay on route.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_38_turn_4"><text>Client pays for results, not scavenging.</text></string>
 
 	<!-- Conversation 39: Describing their Home -->
 	<string id="st_dyn_news_conversation_faction_killer_39_meta"><text>home,swamp,disgust,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_39_turn_1"><text>I fucking hate the swamp. It's wet, it stinks, and my boots are rotting.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_39_turn_2"><text>Yeah, but nobody looks for you in a radioactive shithole.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_39_turn_3"><text>It's the perfect place for scum like us.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_39_turn_4"><text>Doesn't mean I have to fucking like it.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_39_turn_1"><text>This hideout stinks. Swamp eats boots.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_39_turn_2"><text>True, but it keeps eyes off us.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_39_turn_3"><text>We lay low, we finish job, then we leave.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_39_turn_4"><text>After payout, I sleep in real bed. Somewhere dry.</text></string>
 
 	<!-- Conversation 40: Shortest conversation ever -->
 	<string id="st_dyn_news_conversation_faction_killer_40_meta"><text>short,threat,violence,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_40_turn_1"><text>Gimme.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_40_turn_2"><text>No.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_40_turn_3"><text>Fine.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_40_turn_4"><text>*sound of a gunshot*</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_40_turn_1"><text>Password.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_40_turn_2"><text>Wrong day.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_40_turn_3"><text>Then keep moving.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_40_turn_4"><text>No contact.</text></string>
 
 	<!-- Conversation 41: A Moment of Self-Awareness -->
 	<string id="st_dyn_news_conversation_faction_killer_41_meta"><text>self_aware,brutal,truth,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_41_turn_1"><text>You know, sometimes I think we're the real mutants.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_41_turn_2"><text>What, you growing a second dick?</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_41_turn_3"><text>Nah. The snorks and dogs, they just kill to eat. We kill for a can of beans. For fun.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_41_turn_4"><text>...Shut the fuck up and pass the beans.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_41_turn_1"><text>Sometimes I wonder if Zone changes us.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_41_turn_2"><text>It changes everybody.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_41_turn_3"><text>We keep rules, or we turn into animals. Simple.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_41_turn_4"><text>Then keep rules and stop thinking out loud.</text></string>
 
 	<!-- Conversation 42: Lack of Supplies -->
 	<string id="st_dyn_news_conversation_faction_killer_42_meta"><text>supplies,lack,desperation,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_42_turn_1"><text>We have three bullets left between us.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_42_turn_2"><text>And one rusty knife.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_42_turn_3"><text>So we find someone with four bullets.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_42_turn_4"><text>This is a fucking great plan.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_42_turn_1"><text>Ammo count low.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_42_turn_2"><text>We should not be this low.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_42_turn_3"><text>We resupply from stash point tonight.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_42_turn_4"><text>Copy. No fights till then.</text></string>
 
 	<!-- Conversation 43: A Bad Omen -->
 	<string id="st_dyn_news_conversation_faction_killer_43_meta"><text>omen,superstition,fear,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_43_turn_1"><text>The crows are flying backwards.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_43_turn_2"><text>What the fuck does that mean?</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_43_turn_3"><text>Means something real bad is coming. Worse than usual.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_43_turn_4"><text>Then we find someone else to throw at it first.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_43_turn_1"><text>Birds went quiet.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_43_turn_2"><text>So?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_43_turn_3"><text>Last time, it meant emission. Keep Geiger ready.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_43_turn_4"><text>Copy. We find cover before sky finds us.</text></string>
 
 	<!-- Conversation 44: "Negotiating" with a Prisoner -->
 	<string id="st_dyn_news_conversation_faction_killer_44_meta"><text>prisoner,negotiation,brutal,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_44_turn_1"><text>Okay, asshole. We can do this the easy way, or the fun way.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_44_turn_2"><text>The fun way involves more screaming.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_44_turn_3"><text>For you.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_44_turn_4"><text>Now, where's the fucking stash?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_44_turn_1"><text>Easy way: you talk, you walk.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_44_turn_2"><text>Hard way?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_44_turn_3"><text>Hard way is paperwork, and I hate paperwork.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_44_turn_4"><text>So. Where is stash?</text></string>
 
 	<!-- Conversation 45: The End of the Line -->
 	<string id="st_dyn_news_conversation_faction_killer_45_meta"><text>death,end,nihilism,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_45_turn_1"><text>Got shot. It's bad.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_45_turn_2"><text>So?</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_45_turn_3"><text>Just... leave me my gun. I'm not gonna be food for some fucking dog.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_45_turn_4"><text>Fine. Can I have your boots?</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_45_turn_5"><text>...Yeah, fuck it.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_45_turn_1"><text>I'm hit. Bad.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_45_turn_2"><text>Where?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_45_turn_3"><text>Side. Bleeding hard.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_45_turn_4"><text>Hold pressure. We pull you out. No hero exits.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_45_turn_5"><text>Copy... just do not let them take my kit.</text></string>
 
 	<!-- Conversation 46: A Fleeting Alliance -->
 	<string id="st_dyn_news_conversation_faction_killer_46_meta"><text>alliance,betrayal,unreliable,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_46_turn_1"><text>Okay, we work together to kill the pseudogiant.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_46_turn_2"><text>And then?</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_46_turn_3"><text>Then we see who's faster at looting its corpse.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_46_turn_4"><text>Deal.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_46_turn_1"><text>We team up to drop pseudogiant.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_46_turn_2"><text>Then?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_46_turn_3"><text>Then we part ways. No surprises.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_46_turn_4"><text>Works for me. Keep weapons down after.</text></string>
 
 	<!-- Conversation 47: Joy in Cruelty -->
 	<string id="st_dyn_news_conversation_faction_killer_47_meta"><text>cruelty,joy,violence,killer</text></string>
 	<string id="st_dyn_news_conversation_faction_killer_47_turn_1"><text>You know what I love?</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_47_turn_2"><text>The sound a man makes when you break his leg.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_47_turn_3"><text>That little wet *crack*.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_47_turn_4"><text>You need help.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_47_turn_5"><text>No, I need more legs to break.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_47_turn_2"><text>Paid on time.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_47_turn_3"><text>And quiet exfil.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_47_turn_4"><text>Now that is a fantasy.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_47_turn_5"><text>Not here. Not today.</text></string>
 
 	<!-- Conversation 48: Seeing Mercenaries -->
 	<string id="st_dyn_news_conversation_faction_killer_48_meta"><text>mercenaries,avoidance,fear,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_48_turn_1"><text>Merc squad. Moving fast. Don't let them see us.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_48_turn_2"><text>Why? We can take 'em!</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_48_turn_3"><text>They kill for money, you idiot. They're professionals. We kill for scraps. We're fucking hobos with guns. Get down!</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_48_turn_1"><text>Another outfit moving fast. Keep heads down.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_48_turn_2"><text>Friendly?</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_48_turn_3"><text>No idea. So we avoid. Nobody pays for friendly fire.</text></string>
 
 	<!-- Conversation 49: A Renegade's Legacy -->
 	<string id="st_dyn_news_conversation_faction_killer_49_meta"><text>legacy,pointless,nihilism,killer</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_49_turn_1"><text>Nobody's gonna remember us when we die.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_49_turn_2"><text>Good. I don't want to be remembered.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_49_turn_3"><text>I just want my corpse to be too much of a pain in the ass to loot.</text></string>
-	<string id="st_dyn_news_conversation_faction_killer_49_turn_4"><text>Die in an anomaly. Best way to go out.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_49_turn_1"><text>Nobody remembers mercs.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_49_turn_2"><text>Good. Less stories, less enemies.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_49_turn_3"><text>I just want payout cleared and my name off radio.</text></string>
+	<string id="st_dyn_news_conversation_faction_killer_49_turn_4"><text>Then do job, go home, and stay alive.</text></string>
 
 
 
@@ -4777,7 +4777,7 @@
 	<string id="st_dyn_news_conversation_faction_bandit_6_turn_1"><text>%other_first_name%, you took more than your share of the haul!</text></string>
 	<string id="st_dyn_news_conversation_faction_bandit_6_turn_2"><text>Fuck you, I did most of the work!</text></string>
 	<string id="st_dyn_news_conversation_faction_bandit_6_turn_3"><text>Bullshit! We all took the same risk!</text></string>
-	<string id="st_dyn_news_conversation_faction_bandit_6_turn_4"><text>You want to fight about it, ñóêà?</text></string>
+	<string id="st_dyn_news_conversation_faction_bandit_6_turn_4"><text>You want to fight about it, punk?</text></string>
 	<string id="st_dyn_news_conversation_faction_bandit_6_turn_5"><text>Enough! Sultan decides the split, not you assholes.</text></string>
 	<string id="st_dyn_news_conversation_faction_bandit_6_turn_6"><text>Fine. But I'm keeping the vodka I already drank.</text></string>
 
@@ -4899,11 +4899,11 @@
 
 	<!-- Conversation 21: Torture Discussion -->
 	<string id="st_dyn_news_conversation_faction_bandit_21_meta"><text>torture,intimidation,cruel,bandit</text></string>
-	<string id="st_dyn_news_conversation_faction_bandit_21_turn_1"><text>That loner still won't tell us where his stash is.</text></string>
-	<string id="st_dyn_news_conversation_faction_bandit_21_turn_2"><text>Cut off a finger. That usually works.</text></string>
-	<string id="st_dyn_news_conversation_faction_bandit_21_turn_3"><text>Already took two. Tough bastard.</text></string>
-	<string id="st_dyn_news_conversation_faction_bandit_21_turn_4"><text>Threaten his buddy instead. People crack when friends bleed.</text></string>
-	<string id="st_dyn_news_conversation_faction_bandit_21_turn_5"><text>Now you're thinking like a true bandit!</text></string>
+	<string id="st_dyn_news_conversation_faction_bandit_21_turn_1"><text>That loner still won't tell where stash is.</text></string>
+	<string id="st_dyn_news_conversation_faction_bandit_21_turn_2"><text>Then offer deal. He pays, he walks.</text></string>
+	<string id="st_dyn_news_conversation_faction_bandit_21_turn_3"><text>He says he broke.</text></string>
+	<string id="st_dyn_news_conversation_faction_bandit_21_turn_4"><text>Then we hold him till friends pay. Dead men not worth much.</text></string>
+	<string id="st_dyn_news_conversation_faction_bandit_21_turn_5"><text>Now you're thinking like business.</text></string>
 
 	<!-- Conversation 22: Territory Expansion -->
 	<string id="st_dyn_news_conversation_faction_bandit_22_meta"><text>territory,expansion,planning,bandit</text></string>
@@ -4992,7 +4992,7 @@
 	<string id="st_dyn_news_conversation_faction_bandit_32_turn_2"><text>Perfect time to hit them. Half asleep, half confused.</text></string>
 	<string id="st_dyn_news_conversation_faction_bandit_32_turn_3"><text>How many of us?</text></string>
 	<string id="st_dyn_news_conversation_faction_bandit_32_turn_4"><text>Eight should do it. Quick and dirty.</text></string>
-	<string id="st_dyn_news_conversation_faction_bandit_32_turn_5"><text>I love morning raids. Nothing like murder with your coffee!</text></string>
+	<string id="st_dyn_news_conversation_faction_bandit_32_turn_5"><text>I love dawn raids. Quiet, quick, and paid.</text></string>
 
 	<!-- Conversation 33: Protection Racket -->
 	<string id="st_dyn_news_conversation_faction_bandit_33_meta"><text>protection,racket,extortion,bandit</text></string>
@@ -5004,11 +5004,11 @@
 
 	<!-- Conversation 34: Torture Methods -->
 	<string id="st_dyn_news_conversation_faction_bandit_34_meta"><text>torture,methods,cruel,bandit</text></string>
-	<string id="st_dyn_news_conversation_faction_bandit_34_turn_1"><text>Need new ways to make people talk. Getting boring.</text></string>
-	<string id="st_dyn_news_conversation_faction_bandit_34_turn_2"><text>Try psychological shit. Threaten their families.</text></string>
-	<string id="st_dyn_news_conversation_faction_bandit_34_turn_3"><text>Or use anomalies. Dangle them over a Whirligig.</text></string>
-	<string id="st_dyn_news_conversation_faction_bandit_34_turn_4"><text>Fuck, that's creative! I like it!</text></string>
-	<string id="st_dyn_news_conversation_faction_bandit_34_turn_5"><text>Fear works better than pain sometimes.</text></string>
+	<string id="st_dyn_news_conversation_faction_bandit_34_turn_1"><text>Need way to make people talk fast.</text></string>
+	<string id="st_dyn_news_conversation_faction_bandit_34_turn_2"><text>Start with money. Most mouths open for cash.</text></string>
+	<string id="st_dyn_news_conversation_faction_bandit_34_turn_3"><text>If not, take their gun and PDA. Let them think.</text></string>
+	<string id="st_dyn_news_conversation_faction_bandit_34_turn_4"><text>No need to get messy. Sultan wants profit, not trouble.</text></string>
+	<string id="st_dyn_news_conversation_faction_bandit_34_turn_5"><text>Fear works, sure. Debt works better.</text></string>
 
 	<!-- Conversation 35: Faction War -->
 	<string id="st_dyn_news_conversation_faction_bandit_35_meta"><text>war,factions,opportunity,bandit</text></string>
@@ -5021,7 +5021,7 @@
 	<!-- Conversation 36: Mutant Encounter -->
 	<string id="st_dyn_news_conversation_faction_bandit_36_meta"><text>mutant,encounter,coward,bandit</text></string>
 	<string id="st_dyn_news_conversation_faction_bandit_36_turn_1"><text>Fucking bloodsucker almost got me!</text></string>
-	<string id="st_dyn_news_conversation_faction_bandit_36_turn_2"><text>Why were you alone, èäèîò?</text></string>
+	<string id="st_dyn_news_conversation_faction_bandit_36_turn_2"><text>Why were you alone, idiot?</text></string>
 	<string id="st_dyn_news_conversation_faction_bandit_36_turn_3"><text>Chasing a loner. Fucker led me into a trap.</text></string>
 	<string id="st_dyn_news_conversation_faction_bandit_36_turn_4"><text>Smart prey. Dumb predator.</text></string>
 	<string id="st_dyn_news_conversation_faction_bandit_36_turn_5"><text>Next time I'm bringing backup. Or just shooting from distance.</text></string>
@@ -5037,18 +5037,18 @@
 	<!-- Conversation 38: Prisoner Exchange -->
 	<string id="st_dyn_news_conversation_faction_bandit_38_meta"><text>prisoner,exchange,business,bandit</text></string>
 	<string id="st_dyn_news_conversation_faction_bandit_38_turn_1"><text>Loners want their friend back. Offering 15k.</text></string>
-	<string id="st_dyn_news_conversation_faction_bandit_38_turn_2"><text>He's missing three fingers already.</text></string>
-	<string id="st_dyn_news_conversation_faction_bandit_38_turn_3"><text>So? Still breathing. That's extra.</text></string>
-	<string id="st_dyn_news_conversation_faction_bandit_38_turn_4"><text>Make it 20k for damaged goods.</text></string>
-	<string id="st_dyn_news_conversation_faction_bandit_38_turn_5"><text>Deal. But we keep his gear.</text></string>
+	<string id="st_dyn_news_conversation_faction_bandit_38_turn_2"><text>He's banged up.</text></string>
+	<string id="st_dyn_news_conversation_faction_bandit_38_turn_3"><text>Still breathing. That counts.</text></string>
+	<string id="st_dyn_news_conversation_faction_bandit_38_turn_4"><text>Make it 20k. Risk premium.</text></string>
+	<string id="st_dyn_news_conversation_faction_bandit_38_turn_5"><text>Deal. We keep his gear as fee.</text></string>
 
 	<!-- Conversation 39: Cheeki Breeki -->
 	<string id="st_dyn_news_conversation_faction_bandit_39_meta"><text>cheeki,breeki,culture,bandit</text></string>
-	<string id="st_dyn_news_conversation_faction_bandit_39_turn_1"><text>À íó, ÷èêè-áðèêè è â äàìêè!</text></string>
-	<string id="st_dyn_news_conversation_faction_bandit_39_turn_2"><text>Cheeki breeki, brother! Ready to fuck shit up?</text></string>
-	<string id="st_dyn_news_conversation_faction_bandit_39_turn_3"><text>Always! Got my ìàñëèíà loaded!</text></string>
-	<string id="st_dyn_news_conversation_faction_bandit_39_turn_4"><text>Let's show these ñóêà what bandits are about!</text></string>
-	<string id="st_dyn_news_conversation_faction_bandit_39_turn_5"><text>Papali papali, cóêà!</text></string>
+	<string id="st_dyn_news_conversation_faction_bandit_39_turn_1"><text>A nu, cheeki breeki i v damki!</text></string>
+	<string id="st_dyn_news_conversation_faction_bandit_39_turn_2"><text>Cheeki breeki, brother. Ready for work?</text></string>
+	<string id="st_dyn_news_conversation_faction_bandit_39_turn_3"><text>Always. Shotgun loaded.</text></string>
+	<string id="st_dyn_news_conversation_faction_bandit_39_turn_4"><text>Show these rookies who owns this road.</text></string>
+	<string id="st_dyn_news_conversation_faction_bandit_39_turn_5"><text>Move fast, grab loot, disappear.</text></string>
 
 	<!-- Conversation 40: Sultan's Leadership -->
 	<string id="st_dyn_news_conversation_faction_bandit_40_meta"><text>sultan,leadership,respect,bandit</text></string>
