@@ -103,13 +103,13 @@
 		<text>We ran into a Flesh</text>
 	</string>
 	<string id="st_dyn_news_flesh_4">
-		<text>We got rushed by a pound of Flesh</text>
+		<text>We got rushed by a herd of Flesh</text>
 	</string>
 	<string id="st_dyn_news_flesh_5">
 		<text>We got attacked by Flesh</text>
 	</string>
 	<string id="st_dyn_news_flesh_6">
-		<text>a pound of Fleshes</text>
+		<text>a herd of Fleshes</text>
 	</string>
 	<string id="st_dyn_news_flesh_7">
 		<text>Fleshes</text>
@@ -2893,7 +2893,7 @@
 		<text>They killed that guy!</text>
 	</string>
 	<string id="st_dyn_news_res_death_stalker_23">
-		<text>What an unlucky dude...</text>
+		<text>Unlucky bastard...</text>
 	</string>
 	<string id="st_dyn_news_res_death_stalker_24">
 		<text>What the fuck...</text>
@@ -3283,7 +3283,7 @@
     <text>He used to run scams in the camps. Looks like someone scammed him right into the grave.</text>
 </string>
 <string id="st_dyn_news_res_death_stalker_153">
-    <text>Heard he died like he lived: screaming like a pussy. Fits, doesn’t it?</text>
+    <text>Heard he died like he lived: screaming and begging. Fits, doesn't it?</text>
 </string>
 <string id="st_dyn_news_res_death_stalker_154">
     <text>Fucker tried to play both sides. Looks like both sides played him in the end.</text>
@@ -3480,7 +3480,7 @@
 		<text>Poor guy...</text>
 	</string>
 	<string id="st_dyn_news_res_death_mutant_18">
-		<text>Rest in peace, dude.</text>
+		<text>Rest in peace.</text>
 	</string>
 	<string id="st_dyn_news_res_death_mutant_19">
 		<text>Rest in peace. He was a good man...</text>
@@ -3495,7 +3495,7 @@
 		<text>They killed that guy!</text>
 	</string>
 	<string id="st_dyn_news_res_death_mutant_23">
-		<text>What an unlucky dude...</text>
+		<text>Unlucky bastard...</text>
 	</string>
 	<string id="st_dyn_news_res_death_mutant_24">
 		<text>What the fuck...</text>
@@ -3998,7 +3998,7 @@
 		<text>Dead man, got anything for me?</text>
 	</string>
 	<string id="st_dyn_news_res_fake_death_stalker_30">
-		<text>Dude's dead!</text>
+		<text>He's dead!</text>
 	</string>
 	<string id="st_dyn_news_res_fake_death_stalker_31">
 		<text>Every day...</text>
@@ -4124,7 +4124,7 @@
 		<text>Put him in a coffin, his body was resting peacefully, but not his dick...</text>
 	</string>
 	<string id="st_dyn_news_res_fake_death_stalker_72">
-		<text>Rest in peace, dude.</text>
+		<text>Rest in peace.</text>
 	</string>
 	<string id="st_dyn_news_res_fake_death_stalker_73">
 		<text>Rest in peace. He was a good stalker... I'll go get his PDA and leave the loot alone.</text>
@@ -4226,7 +4226,7 @@
 		<text>What's happening to the Zone? Not long ago we went looking for loot, having only mutants and anomalies to worry about... But now, even fellow stalkers are dangerous.</text>
 	</string>
 	<string id="st_dyn_news_res_fake_death_stalker_106">
-		<text>What an unlucky dude...</text>
+		<text>Unlucky bastard...</text>
 	</string>
 	<string id="st_dyn_news_res_fake_death_stalker_107">
 		<text>What can I say? Sucker as always.</text>
@@ -7343,7 +7343,7 @@
 		<text>Unfortunate. I promise you that your gear will not go to waste.</text>
 	</string>
 	<string id="st_dyn_news_loot_good_23">
-		<text>This dude was a regular trader! Had some useful things with him.</text>
+		<text>This guy was a trader. Had some useful things with him.</text>
 	</string>
 	<string id="st_dyn_news_loot_good_24">
 		<text>Torn up a little, but there were still some good finds in his pack.</text>
@@ -7466,7 +7466,7 @@
     <text>What do we have here? This corpse is loaded! Guess it's my lucky day.</text>
 </string>
 <string id="st_dyn_news_loot_good_64">
-    <text>It's a harsh world; this dude’s loss is my jackpot. Thanks for dying!</text>
+    <text>Harsh world. His loss is my gain.</text>
 </string>
 <string id="st_dyn_news_loot_good_65">
     <text>No use to a dead man, but definitely useful to me. Sorry, pal.</text>
@@ -7487,13 +7487,13 @@
     <text>Harvesting the dead. Not proud, but hell, it's necessary.</text>
 </string>
 <string id="st_dyn_news_loot_good_71">
-    <text>Thanks for dying, mate. Your shit's in better hands now.</text>
+    <text>Harsh world, mate. I'll make use of your gear.</text>
 </string>
 <string id="st_dyn_news_loot_good_72">
     <text>I'll make sure your gear doesn't go to waste. You're welcome, by the way.</text>
 </string>
 <string id="st_dyn_news_loot_good_73">
-    <text>This dude's death is my payday. Cheers to the fallen!</text>
+    <text>His death pays my bills. Cheers to the dead.</text>
 </string>
 <string id="st_dyn_news_loot_good_74">
     <text>Score! This dead guy had all the good stuff.</text>
@@ -7665,7 +7665,7 @@
 		<text>Nothing good on this one.</text>
 	</string>
 	<string id="st_dyn_news_loot_bad_11">
-		<text>Someone must have gotten to this dude before I did.</text>
+		<text>Someone got here before me.</text>
 	</string>
 	<string id="st_dyn_news_loot_bad_12">
 		<text>Wow, nothing at all in his backpack. What were you doing out here?</text>
@@ -8021,7 +8021,7 @@
     <text>Dug up a $what from this corpse's backpack. Score one for the bad guys.</text>
 </string>
 <string id="st_dyn_news_loot_item_79">
-    <text>Corpse looting 101: Always take the $what. Thanks, dead dude.</text>
+    <text>Always take the $what. No point leaving it to rot.</text>
 </string>
 <string id="st_dyn_news_loot_item_80">
     <text>This corpse was clutching a $what like it could save him. Newsflash: it didn't, but it might save me.</text>
@@ -9714,7 +9714,7 @@
     <text>If you're short on ammo or gear, check in with %s. Heard he's got some tasks that could top you off, bitches.</text>
 </string>
 <string id="st_dyn_news_gossip_task_9">
-    <text>There’s some stirring at %s's camp. Looks like they're gearing up for something big. Any takers, you faggots?</text>
+    <text>There's some stirring at %s's camp. Looks like they're gearing up for something big. Any takers, you idiots?</text>
 </string>
 <string id="st_dyn_news_gossip_task_10">
     <text>%s is recruiting for a job. Sounds risky, but the pay's fucking good. Anyone interested?</text>
@@ -9828,7 +9828,7 @@
     <text>%s is calling for a raid. Big risks, bigger rewards. Who’s got the stones, bitches?</text>
 </string>
 <string id="st_dyn_news_gossip_task_47">
-    <text>%s’s plan is pure madness, which means the pay must be damn good. You in or scared, faggots?</text>
+    <text>%s's plan is pure madness, which means the pay must be damn good. You in, or you backing out?</text>
 </string>
 <string id="st_dyn_news_gossip_task_48">
     <text>There’s money to be made with %s, if you’re daring enough to join his wild fucking hunt.</text>
@@ -9888,7 +9888,7 @@
     <text>Anyone looking to make some quick rubles? %s has a task that needs doing. Just don't fuck it up.</text>
 </string>
 <string id="st_dyn_news_gossip_task_67">
-    <text>%s's got a job that could make you rich or get you killed. Are you in, or are you a fucking pussy?</text>
+    <text>%s's got a job that could make you rich or get you killed. You in, or you gonna run?</text>
 </string>
 <string id="st_dyn_news_gossip_task_68">
     <text>Want to make some real money? %s is looking for some brave assholes to take on a dangerous task.</text>
@@ -9930,7 +9930,7 @@
     <text>Got the balls for a high-risk job? %s is looking for some brave stalkers. The pay is great if you don't fuck it up.</text>
 </string>
 <string id="st_dyn_news_gossip_task_81">
-    <text>If you can handle the danger, %s has a job that pays well. Just don't be a fucking pussy.</text>
+    <text>If you can handle the danger, %s has a job that pays well. Just don't run when it gets hot.</text>
 </string>
 <string id="st_dyn_news_gossip_task_82">
     <text>Looking for a job that pays well? %s is hiring brave stalkers for a risky task.</text>
@@ -9990,7 +9990,7 @@
     <text>Got the balls for a high-risk job? %s is looking for some brave stalkers. The pay is great if you don't fuck it up.</text>
 </string>
 <string id="st_dyn_news_gossip_task_101">
-    <text>If you can handle the danger, %s has a job that pays well. Just don't be a fucking pussy.</text>
+    <text>If you can handle the danger, %s has a job that pays well. Just don't run when it gets hot.</text>
 </string>
 <string id="st_dyn_news_gossip_task_102">
     <text>Looking for a job that pays well? %s is hiring brave stalkers for a risky task.</text>
@@ -13211,7 +13211,7 @@
         <text>Dawn raid on those stalker cunts. No mercy. They've fucked with us for the last time.</text>
     </string>
     <string id="st_dyn_news_spam_faction_bandit_73">
-        <text>Fancy a bet? Loser runs naked through the minefield. Don't pussy out on me now.</text>
+        <text>Fancy a bet? Loser runs naked through the minefield. Don't chicken out on me now.</text>
     </string>
     <string id="st_dyn_news_spam_faction_bandit_74">
         <text>Those Freedom pricks are up to something. Time to fuck up their day real good.</text>
@@ -13445,7 +13445,7 @@
     <text>Those Freedom clowns held a peace rally. We held a grenade-throwing contest. Guess who had more fun?</text>
 </string>
 <string id="st_dyn_news_spam_faction_bandit_151">
-    <text>Saw some Freedom dude lecturing a mutant on animal rights. Left him to discuss it over dinner. Guess who was the main course?</text>
+    <text>Saw a Freedom rookie trying to lecture a mutant like it would listen. Left him there. Later found blood trail. Guess how that ended.</text>
 </string>
 <string id="st_dyn_news_spam_faction_bandit_152">
     <text>The only good thing about Duty is their gear. Easy to sell, even easier to shoot them in.</text>
@@ -13478,7 +13478,7 @@
     <text>If you're not stealing from the Ecologists, you're doing it wrong. Those nerds are like walking loot bags.</text>
 </string>
 <string id="st_dyn_news_spam_faction_bandit_162">
-    <text>Heard a Freedom dude tried to 'liberate' some artifacts from us. Liberated his boots instead. Walk on, comrade.</text>
+    <text>Heard Freedom tried to 'liberate' some artifacts from us. We liberated his boots instead. Walk on.</text>
 </string>
 <string id="st_dyn_news_spam_faction_bandit_163">
     <text>Why do we shoot Mercs on sight? Better them than us. Plus, their gear sells for good money.</text>
@@ -15830,7 +15830,7 @@
 		<text>I don't care if you're a vegan or whatever else - you need to be ready to put down those radioactive beasts out there, so pack a shooter, ok? Where do we get these people...</text>
 	</string>
 	<string id="st_dyn_news_spam_faction_freedom_41">
-    <text>Anyone seen my stash? Last I checked, it was by the old UAZ wreck. If you took it, at least share, dude!</text>
+    <text>Anyone seen my stash? Last I checked, it was by the old UAZ wreck. If you took it, at least share.</text>
 </string>
 <string id="st_dyn_news_spam_faction_freedom_42">
     <text>Hey troopers, stash your trash or smoke it. Don't leave your buds lying around for Duty to find. Keep it green, keep it clean!</text>
@@ -18578,7 +18578,7 @@
 		<text>$clr_1Anonymous\n$clr_2Need to leave the Zone, pronto.</text>
 	</string>
 	<string id="st_dyn_news_spam_77">
-		<text>$clr_1Anonymous\n$clr_2Some dude in the Garbage got hold of a pretty rare gizmo.</text>
+		<text>$clr_1Anonymous\n$clr_2Some guy in the Garbage got hold of a pretty rare gizmo.</text>
 	</string>
 	<string id="st_dyn_news_spam_78">
 		<text>$clr_1Anonymous\n$clr_2Sold some mutant parts to Sidorovich, and it seems like I got ripped off, that old fart... People, best you trade with Barman instead.</text>
@@ -19098,7 +19098,7 @@
 		<text>$clr_1Thompson\n$clr_2Take my advice, never, I repeat NEVER, mix Psy-block with vodka. I'm now in Duty's jail with no money, can't remember a thing from yesterday. My chest hurts, like I had a heart attack. I vomited something yellow that looks like orange juice.</text>
 	</string>
 	<string id="st_dyn_news_spam_250">
-		<text>$clr_1Anonymous\n$clr_2Don't go to the Flea Market. Guy that trades stuff is an absolute cheapskate. You know, the dude with punchable face, that haggles even for a couple roubles?</text>
+		<text>$clr_1Anonymous\n$clr_2Don't go to the Flea Market. Trader there is a complete cheapskate. You know the one - ugly mug, haggles over a couple roubles?</text>
 	</string>
 	<string id="st_dyn_news_spam_251">
 		<text>$clr_1Anonymous\n$clr_2You, the fiend who wrote what he wrote on a wall of apartment block number 11 in Chistoglavka village, if you, asshole, are reading this right now, I swear to Allah, I’ll find you! You got that, bastard? For your words you will answer with blood, shaitan!</text>
@@ -19134,10 +19134,10 @@
 		<text>$clr_1Lukash\n$clr_2So, any news about that guy who went to Radar? You know, that crazy fella.\n\n$clr_1Hercules\n$clr_2Nope. Guys on Barrier said they haven't seen him going back either. I hope he's okay, but I'm pretty sure he's done for. Shame, what a rotten way to die.</text>
 	</string>
 	<string id="st_dyn_news_spam_262">
-		<text>$clr_1Anonymous\n$clr_2Gosh darn it, all my smokes are wet. Damn Flea Market, not gonna buy another flask from those guys again!</text>
+		<text>$clr_1Anonymous\n$clr_2God damn it, all my smokes are wet. Damn Flea Market, not buying another flask from those guys again!</text>
 	</string>
 	<string id="st_dyn_news_spam_263">
-		<text>$clr_1Anonymous\n$clr_2Have you heard about that lieutenant that used to sell ammo to our guys? Do you know he’s a goddamn pedophile?! Who could’ve guessed, right? I heard from my army pal. The guy is already being transferred to prison.</text>
+		<text>$clr_1Anonymous\n$clr_2Heard that lieutenant who used to sell ammo got caught skimming supplies. Command shipped him out in cuffs.</text>
 	</string>
 	<string id="st_dyn_news_spam_264">
 		<text>$clr_1Anonymous\n$clr_2I’m so tired. Goodbye friends. Remember me as a good guy. I’m sorry.</text>
@@ -19149,13 +19149,13 @@
 		<text>$clr_1Anonymous\n$clr_2Found two dead guys in Pripyat, near the Ferris Wheel. All ghillied up, both have sniper rifles. Looks like they were going to kill someone. Also they have very strange dog tags. Does anyone know what the hell “SAS” means?</text>
 	</string>
 	<string id="st_dyn_news_spam_267">
-		<text>$clr_1Anonymous\n$clr_2The hell… Ugh, I found a dead guy in the outhouse, dude got stuck in the shithole. I mean, his upper half. Lower half is nowhere to be found. That’s it, I’m going to shit only in bushes from now on.</text>
+		<text>$clr_1Anonymous\n$clr_2Found a dead guy in an outhouse. Looks like he fell in and got stuck. Half of him is gone. I'm done using toilets out here.</text>
 	</string>
 	<string id="st_dyn_news_spam_268">
-		<text>$clr_1Anonymous\n$clr_2Eww, I got zombie blood in my mouth! I’m freaking out, I’m freaking out! Do I have AIDS now or something?!</text>
+		<text>$clr_1Anonymous\n$clr_2Got zombie blood in my mouth. I'm freaking out. Anyone got antiseptic or vodka?</text>
 	</string>
 	<string id="st_dyn_news_spam_269">
-		<text>$clr_1Dima\n$clr_2Guys, guys, guess what? I’m gay!\nGive it back, moron!\nCrap! I didn’t say that, it was Vova he took my PDA I swear!$clr_1Vova\n$clr_2No, I didn’t.</text>
+		<text>$clr_1Dima\n$clr_2Guys, guys, guess what? I found stash coordinates!\nGive it back, moron!\nCrap! That wasn't me, Vova grabbed my PDA, I swear!\n$clr_1Vova\n$clr_2No, I didn't.</text>
 	</string>
 	<string id="st_dyn_news_spam_270">
 		<text>$clr_1Ivan\n$clr_2Damn, my head. Sam! Sam you here?! Job’s done! I’m sorry I was like, drinking for a week. Forgot to tell you… Sam? I hope you alright, those loan-sharks sure were serious. But don’t worry I have your money now! Sam? Ohhh… That explains severed finger I found in my stash. Oh crap. OH CRAP! I’M COMING! DON’T SAW OFF HIS HEAD PLEASE!</text>
@@ -19236,7 +19236,7 @@
 		<text>$clr_1Anonymous\n$clr_2You were quick, but my gun was quicker.</text>
 	</string>
 	<string id="st_dyn_news_spam_296">
-		<text>$clr_1Anonymous\n$clr_2Shouldn't have brought a gun to a knife fight, pussy.</text>
+		<text>$clr_1Anonymous\n$clr_2Shouldn't have brought a gun to a knife fight, coward.</text>
 	</string>
 	<string id="st_dyn_news_spam_297">
 		<text>$clr_1Anonymous\n$clr_2Does anyone remember what song was playing in the Bar earlier? I can't get the tune out of my head.</text>
@@ -19649,7 +19649,7 @@
     <text>Whatever floats your boat...</text>
 </string>
 <string id="st_dyn_news_reply_86">
-    <text>If you say so, dude.</text>
+    <text>If you say so.</text>
 </string>
 <string id="st_dyn_news_reply_87">
     <text>Is vodka involved? Then I'm interested.</text>
@@ -19824,7 +19824,7 @@
 		<text>nothing but a severed arm clutching a PDA</text>
 	</string>
 	<string id="st_dyn_news_death_reason_49">
-		<text>the body has experienced extreme trauma. Evidence of gunshots, burns, shrapnel, internal bleeding, claw marks and bone fractures. This was one unlucky dude</text>
+		<text>Body shows extreme trauma. Evidence of gunshots, burns, shrapnel, internal bleeding, claw marks, bone fractures. One unlucky bastard.</text>
 	</string>
 	<string id="st_dyn_news_death_reason_50">
 		<text>single gunshot wound to the side of the head. No weapon on him seems to rule out suicide</text>
@@ -23809,7 +23809,7 @@
     <text>It's like this place was designed to drive us fucking insane.</text>
 </string>
 <string id="st_dyn_news_companion_life_all_135">
-    <text>Sometimes I think we're all just a bunch of retards for staying here.</text>
+    <text>Sometimes I think we're all idiots for staying here.</text>
 </string>
 <string id="st_dyn_news_companion_life_all_136">
     <text>This shithole is the arsehole of the world.</text>
@@ -24000,13 +24000,13 @@
 		<text>You know what? I should be the one leading you around. What the hell do you know, really?</text>
 	</string>
 	<string id="st_dyn_news_companion_life_bandit_28">
-		<text>Damn, what's that shitty smell? You should bathe some time, bro.</text>
+		<text>Damn, what's that stench? Wash up sometime.</text>
 	</string>
 	<string id="st_dyn_news_companion_life_bandit_29">
 		<text>Man, it's all the same. Bosses in here, bosses out there... always someone riding your ass.</text>
 	</string>
 	<string id="st_dyn_news_companion_life_bandit_30">
-		<text>Got any vodka, bro? You probably owe me...</text>
+		<text>Got any vodka? You probably owe me...</text>
 	</string>
 	<string id="st_dyn_news_companion_life_bandit_31">
 		<text>I can't get that shitty tune out of my head! Just fucking shoot me, man.</text>
@@ -25580,7 +25580,7 @@
 	</string>	
 	
 	<string id="st_dyn_news_companion_life_freedom_12">
-		<text>Got anything on you, bro?</text>
+		<text>Got anything on you?</text>
 	</string>
 	<string id="st_dyn_news_companion_life_freedom_13">
 		<text>Don't forget to savor the moment.</text>
@@ -25601,10 +25601,10 @@
 		<text>Smell that fresh air, man.</text>
 	</string>
 	<string id="st_dyn_news_companion_life_freedom_19">
-		<text>Free Zone, my dude. The Zone is a middle finger to humanity's bullshit.</text>
+		<text>Free Zone. Zone spits on rules and on your bullshit.</text>
 	</string>
 	<string id="st_dyn_news_companion_life_freedom_20">
-		<text>Think meta, bro. That's what Loki told me.</text>
+		<text>Keep your head clear. Zone punishes tunnel vision.</text>
 	</string>
 	<string id="st_dyn_news_companion_life_freedom_21">
 		<text>You can plan all you want, but what does anything out here care about that?</text>
@@ -25691,7 +25691,7 @@
     <text>Bandits are whatever, man. As long as they don't mess with us, I'm cool.</text>
 </string>
 <string id="st_dyn_news_companion_life_freedom_49">
-    <text>No laws out here, bro. Just gotta roll with it.</text>
+    <text>No laws out here. You adapt or you die.</text>
 </string>
 <string id="st_dyn_news_companion_life_freedom_50">
     <text>Feeling a bit woozy...</text>
@@ -25700,7 +25700,7 @@
     <text>One day, we'll liberate the Zone from all this corporate bullshit.</text>
 </string>
 <string id="st_dyn_news_companion_life_freedom_52">
-    <text>Got any snacks on you, bro?</text>
+    <text>Got any grub on you?</text>
 </string>
 <string id="st_dyn_news_companion_life_freedom_53">
     <text>Take a moment to enjoy the vibes, man.</text>
@@ -25721,10 +25721,10 @@
     <text>Breathe in that fresh air, man.</text>
 </string>
 <string id="st_dyn_news_companion_life_freedom_59">
-    <text>Freedom, dude. The Zone's like a big "fuck you" to all the rules.</text>
+    <text>Freedom. Zone already says 'fuck you' to rules.</text>
 </string>
 <string id="st_dyn_news_companion_life_freedom_60">
-    <text>Think outside the box, bro. Loki's all about that shit.</text>
+    <text>Think sideways. Same road gets you killed.</text>
 </string>
 <string id="st_dyn_news_companion_life_freedom_61">
     <text>Duty fucks can pop out of any shithole. Keep your eyes peeled and your finger on the trigger.</text>
