@@ -1171,6 +1171,15 @@ export async function publishConversation(payload: PublishPayload): Promise<Publ
 
 export async function incrementDownload(id: string): Promise<void> {
   try {
+    await sendToApi(`/api/conversations/${encodeURIComponent(id)}/download`, {
+      method: 'PATCH',
+    });
+    return;
+  } catch {
+    // Fall through to direct Supabase for static deployments.
+  }
+
+  try {
     await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_download`, {
       method: 'POST',
       headers: sbHeaders(),

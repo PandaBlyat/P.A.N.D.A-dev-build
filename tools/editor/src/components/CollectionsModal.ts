@@ -6,6 +6,8 @@ import {
   fetchCommunityCollections,
   publishCommunityCollection,
   incrementCollectionDownload,
+  incrementDownload,
+  incrementUpvote,
   type CommunityCollection,
   type CommunityConversation,
   type ConversationComplexity,
@@ -602,7 +604,19 @@ async function downloadCollectionZip(rootIds: string[], title: string, collectio
   }
 
   downloadBlob(createZipBlob(files), `${slugify(title || 'panda_collection')}.zip`);
-  if (collectionId) await incrementCollectionDownload(collectionId).catch(() => undefined);
+  if (collectionId) {
+    await incrementCollectionDownload(collectionId).catch(() => undefined);
+  } else {
+    await applySelectedStoryMetrics(rootIds).catch(() => undefined);
+  }
+}
+
+async function applySelectedStoryMetrics(rootIds: string[]): Promise<void> {
+  const ids = Array.from(new Set(rootIds.map(id => id.trim()).filter(Boolean))).slice(0, 80);
+  for (const id of ids) {
+    await incrementDownload(id).catch(() => undefined);
+    await incrementUpvote(id).catch(() => undefined);
+  }
 }
 
 function createCollectionManifestXml(factionKey: string, prefixes: string[]): string {

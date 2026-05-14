@@ -726,6 +726,98 @@ async function advanceCommunityMissionProgress(publisherId: string, event: { typ
   await upsertMissionProgress(changed);
 }
 
+async function fetchCollectionStoryIds(collectionId: string): Promise<string[]> {
+  const params = new URLSearchParams({
+    select: 'story_ids',
+    id: `eq.${collectionId}`,
+    limit: '1',
+  });
+  const response = await fetch(`${sbEndpoint(COLLECTIONS_TABLE)}?${params}`, { headers: sbHeaders() });
+  if (!response.ok) return [];
+  const rows = await response.json() as Array<{ story_ids?: unknown }>;
+  const storyIds = rows[0]?.story_ids;
+  if (!Array.isArray(storyIds)) return [];
+  return Array.from(new Set(storyIds
+    .filter((id): id is string => typeof id === 'string')
+    .map(id => id.trim())
+    .filter(Boolean)));
+}
+
+async function applyConversationDownloadMetric(id: string): Promise<void> {
+  const increment = await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_download`, {
+    method: 'POST',
+    headers: sbHeaders(),
+    body: JSON.stringify({ conv_id: id }),
+  });
+  if (!increment.ok) return;
+
+  const lookupParams = new URLSearchParams({
+    select: 'publisher_id,downloads',
+    id: `eq.${id}`,
+    limit: '1',
+  });
+  const lookup = await fetch(`${sbEndpoint(TABLE)}?${lookupParams}`, { headers: sbHeaders() });
+  if (!lookup.ok) return;
+
+  const rows = await lookup.json() as Array<{ publisher_id?: string; downloads?: number }>;
+  const pubId = rows[0]?.publisher_id;
+  if (!pubId) return;
+
+  await fetch(`${SUPABASE_URL}/rest/v1/rpc/award_xp`, {
+    method: 'POST',
+    headers: sbHeaders(),
+    body: JSON.stringify({ p_publisher_id: pubId, p_amount: 5 }),
+  }).catch(() => undefined);
+  await applyMetricRewards(pubId, 'downloads').catch(() => null);
+  await advanceCommunityMissionProgress(pubId, {
+    type: 'download_milestone_reached',
+    total: rows[0]?.downloads ?? 0,
+  }).catch(() => undefined);
+}
+
+async function applyConversationUpvoteMetric(id: string): Promise<void> {
+  const increment = await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_upvote`, {
+    method: 'POST',
+    headers: sbHeaders(),
+    body: JSON.stringify({ conv_id: id }),
+  });
+  if (!increment.ok) throw new Error(await readErrorMessage(increment));
+
+  const lookupParams = new URLSearchParams({
+    select: 'publisher_id,upvotes',
+    id: `eq.${id}`,
+    limit: '1',
+  });
+  const lookup = await fetch(`${sbEndpoint(TABLE)}?${lookupParams}`, { headers: sbHeaders() });
+  if (!lookup.ok) return;
+
+  const rows = await lookup.json() as Array<{ publisher_id?: string; upvotes?: number }>;
+  const pubId = rows[0]?.publisher_id;
+  if (!pubId) return;
+
+  await fetch(`${SUPABASE_URL}/rest/v1/rpc/award_xp`, {
+    method: 'POST',
+    headers: sbHeaders(),
+    body: JSON.stringify({ p_publisher_id: pubId, p_amount: 10 }),
+  }).catch(() => undefined);
+  await applyMetricRewards(pubId, 'upvotes').catch(() => null);
+  await advanceCommunityMissionProgress(pubId, {
+    type: 'upvote_received',
+    total: rows[0]?.upvotes ?? 0,
+  }).catch(() => undefined);
+}
+
+async function applyCollectionStorylineMetrics(
+  storyIds: string[],
+  metrics: { download?: boolean; upvote?: boolean },
+): Promise<void> {
+  const ids = Array.from(new Set(storyIds.map(id => id.trim()).filter(Boolean))).slice(0, 80);
+  for (const id of ids) {
+    if (metrics.download) await applyConversationDownloadMetric(id).catch(() => undefined);
+    if (metrics.upvote) await applyConversationUpvoteMetric(id).catch(() => undefined);
+  }
+}
+
 async function fetchUserAchievements(publisherId: string): Promise<UserAchievement[]> {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_user_achievements`, {
     method: 'POST',
@@ -1004,6 +1096,7 @@ app.post('/api/collections', async (req, res) => {
       return;
     }
     const rows = await r.json() as Array<Record<string, unknown>>;
+    await applyCollectionStorylineMetrics(normalizedStoryIds, { download: true, upvote: true }).catch(() => undefined);
     res.status(201).json({ collection: rows[0] ? normalizeCollectionRow(rows[0]) : null });
   } catch (err) {
     res.status(500).json({ error: String(err) });
@@ -1020,7 +1113,7 @@ app.patch('/api/collections/:id/download', async (req, res) => {
     });
     if (!r.ok) {
       const currentParams = new URLSearchParams({
-        select: 'downloads',
+        select: 'downloads,story_ids',
         id: `eq.${id}`,
         limit: '1',
       });
@@ -1029,7 +1122,7 @@ app.patch('/api/collections/:id/download', async (req, res) => {
         res.status(current.status).json({ error: await readErrorMessage(current) });
         return;
       }
-      const rows = await current.json() as Array<{ downloads?: number }>;
+      const rows = await current.json() as Array<{ downloads?: number; story_ids?: unknown }>;
       const nextDownloads = (rows[0]?.downloads ?? 0) + 1;
       const patch = await fetch(`${sbEndpoint(COLLECTIONS_TABLE)}?id=eq.${encodeURIComponent(id)}`, {
         method: 'PATCH',
@@ -1041,6 +1134,8 @@ app.patch('/api/collections/:id/download', async (req, res) => {
         return;
       }
     }
+    const collection = await fetchCollectionStoryIds(id).catch((): string[] => []);
+    await applyCollectionStorylineMetrics(collection, { download: true, upvote: true }).catch(() => undefined);
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: String(err) });
@@ -2652,38 +2747,7 @@ app.get('/api/leaderboard', async (req, res) => {
 app.patch('/api/conversations/:id/download', async (req, res) => {
   const { id } = req.params;
   try {
-    // Increment download counter
-    await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_download`, {
-      method: 'POST',
-      headers: sbHeaders(),
-      body: JSON.stringify({ conv_id: id }),
-    });
-
-    // Look up publisher_id and apply metric rewards server-side.
-    const lookupParams = new URLSearchParams({
-      select: 'publisher_id,downloads',
-      id: `eq.${id}`,
-      limit: '1',
-    });
-    const lookup = await fetch(`${sbEndpoint(TABLE)}?${lookupParams}`, { headers: sbHeaders() });
-    if (lookup.ok) {
-      const rows = await lookup.json() as Array<{ publisher_id?: string; downloads?: number }>;
-      const pubId = rows[0]?.publisher_id;
-      if (pubId) {
-        // Small per-event XP is still awarded for immediate feedback.
-        await fetch(`${SUPABASE_URL}/rest/v1/rpc/award_xp`, {
-          method: 'POST',
-          headers: sbHeaders(),
-          body: JSON.stringify({ p_publisher_id: pubId, p_amount: 5 }),
-        });
-        // Server-authoritative milestone achievement unlocks.
-        await applyMetricRewards(pubId, 'downloads').catch(() => null);
-        await advanceCommunityMissionProgress(pubId, {
-          type: 'download_milestone_reached',
-          total: rows[0]?.downloads ?? 0,
-        }).catch(() => undefined);
-      }
-    }
+    await applyConversationDownloadMetric(id);
   } catch {
     // Best-effort
   }
@@ -2694,40 +2758,7 @@ app.patch('/api/conversations/:id/download', async (req, res) => {
 app.patch('/api/conversations/:id/upvote', async (req, res) => {
   const { id } = req.params;
   try {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_upvote`, {
-      method: 'POST',
-      headers: sbHeaders(),
-      body: JSON.stringify({ conv_id: id }),
-    });
-
-    if (!r.ok) {
-      res.status(r.status).json({ error: await readErrorMessage(r) });
-      return;
-    }
-
-    // Look up publisher_id and apply metric rewards server-side.
-    const lookupParams = new URLSearchParams({
-      select: 'publisher_id,upvotes',
-      id: `eq.${id}`,
-      limit: '1',
-    });
-    const lookup = await fetch(`${sbEndpoint(TABLE)}?${lookupParams}`, { headers: sbHeaders() });
-    if (lookup.ok) {
-      const rows = await lookup.json() as Array<{ publisher_id?: string; upvotes?: number }>;
-      const pubId = rows[0]?.publisher_id;
-      if (pubId) {
-        await fetch(`${SUPABASE_URL}/rest/v1/rpc/award_xp`, {
-          method: 'POST',
-          headers: sbHeaders(),
-          body: JSON.stringify({ p_publisher_id: pubId, p_amount: 10 }),
-        });
-        await applyMetricRewards(pubId, 'upvotes').catch(() => null);
-        await advanceCommunityMissionProgress(pubId, {
-          type: 'upvote_received',
-          total: rows[0]?.upvotes ?? 0,
-        }).catch(() => undefined);
-      }
-    }
+    await applyConversationUpvoteMetric(id);
   } catch (err) {
     res.status(500).json({ error: String(err) });
     return;

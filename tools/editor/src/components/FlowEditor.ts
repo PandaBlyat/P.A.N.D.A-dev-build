@@ -4043,7 +4043,7 @@ function drawEdges(options: {
     const pathD = buildEdgePath(sourceAnchor, targetAnchor, edge.offsetIndex, edge.bend);
     const labelAnchor = getLabelAnchor(sourceAnchor, targetAnchor, edge.offsetIndex, edge.bend);
     const handleAnchor = getBendHandleAnchor(sourceAnchor, targetAnchor, edge.offsetIndex, edge.bend);
-    const showBendHandle = edge.kind === 'continue' && edge.highlight === 'active';
+    const showBendHandle = edge.kind === 'continue';
     const highlightSuffix = edge.highlight !== 'normal' ? ` is-${edge.highlight}` : '';
     const groupClass = `flow-edge${highlightSuffix}`;
     const pathClass = `flow-edge-path ${edge.pathClassName}${highlightSuffix}`;
@@ -4133,7 +4133,7 @@ function drawEdges(options: {
       setBeginnerTooltip(path as unknown as HTMLElement, 'flow-edge');
       const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
       title.textContent = edge.kind === 'continue'
-        ? `Choice ${edge.sourceChoiceIndex} → ${turnLabels.getLongLabel(edge.targetTurnNumber)} (click to select, right-click to disconnect)`
+        ? `Choice ${edge.sourceChoiceIndex} → ${turnLabels.getLongLabel(edge.targetTurnNumber)} (drag round handle to bend, double-click handle to reset, right-click to disconnect)`
         : `Pause branch from Choice ${edge.sourceChoiceIndex} to ${turnLabels.getLongLabel(edge.targetTurnNumber)}`;
       path.appendChild(title);
       path.onclick = (event) => {
@@ -4275,10 +4275,13 @@ function syncBendHandle(group: SVGGElement, options: {
   }
   if (!handle) {
     handle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    handle.setAttribute('r', '7');
+    handle.setAttribute('r', '5.5');
     handle.setAttribute('tabindex', '0');
     handle.setAttribute('role', 'slider');
     handle.setAttribute('aria-label', t('flow.lineBend.aria'));
+    const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+    title.textContent = t('flow.lineBend.aria');
+    handle.appendChild(title);
     handle.classList.add('flow-edge-bend-handle');
     handle.style.setProperty('--flow-edge-color', edge.color);
     group.appendChild(handle);

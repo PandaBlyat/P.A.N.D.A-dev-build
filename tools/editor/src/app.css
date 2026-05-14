@@ -5955,7 +5955,9 @@ select option {
   stroke-width: 2;
   cursor: grab;
   filter: drop-shadow(0 0 8px color-mix(in srgb, var(--flow-edge-color, var(--accent)) 55%, transparent));
+  opacity: 0.48;
   pointer-events: all;
+  transition: opacity 0.16s ease, transform 0.16s ease, fill 0.16s ease;
 }
 
 .flow-edge-bend-handle:hover,
@@ -5964,6 +5966,12 @@ select option {
   fill: white;
   cursor: grabbing;
   outline: none;
+  opacity: 1;
+}
+
+.flow-edge.is-active .flow-edge-bend-handle,
+.flow-edge:hover .flow-edge-bend-handle {
+  opacity: 0.95;
 }
 
 @keyframes flow-edge-telemetry {
