@@ -453,13 +453,19 @@ local STAT_LABELS = {
     perception = "Perception",
 }
 
+local stat_label_cache = {}
 local function stat_label(stat)
+    local cached = stat_label_cache[stat]
+    if cached ~= nil then return cached end
     local key = "st_panda_stat_" .. tostring(stat or "")
+    local label
     if game and game.translate_string then
         local translated = game.translate_string(key)
-        if translated and translated ~= "" and translated ~= key then return translated end
+        if translated and translated ~= "" and translated ~= key then label = translated end
     end
-    return STAT_LABELS[stat] or tostring(stat or "")
+    label = label or STAT_LABELS[stat] or tostring(stat or "")
+    stat_label_cache[stat] = label
+    return label
 end
 
 function M.format_modifier_total(total)

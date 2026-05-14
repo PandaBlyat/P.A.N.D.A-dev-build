@@ -401,18 +401,13 @@ handlers["punish_money"] = function(parts, cmd_str, cmd)
         db.actor:give_money(-removed)
     end
     push_money_notification(-removed)
-
-            -- Custom NPC spawn (replaces spawn_hostile / spawn_friendly / spawn_npc / spawn_companion).
-            -- Template defined in XML: st_panda_npc_template_<id>
-            -- Examples:
-            --   spawn_custom_npc:informant              (near player, immediate)
-            --   spawn_custom_npc:hired_guns:5           (near player, 5s delay)
-            --   spawn_custom_npc_at:dealer:bar_arena_base
-            --   spawn_custom_npc_at:bouncer:esc_smart:3
-            --   spawn_npc_squad:army_sim_squad_novice:50:10
-            --   spawn_npc_squad_at_smart:army_sim_squad_novice:esc_smart
 end
 
+-- Custom NPC spawns. Templates live in st_panda_npc_template_<id>. Forms:
+--   spawn_custom_npc:<template>[:<delay>]
+--   spawn_custom_npc_at:<template>:<smart_ref>[:<delay>]
+--   spawn_npc_squad:<squad_section>:<min_dist>:<max_dist>
+--   spawn_npc_squad_at_smart:<squad_section>:<smart_ref>
 handlers["spawn_custom_npc"] = function(parts, cmd_str, cmd)
     local tpl_id = parts[2]
     local delay  = tonumber(parts[3]) or 0
@@ -846,12 +841,12 @@ handlers["take_item"] = function(parts, cmd_str, cmd)
     if item_sec then
         local to_remove = {}
         local removed = 0
-        act:iterate_inventory(function(owner, item)
+        db.actor:iterate_inventory(function(owner, item)
             if removed < count and item:section() == item_sec then
                 table.insert(to_remove, item:id())
                 removed = removed + 1
             end
-        end, act)
+        end, db.actor)
         for _, item_id in ipairs(to_remove) do
             local se_obj = alife_object(item_id)
             if se_obj then alife_release(se_obj) end
@@ -1117,8 +1112,8 @@ end
 
 handlers["give_hunger"] = function(parts, cmd_str, cmd)
     local amount = (tonumber(parts[2]) or 10) / 100
-    if act.cast_Actor and act:cast_Actor() and act:cast_Actor().conditions then
-        local cond = act:cast_Actor():conditions()
+    if db.actor.cast_Actor and db.actor:cast_Actor() and db.actor:cast_Actor().conditions then
+        local cond = db.actor:cast_Actor():conditions()
         if cond and cond.ChangeSatiety then
             cond:ChangeSatiety(-amount)
         end
@@ -1127,8 +1122,8 @@ end
 
 handlers["cure_hunger"] = function(parts, cmd_str, cmd)
     local amount = (tonumber(parts[2]) or 50) / 100
-    if act.cast_Actor and act:cast_Actor() and act:cast_Actor().conditions then
-        local cond = act:cast_Actor():conditions()
+    if db.actor.cast_Actor and db.actor:cast_Actor() and db.actor:cast_Actor().conditions then
+        local cond = db.actor:cast_Actor():conditions()
         if cond and cond.ChangeSatiety then
             cond:ChangeSatiety(amount)
         end
@@ -1140,8 +1135,8 @@ end
 handlers["boost_speed"] = function(parts, cmd_str, cmd)
     local mult = tonumber(parts[2]) or 1.5
     local dur = tonumber(parts[3]) or 60
-    act:set_actor_run_coef(mult)
-    act:set_actor_sprint_koef(mult)
+    db.actor:set_actor_run_coef(mult)
+    db.actor:set_actor_sprint_koef(mult)
     CreateTimeEvent(0, "panda_speed_reset_" .. tostring(time_global()), dur, function()
         if ic_is_shutting_down() then return true end
         db.actor:set_actor_run_coef(0)
@@ -1153,8 +1148,8 @@ end
 handlers["slow_speed"] = function(parts, cmd_str, cmd)
     local mult = tonumber(parts[2]) or 0.5
     local dur = tonumber(parts[3]) or 60
-    act:set_actor_run_coef(mult)
-    act:set_actor_sprint_koef(mult)
+    db.actor:set_actor_run_coef(mult)
+    db.actor:set_actor_sprint_koef(mult)
     CreateTimeEvent(0, "panda_speed_reset_" .. tostring(time_global()), dur, function()
         if ic_is_shutting_down() then return true end
         db.actor:set_actor_run_coef(0)
@@ -1170,8 +1165,8 @@ handlers["change_rank"] = function(parts, cmd_str, cmd)
     if game_statistics and game_statistics.increment_rank then
         game_statistics.increment_rank(amount)
     else
-        local cur = act:character_rank()
-        act:set_character_rank(cur + amount)
+        local cur = db.actor:character_rank()
+        db.actor:set_character_rank(cur + amount)
     end
 
             -- Player Effects: teleport player
@@ -1190,7 +1185,7 @@ handlers["teleport_player_to_smart"] = function(parts, cmd_str, cmd)
                     return true
                 end)
             else
-                act:set_actor_position(smart_pos)
+                db.actor:set_actor_position(smart_pos)
             end
         end
     end
@@ -1312,8 +1307,8 @@ end
 
 handlers["change_player_faction"] = function(parts, cmd_str, cmd)
     local new_fac = normalize_faction(parts[2] or "stalker")
-    if act.set_character_community then
-        act:set_character_community(new_fac, 0, 0)
+    if db.actor.set_character_community then
+        db.actor:set_character_community(new_fac, 0, 0)
     end
 
             -- Ceasefire
@@ -1321,10 +1316,12 @@ end
 
 handlers["ceasefire"] = function(parts, cmd_str, cmd)
     local radius = tonumber(parts[2]) or 100
-    local actor_pos = act:position()
-    for id = 1, 65535 do
-        local obj = level.object_by_id(id)
-        if obj and obj:alive() and IsStalker(obj) and obj:id() ~= act:id() then
+    local actor_pos = db.actor:position()
+    local actor_id = db.actor:id()
+    local online = db.OnlineStalkers or {}
+    for i = 1, #online do
+        local obj = level.object_by_id(online[i])
+        if obj and obj:alive() and IsStalker(obj) and obj:id() ~= actor_id then
             local dist = obj:position():distance_to(actor_pos)
             if dist <= radius then
                 obj:set_relation(game_object.neutral, db.actor)
@@ -1349,7 +1346,7 @@ handlers["give_game_news"] = function(parts, cmd_str, cmd)
     local title = parts[2] or "News"
     local message = parts[3] or ""
     local dur = tonumber(parts[4]) or 5
-    act:give_game_news(title, message, "ui_inGame2_PDA", 0, dur * 1000)
+    db.actor:give_game_news(title, message, "ui_inGame2_PDA", 0, dur * 1000)
 
             -- Knowledge: tasks
 end
