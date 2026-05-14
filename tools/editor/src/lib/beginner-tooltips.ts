@@ -257,7 +257,7 @@ export const BEGINNER_TOOLTIP_PRESETS = {
   'flow-edge': {
     id: 'flow-edge',
     title: 'Flow Edge',
-    body: 'Click line to inspect connection. Right-click supported edges to disconnect branch quickly.',
+    body: 'Click line to inspect connection. Drag continue lines or round handles to bend them. Right-click supported edges to disconnect branch quickly.',
     placement: 'top',
   },
   'inspector-story-tab': {

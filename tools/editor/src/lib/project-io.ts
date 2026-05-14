@@ -319,7 +319,7 @@ function normalizeFlowEdgeBends(value: unknown): Record<string, number> | undefi
     if (!/^\d+:\d+:\d+:(continue|pause-success|pause-fail)$/.test(key)) continue;
     const bend = typeof rawBend === 'number' ? rawBend : Number(rawBend);
     if (!Number.isFinite(bend)) continue;
-    const normalized = Math.max(-220, Math.min(220, Math.round(bend)));
+    const normalized = Math.round(Math.max(-320, Math.min(320, bend)) * 10) / 10;
     if (normalized !== 0) bends[key] = normalized;
   }
   return Object.keys(bends).length > 0 ? bends : undefined;

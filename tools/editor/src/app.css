@@ -4216,7 +4216,7 @@ body.use-custom-cursor * {
 .flow-shell.graphics-low .flow-canvas.is-low-detail .turn-body,
 .flow-shell.graphics-low .flow-canvas.is-low-detail .turn-actions,
 .flow-shell.graphics-low .flow-canvas.is-low-detail .turn-color-input,
-.flow-shell.graphics-low .flow-canvas.is-low-detail .flow-edge-bend-handle {
+.flow-shell.graphics-low .flow-canvas.is-low-detail .flow-edge:not(.is-active) .flow-edge-bend-handle {
   display: none !important;
 }
 
@@ -4322,8 +4322,8 @@ body.use-custom-cursor * {
 
 .flow-shell.graphics-medium.is-large-graph .flow-edge-packet:not(.flow-edge-preview-packet),
 .flow-shell.graphics-medium.is-huge-graph .flow-edge-packet:not(.flow-edge-preview-packet),
-.flow-shell.graphics-medium.is-large-graph .flow-edge-bend-handle,
-.flow-shell.graphics-medium.is-huge-graph .flow-edge-bend-handle {
+.flow-shell.graphics-medium.is-large-graph .flow-edge:not(.is-active) .flow-edge-bend-handle,
+.flow-shell.graphics-medium.is-huge-graph .flow-edge:not(.is-active) .flow-edge-bend-handle {
   display: none !important;
 }
 
@@ -9175,6 +9175,8 @@ hr {
 .flow-edge-path {
   stroke-width: 2.6;
   opacity: 0.88;
+  cursor: pointer;
+  pointer-events: stroke;
 }
 
 .flow-edge-path.edge-preview {
@@ -9205,6 +9207,11 @@ hr {
 
 .flow-edge-path.edge-continue {
   stroke: var(--flow-edge-color, color-mix(in srgb, var(--accent) 90%, transparent));
+  cursor: grab;
+}
+
+.flow-edge.is-bending .flow-edge-path.edge-continue {
+  cursor: grabbing;
 }
 
 .flow-edge-path.edge-pause-success {
@@ -26480,7 +26487,7 @@ body:has(.username-modal-overlay) .app-bottom-region {
 .flow-shell.graphics-low .flow-canvas.is-low-detail .turn-body,
 .flow-shell.graphics-low .flow-canvas.is-low-detail .turn-actions,
 .flow-shell.graphics-low .flow-canvas.is-low-detail .turn-color-input,
-.flow-shell.graphics-low .flow-canvas.is-low-detail .flow-edge-bend-handle {
+.flow-shell.graphics-low .flow-canvas.is-low-detail .flow-edge:not(.is-active) .flow-edge-bend-handle {
   display: none !important;
 }
 
@@ -26586,8 +26593,8 @@ body:has(.username-modal-overlay) .app-bottom-region {
 
 .flow-shell.graphics-medium.is-large-graph .flow-edge-packet:not(.flow-edge-preview-packet),
 .flow-shell.graphics-medium.is-huge-graph .flow-edge-packet:not(.flow-edge-preview-packet),
-.flow-shell.graphics-medium.is-large-graph .flow-edge-bend-handle,
-.flow-shell.graphics-medium.is-huge-graph .flow-edge-bend-handle {
+.flow-shell.graphics-medium.is-large-graph .flow-edge:not(.is-active) .flow-edge-bend-handle,
+.flow-shell.graphics-medium.is-huge-graph .flow-edge:not(.is-active) .flow-edge-bend-handle {
   display: none !important;
 }
 

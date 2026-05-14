@@ -351,12 +351,14 @@ export function syncFlowEditor(change: StateChange): boolean {
 
   if (kind === 'position') {
     liveFlow.positionRevision = state.flowPositionRevision;
+    const bendChangedEdgeKeys = syncLiveEdgeBends(liveFlow, conv);
     // Diff positions against the cached graph model so we only touch the
     // turns that actually moved. This skips a full buildFlowGraphModel +
     // buildEdgeDescriptors pass, and lets drawEdges process only edges
     // attached to a moved turn.
     const moved = syncFlowGraphModelPositions(liveFlow.graphModel, conv);
     if (moved.size === 0) {
+      if (bendChangedEdgeKeys.size > 0) redrawLiveEdges(liveFlow);
       syncLiveViewportVisibility(liveFlow);
       return true;
     }
@@ -369,7 +371,7 @@ export function syncFlowEditor(change: StateChange): boolean {
     // Edge descriptors are structural (which choice points where, with what
     // bend/highlight); positions don't change them. Reuse the existing array
     // and just redraw edges connected to a moved turn.
-    redrawLiveEdges(liveFlow, moved);
+    redrawLiveEdges(liveFlow, bendChangedEdgeKeys.size > 0 ? undefined : moved);
     syncLiveViewportVisibility(liveFlow);
     return true;
   }
@@ -415,6 +417,18 @@ function edgeKey(edge: EdgeDescriptor): string {
 
 function edgeKeyFromParts(sourceTurnNumber: number, sourceChoiceIndex: number, targetTurnNumber: number, kind: EdgeKind): string {
   return `${sourceTurnNumber}:${sourceChoiceIndex}:${targetTurnNumber}:${kind}`;
+}
+
+function syncLiveEdgeBends(flow: LiveFlowState, conv: Conversation): Set<string> {
+  const changed = new Set<string>();
+  for (const edge of flow.edges) {
+    const key = edgeKey(edge);
+    const nextBend = conv.flowEdgeBends?.[key] ?? 0;
+    if (edge.bend === nextBend) continue;
+    edge.bend = nextBend;
+    changed.add(key);
+  }
+  return changed;
 }
 
 function indexEdgeElements(svg: SVGSVGElement, map: Map<string, SVGGElement>): void {
@@ -4344,16 +4358,34 @@ function syncBendHandle(group: SVGGElement, options: {
     }
   };
 
-  handle.onpointerdown = (event) => {
+  const selectEdge = (): void => {
+    store.batch(() => {
+      store.selectTurn(edge.sourceTurnNumber);
+      store.selectChoice(edge.sourceChoiceIndex);
+    });
+  };
+
+  const beginBendDrag = (event: PointerEvent, dragElement: SVGElement, requireMoveThreshold: boolean): void => {
+    if (event.button !== 0) return;
     event.preventDefault();
     event.stopPropagation();
+    selectEdge();
     const pointerId = event.pointerId;
     let nextBend = edge.bend;
-    handle?.setPointerCapture(pointerId);
-    group.classList.add('is-bending');
+    const startClientX = event.clientX;
+    const startClientY = event.clientY;
+    let isDragging = !requireMoveThreshold;
+    if (isDragging) group.classList.add('is-bending');
+    dragElement.setPointerCapture?.(pointerId);
 
     const onMove = (moveEvent: PointerEvent): void => {
       if (moveEvent.pointerId !== pointerId) return;
+      if (!isDragging) {
+        const distance = Math.hypot(moveEvent.clientX - startClientX, moveEvent.clientY - startClientY);
+        if (distance < 3) return;
+        isDragging = true;
+        group.classList.add('is-bending');
+      }
       moveEvent.preventDefault();
       moveEvent.stopPropagation();
       nextBend = getBendFromPointer(svg, sourceAnchor, targetAnchor, edge.offsetIndex, moveEvent);
@@ -4365,17 +4397,24 @@ function syncBendHandle(group: SVGGElement, options: {
       upEvent.preventDefault();
       upEvent.stopPropagation();
       group.classList.remove('is-bending');
-      if (handle?.hasPointerCapture(pointerId)) handle.releasePointerCapture(pointerId);
+      if (dragElement.hasPointerCapture?.(pointerId)) dragElement.releasePointerCapture(pointerId);
       window.removeEventListener('pointermove', onMove, true);
       window.removeEventListener('pointerup', onUp, true);
       window.removeEventListener('pointercancel', onUp, true);
-      store.updateFlowEdgeBend(conv.id, edgeKey(edge), nextBend);
+      if (isDragging) store.updateFlowEdgeBend(conv.id, edgeKey(edge), nextBend);
     };
 
     window.addEventListener('pointermove', onMove, true);
     window.addEventListener('pointerup', onUp, true);
     window.addEventListener('pointercancel', onUp, true);
   };
+
+  const path = refs.path;
+  if (path && edge.kind === 'continue') {
+    path.onpointerdown = (event) => beginBendDrag(event, path, true);
+  }
+
+  handle.onpointerdown = (event) => beginBendDrag(event, handle, false);
 
   handle.onkeydown = (event) => {
     const keyDirection = event.key === 'ArrowUp' || event.key === 'ArrowRight'
