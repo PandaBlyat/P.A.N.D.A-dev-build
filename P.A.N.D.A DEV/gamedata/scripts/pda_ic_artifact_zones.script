@@ -1,0 +1,128 @@
+--[[
+================================================================================
+    P.A.N.D.A — Artifact Zone Level Pools
+    Extracted from pda_interactive_conv.script.
+    Pure data + a single resolver. No shared mutable state.
+================================================================================
+--]]
+
+pda_ic_artifact_zones = pda_ic_artifact_zones or {}
+local M = pda_ic_artifact_zones
+
+local ARTIFACT_ZONE_LEVEL_POOLS = {
+    esc = {
+        "esc_2c_01_high_hopes_anomal_zone",
+        "esc_smart_terrain_1_11_anomal_zone",
+        "esc_smart_terrain_5_4_anomal_zone",
+        "esc_smart_terrain_8_9_anomal_zone",
+        "esc_tunnel_electr_anomal_zone",
+    },
+    gar = {
+        "gar_2c_01_nwi_anomal_zone",
+        "gar_2c_02_toaster_anomal_zone",
+        "gar_smart_terrain_1_7_anomal_zone",
+        "gar_smart_terrain_3_7_anomal_zone",
+        "gar_smart_terrain_6_7_anomal_zone",
+    },
+    agr = {
+        "agr_2c_01_hg_anomal_zone",
+        "agr_smart_terrain_1_2_anomal_zone",
+        "agr_smart_terrain_5_2_anomal_zone",
+    },
+    val = {
+        "val_smart_terrain_6_4_anomal_zone",
+        "val_smart_terrain_8_6_anomal_zone",
+        "val_smart_terrain_9_10_anomal_zone",
+    },
+    yan = {
+        "yan_2c_01_cd_anomal_zone",
+        "yan_smart_terrain_2_5_anomal_zone",
+        "yan_smart_terrain_5_3_anomal_zone",
+    },
+    ros = {
+        "ros_2c_01_tunnel_anomal_zone",
+        "ros_2c_02_ct_anomal_zone",
+        "ros_2c_03_yc_anomal_zone",
+    },
+    bar = {
+        "bar_2c_01_grant_anomal_zone",
+    },
+    mar = {
+        "mar_smart_terrain_2c_01_anomal_zone",
+        "mar_smart_terrain_12_2_anomal_zone",
+        "mar_smart_terrain_8_8_anomal_zone",
+    },
+    ds = {
+        "ds_anomal_zone_2c_01",
+        "ds_anomal_zone_2c_02",
+        "ds_anomal_zone_2c_03",
+    },
+    trc = {
+        "trc_2c_01_anomal_zone",
+        "trc_2c_02_chem_anomal_zone",
+        "trc_2c_03_desolation_anomal_zone",
+    },
+    red = {
+        "red_smart_terrain_3_2_anomal_zone",
+        "red_smart_terrain_6_3_anomal_zone",
+        "red_smart_terrain_6_6_anomal_zone",
+    },
+    lim = {
+        "lim_2c_01_ls_anomal_zone",
+        "lim_2c_02_ib_anomal_zone",
+    },
+    jup = {
+        "jup_b10_anomal_zone",
+        "jup_b25_anomal_zone",
+        "jup_b32_anomal_zone",
+    },
+    zat = {
+        "zat_b14_anomal_zone",
+        "zat_b39_anomal_zone",
+        "zat_b55_anomal_zone",
+    },
+    pri = {
+        "pri_2c_01_pp_anomal_zone",
+        "pri_b301_anomal_zone",
+        "pri_b307_anomal_zone",
+    },
+}
+
+function M.resolve_artifact_zone_target(zone_name)
+    local zone_raw = tostring(zone_name or "")
+    if zone_raw == "" then
+        return nil, "empty"
+    end
+
+    local token_level = zone_raw:match("^level:([%w_%-]+)$")
+    if not token_level then
+        return zone_raw, nil
+    end
+
+    local pool = ARTIFACT_ZONE_LEVEL_POOLS[token_level]
+    local anomaly_by_name = db and db.anomaly_by_name or nil
+    local eligible = {}
+
+    if anomaly_by_name then
+        local level_prefix = token_level .. "_"
+        for anomaly_name, anomaly_obj in pairs(anomaly_by_name) do
+            if anomaly_obj and string.find(anomaly_name, "^" .. level_prefix) and string.find(anomaly_name, "anomal_zone") then
+                table.insert(eligible, anomaly_name)
+            end
+        end
+    end
+
+    if #eligible == 0 and pool and #pool > 0 then
+        for _, zone_id in ipairs(pool) do
+            if anomaly_by_name and anomaly_by_name[zone_id] then
+                table.insert(eligible, zone_id)
+            end
+        end
+    end
+
+    if #eligible == 0 then
+        return nil, string.format("no online anomaly zones for level token '%s'", token_level)
+    end
+
+    return eligible[math.random(1, #eligible)], nil
+end

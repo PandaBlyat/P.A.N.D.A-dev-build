@@ -1,0 +1,509 @@
+--[[
+================================================================================
+    P.A.N.D.A — Dialogue Skill Checks
+    Extracted from pda_interactive_conv.script.
+
+    Owns the player_dialogue_stats state. Save/load is delegated from the
+    parent's save_state/load_state callbacks.
+
+    Cross-module access:
+      * pda_interactive_conv.CONV     -- current conversation context
+      * pda_interactive_conv.PANDA    -- MCM config access
+      * panda_dialogue_skills         -- gear/context stat modifiers (sibling)
+================================================================================
+--]]
+
+pda_ic_dialogue_stats = pda_ic_dialogue_stats or {}
+local M = pda_ic_dialogue_stats
+
+local function dbg(fmt, ...)
+    local PANDA_REF = pda_interactive_conv and pda_interactive_conv.PANDA
+    if PANDA_REF and PANDA_REF.get_config and PANDA_REF.get_config("debug_logging") then
+        printf(fmt, ...)
+    end
+end
+
+local player_dialogue_stats = {}
+local CORE_DIALOGUE_STATS = { "charisma", "luck", "intimidation", "perception" }
+
+function get_dialogue_stat(key)
+    if not key or key == "" then return 0 end
+    if key == "rank" then
+        if db.actor and db.actor.character_rank then
+            local cr = db.actor:character_rank() or 0
+            return math.floor(cr / 1000)
+        end
+        return 0
+    end
+    return tonumber(player_dialogue_stats[key]) or 0
+end
+
+local function get_dialogue_skill_context()
+    local ctx = {}
+    local conv = pda_interactive_conv and pda_interactive_conv.CONV
+    if conv then
+        ctx.npc_id = conv.npc_id
+        ctx.contact_id = conv.contact_id
+        ctx.npc_se = conv.npc_se
+    end
+    return ctx
+end
+
+function get_dialogue_stat_breakdown(key)
+    local base = get_dialogue_stat(key)
+    local skill_mods = panda_dialogue_skills
+    if skill_mods and type(skill_mods.get_effective_stat) == "function" then
+        local ok, effective, breakdown = pcall(
+            skill_mods.get_effective_stat,
+            key,
+            base,
+            get_dialogue_skill_context()
+        )
+        if ok and breakdown then return breakdown end
+        if ok and tonumber(effective) then
+            return { base = base, modifier = tonumber(effective) - base, effective = tonumber(effective), rows = {} }
+        end
+    end
+    return { base = base, modifier = 0, effective = base, rows = {} }
+end
+
+function get_effective_dialogue_stat(key)
+    local info = get_dialogue_stat_breakdown(key)
+    return tonumber(info.effective) or get_dialogue_stat(key)
+end
+
+local DIALOGUE_STAT_MIN = 0
+local DIALOGUE_STAT_MAX = 100
+
+local function clamp_stat(v)
+    if v < DIALOGUE_STAT_MIN then return DIALOGUE_STAT_MIN end
+    if v > DIALOGUE_STAT_MAX then return DIALOGUE_STAT_MAX end
+    return v
+end
+
+function set_dialogue_stat(key, value)
+    if not key or key == "" or key == "rank" then return end
+    local v = clamp_stat(tonumber(value) or 0)
+    player_dialogue_stats[key] = v
+    dbg("PANDA_IC: dialogue stat '%s' set to %d", tostring(key), v)
+end
+
+function change_dialogue_stat(key, delta)
+    if not key or key == "" or key == "rank" then return end
+    local current = tonumber(player_dialogue_stats[key]) or 0
+    local d = tonumber(delta) or 0
+    local new_val = clamp_stat(current + d)
+    player_dialogue_stats[key] = new_val
+    dbg("PANDA_IC: dialogue stat '%s' %+d -> %d", tostring(key), d, new_val)
+end
+
+function get_all_dialogue_stats()
+    local out = {}
+    for _, key in ipairs(CORE_DIALOGUE_STATS) do
+        out[key] = get_dialogue_stat(key)
+    end
+    out.rank = get_dialogue_stat("rank")
+    for k, v in pairs(player_dialogue_stats) do
+        if out[k] == nil then out[k] = v end
+    end
+    return out
+end
+
+function get_all_effective_dialogue_stats()
+    local out = {}
+    for _, key in ipairs(CORE_DIALOGUE_STATS) do
+        out[key] = get_effective_dialogue_stat(key)
+    end
+    out.rank = get_dialogue_stat("rank")
+    for k, _ in pairs(player_dialogue_stats) do
+        if out[k] == nil then out[k] = get_effective_dialogue_stat(k) end
+    end
+    return out
+end
+
+local DIALOGUE_STAT_OUTCOME_COMMANDS = {
+    change_dialogue_stat = true,
+    give_skill_level = true,
+    take_skill_level = true,
+    set_dialogue_stat = true,
+}
+
+local function split_outcome_entry(entry)
+    local parts = {}
+    for token in string.gmatch(entry or "", "([^:]+)") do
+        table.insert(parts, token)
+    end
+    return parts
+end
+
+local function trim_outcome_entry(entry)
+    return tostring(entry or ""):match("^%s*(.-)%s*$")
+end
+
+local function normalize_outcome_command_parts(entry)
+    local trimmed = trim_outcome_entry(entry)
+    local parts = split_outcome_entry(trimmed)
+    local chance_wrapped = false
+    if parts[1] == "chance" and tonumber(parts[2]) then
+        chance_wrapped = true
+        table.remove(parts, 1)
+        table.remove(parts, 1)
+    end
+    return trimmed, parts, chance_wrapped
+end
+
+local function is_dialogue_stat_outcome_command(cmd)
+    return DIALOGUE_STAT_OUTCOME_COMMANDS[cmd] == true
+end
+
+function apply_dialogue_stat_outcomes(outcome_str)
+    if not outcome_str or outcome_str == "" or outcome_str == "none" then return false end
+    local applied = false
+    for entry in string.gmatch(outcome_str, "([^,]+)") do
+        local _, parts, chance_wrapped = normalize_outcome_command_parts(entry)
+        local cmd = parts[1]
+        -- Do not pre-roll chance-wrapped rewards here; delayed outcome pipeline owns RNG.
+        if is_dialogue_stat_outcome_command(cmd) and chance_wrapped ~= true then
+            local stat = parts[2]
+            if cmd == "change_dialogue_stat" then
+                change_dialogue_stat(stat, tonumber(parts[3]) or 0)
+                applied = true
+            elseif cmd == "give_skill_level" then
+                change_dialogue_stat(stat, math.abs(tonumber(parts[3]) or 0))
+                applied = true
+            elseif cmd == "take_skill_level" then
+                change_dialogue_stat(stat, -math.abs(tonumber(parts[3]) or 0))
+                applied = true
+            elseif cmd == "set_dialogue_stat" then
+                set_dialogue_stat(stat, tonumber(parts[3]) or 0)
+                applied = true
+            end
+        end
+    end
+    return applied
+end
+
+function strip_dialogue_stat_outcomes(outcome_str)
+    if not outcome_str or outcome_str == "" or outcome_str == "none" then return outcome_str end
+    local kept = {}
+    for entry in string.gmatch(outcome_str, "([^,]+)") do
+        local trimmed, parts, chance_wrapped = normalize_outcome_command_parts(entry)
+        local cmd = parts[1]
+        if trimmed ~= "" and (chance_wrapped == true or not is_dialogue_stat_outcome_command(cmd)) then
+            kept[#kept + 1] = trimmed
+        end
+    end
+    if #kept == 0 then return "none" end
+    return table.concat(kept, ",")
+end
+
+local function clamp(v, lo, hi)
+    if v < lo then return lo end
+    if v > hi then return hi end
+    return v
+end
+
+-- Returns "success" or "fail" based on the Fallout-style ratio roll:
+--   chance = clamp(5, 95, floor(stat_value / required_level * 100) + luck - difficulty)
+-- If required_level is nil/0, falls back to a flat 50 baseline so legacy calls
+-- (pre-level format) still resolve sensibly.
+function evaluate_dialogue_check(stat_key, required_level, difficulty)
+    local stat_info = get_dialogue_stat_breakdown(stat_key)
+    local luck_info = get_dialogue_stat_breakdown("luck")
+    local stat_val = tonumber(stat_info.effective) or get_dialogue_stat(stat_key)
+    local luck = tonumber(luck_info.effective) or get_dialogue_stat("luck")
+    local req = tonumber(required_level)
+    local diff = tonumber(difficulty) or 0
+    local base
+    if req and req > 0 then
+        base = math.floor((stat_val / req) * 100)
+    else
+        -- Legacy format: difficulty was the only knob, use the old 50-base curve.
+        base = 50 + stat_val
+    end
+    local luck_bonus = (stat_key == "luck") and 0 or luck
+    local chance = clamp(base + luck_bonus - diff, 5, 95)
+    local roll = math.random(1, 100)
+    local result = (roll <= chance) and "success" or "fail"
+    dbg("PANDA_IC: skill check stat=%s req=%s val=%d mod=%d luck=%d luck_mod=%d diff=%d chance=%d roll=%d -> %s",
+        tostring(stat_key), tostring(req), stat_val, tonumber(stat_info.modifier) or 0,
+        luck, tonumber(luck_info.modifier) or 0, diff, chance, roll, result)
+    return result
+end
+
+-- Pure percent roll for random_chance_check.
+function evaluate_random_chance(percent)
+    local p = tonumber(percent) or 50
+    p = clamp(p, 1, 99)
+    local roll = math.random(1, 100)
+    local result = (roll <= p) and "success" or "fail"
+    dbg("PANDA_IC: random check percent=%d roll=%d -> %s", p, roll, result)
+    return result
+end
+
+local STAT_DISPLAY_LABELS = {
+    charisma = "Charisma",
+    luck = "Luck",
+    intimidation = "Intimidation",
+    perception = "Perception",
+    rank = "Rank",
+}
+
+local function format_stat_label(key)
+    if not key or key == "" then return "" end
+    local localized_key = "st_panda_stat_" .. tostring(key)
+    local localized = game.translate_string(localized_key)
+    if localized and localized ~= localized_key and localized ~= "" then
+        return localized
+    end
+    return STAT_DISPLAY_LABELS[key] or (key:sub(1,1):upper() .. key:sub(2))
+end
+
+-- Predicts the chance of a dialogue_skill_check exactly like
+-- evaluate_dialogue_check, minus the RNG roll.
+local function predict_dialogue_check_chance(stat_key, required_level, difficulty)
+    local stat_info = get_dialogue_stat_breakdown(stat_key)
+    local luck_info = get_dialogue_stat_breakdown("luck")
+    local stat_val = tonumber(stat_info.effective) or get_dialogue_stat(stat_key)
+    local luck = tonumber(luck_info.effective) or get_dialogue_stat("luck")
+    local req = tonumber(required_level)
+    local diff = tonumber(difficulty) or 0
+    local base
+    if req and req > 0 then
+        base = math.floor((stat_val / req) * 100)
+    else
+        base = 50 + stat_val
+    end
+    local luck_bonus = (stat_key == "luck") and 0 or luck
+    return clamp(base + luck_bonus - diff, 5, 95), stat_val, stat_info
+end
+
+local function format_effective_stat_value(current, info)
+    local mod = info and tonumber(info.modifier) or 0
+    if mod ~= 0 then
+        local base = info and tonumber(info.base) or current
+        local sign = (mod > 0) and "+" or ""
+        return string.format("%d (%s%d)", base, sign, mod)
+    end
+    return tostring(current)
+end
+
+-- Scans an outcome string for a dialogue check or a stat reward/penalty
+-- and returns a bracketed hint to append to the choice text.
+-- Examples:
+--   [Charisma 12/50 - 22% chance]
+--   [60% Chance]
+--   [+5 Charisma]   [-3 Intimidation]   [Set Charisma=10]
+-- Returns nil if the choice has no check or stat outcome.
+function build_dialogue_check_hint(outcome_str)
+    if not outcome_str or outcome_str == "" or outcome_str == "none" then return nil end
+    if pda_interactive_conv and pda_interactive_conv.PANDA and type(pda_interactive_conv.PANDA.get_config) == "function" then
+        local enabled = pda_interactive_conv.PANDA.get_config("show_check_hints_in_choices")
+        if enabled == false then return nil end
+    end
+
+    local check_hint = nil
+    local reward_hints = {}
+
+    for entry in string.gmatch(outcome_str, "([^,]+)") do
+        local trimmed = entry:match("^%s*(.-)%s*$")
+        if trimmed and trimmed ~= "" then
+            local parts = {}
+            for token in string.gmatch(trimmed, "([^:]+)") do
+                table.insert(parts, token)
+            end
+            -- Strip optional "chance:N:" prefix.
+            if parts[1] == "chance" and tonumber(parts[2]) then
+                table.remove(parts, 1)
+                table.remove(parts, 1)
+            end
+            local cmd = parts[1]
+            if cmd == "dialogue_skill_check" and not check_hint then
+                local stat = parts[2] or ""
+                local required_level, difficulty
+                -- New: stat:level:difficulty:success:fail   (6 parts)
+                -- Legacy: stat:difficulty:success:fail      (5 parts)
+                if #parts >= 6 then
+                    required_level = tonumber(parts[3]) or 0
+                    difficulty = tonumber(parts[4]) or 0
+                else
+                    required_level = 0
+                    difficulty = tonumber(parts[3]) or 0
+                end
+                local chance, current, stat_info = predict_dialogue_check_chance(stat, required_level, difficulty)
+                local current_text = format_effective_stat_value(current, stat_info)
+                if required_level and required_level > 0 then
+                    check_hint = string.format("[%s %s/%d - %d%% chance]",
+                        format_stat_label(stat), current_text, required_level, chance)
+                else
+                    check_hint = string.format("[%s %s - %d%% chance]",
+                        format_stat_label(stat), current_text, chance)
+                end
+            elseif cmd == "random_chance_check" and not check_hint then
+                local pct = tonumber(parts[2]) or 50
+                if pct < 1 then pct = 1 end
+                if pct > 99 then pct = 99 end
+                check_hint = string.format("[%d%% Chance]", pct)
+            elseif cmd == "give_skill_level" then
+                local stat = parts[2] or ""
+                local amount = math.abs(tonumber(parts[3]) or 0)
+                if stat ~= "" and amount > 0 then
+                    table.insert(reward_hints, string.format("[+%d %s]", amount, format_stat_label(stat)))
+                end
+            elseif cmd == "take_skill_level" then
+                local stat = parts[2] or ""
+                local amount = math.abs(tonumber(parts[3]) or 0)
+                if stat ~= "" and amount > 0 then
+                    table.insert(reward_hints, string.format("[-%d %s]", amount, format_stat_label(stat)))
+                end
+            elseif cmd == "change_dialogue_stat" then
+                local stat = parts[2] or ""
+                local delta = tonumber(parts[3]) or 0
+                if stat ~= "" and delta ~= 0 then
+                    local sign = (delta > 0) and "+" or ""
+                    table.insert(reward_hints, string.format("[%s%d %s]", sign, delta, format_stat_label(stat)))
+                end
+            elseif cmd == "set_dialogue_stat" then
+                local stat = parts[2] or ""
+                local value = tonumber(parts[3])
+                if stat ~= "" and value ~= nil then
+                    table.insert(reward_hints, string.format("[Set %s=%d]", format_stat_label(stat), value))
+                end
+            end
+        end
+    end
+
+    if check_hint and #reward_hints > 0 then
+        return check_hint .. " " .. table.concat(reward_hints, " ")
+    elseif check_hint then
+        return check_hint
+    elseif #reward_hints > 0 then
+        return table.concat(reward_hints, " ")
+    end
+    return nil
+end
+
+-- Inline pre-resolution: scan an outcome string for dialogue_skill_check or
+-- random_chance_check and return the resolved success/fail turn override (or
+-- nil if no check is present). Mutates nothing — the apply_outcome dispatcher
+-- is still called normally afterwards but treats these commands as no-ops.
+-- Detect (without resolving) whether an outcome string carries a dialogue_skill_check
+-- or random_chance_check. Used to decide when to emit the next turn's _open body
+-- on inline continuation — the branch-specific narration lives there because the
+-- choice's single _reply is shared across success and fail branches.
+function outcome_has_dialogue_check(outcome_str)
+    if not outcome_str or outcome_str == "" then return false end
+    for entry in string.gmatch(outcome_str, "([^,]+)") do
+        local trimmed = entry:match("^%s*(.-)%s*$")
+        if trimmed and trimmed ~= "" then
+            local first = trimmed:match("^([^:]+)")
+            if first == "chance" then
+                first = trimmed:match("^chance:%d+:([^:]+)")
+            end
+            if first == "dialogue_skill_check" or first == "random_chance_check" then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+function preresolve_dialogue_check(outcome_str)
+    if not outcome_str or outcome_str == "" then return nil end
+    for entry in string.gmatch(outcome_str, "([^,]+)") do
+        local trimmed = entry:match("^%s*(.-)%s*$")
+        if trimmed and trimmed ~= "" then
+            local parts = {}
+            for token in string.gmatch(trimmed, "([^:]+)") do
+                table.insert(parts, token)
+            end
+            -- Strip optional "chance:N:" prefix that wraps any outcome.
+            if parts[1] == "chance" and tonumber(parts[2]) then
+                table.remove(parts, 1)
+                table.remove(parts, 1)
+            end
+            local cmd = parts[1]
+            if cmd == "dialogue_skill_check" then
+                local stat = parts[2]
+                local req, diff, s_turn, f_turn
+                if #parts >= 6 then
+                    -- New format: stat:level:difficulty:success:fail
+                    req = tonumber(parts[3])
+                    diff = tonumber(parts[4]) or 0
+                    s_turn = tonumber(parts[5])
+                    f_turn = tonumber(parts[6])
+                else
+                    -- Legacy format: stat:difficulty:success:fail
+                    req = nil
+                    diff = tonumber(parts[3]) or 0
+                    s_turn = tonumber(parts[4])
+                    f_turn = tonumber(parts[5])
+                end
+                local result = evaluate_dialogue_check(stat, req, diff)
+                if result == "success" then return s_turn end
+                return f_turn
+            elseif cmd == "random_chance_check" then
+                local pct = tonumber(parts[2]) or 50
+                local s_turn = tonumber(parts[3])
+                local f_turn = tonumber(parts[4])
+                local result = evaluate_random_chance(pct)
+                if result == "success" then return s_turn end
+                return f_turn
+            end
+        end
+    end
+    return nil
+end
+
+function parse_dialogue_check_turns(outcome_str)
+    if not outcome_str or outcome_str == "" then return nil end
+    for entry in string.gmatch(outcome_str, "([^,]+)") do
+        local _, parts = normalize_outcome_command_parts(entry)
+        local cmd = parts[1]
+        if cmd == "dialogue_skill_check" then
+            local s_turn, f_turn
+            if #parts >= 6 then
+                s_turn = tonumber(parts[5])
+                f_turn = tonumber(parts[6])
+            else
+                s_turn = tonumber(parts[4])
+                f_turn = tonumber(parts[5])
+            end
+            if s_turn or f_turn then
+                return {
+                    kind = "dialogue_skill_check",
+                    success_turn = s_turn,
+                    fail_turn = f_turn,
+                }
+            end
+        elseif cmd == "random_chance_check" then
+            local s_turn = tonumber(parts[3])
+            local f_turn = tonumber(parts[4])
+            if s_turn or f_turn then
+                return {
+                    kind = "random_chance_check",
+                    success_turn = s_turn,
+                    fail_turn = f_turn,
+                }
+            end
+        end
+    end
+    return nil
+end
+
+-- Save/load is invoked by the parent's save_state / load_state callbacks.
+function M.save_state(m)
+    m.pda_player_dialogue_stats = player_dialogue_stats
+end
+
+function M.load_state(m)
+    if m.pda_player_dialogue_stats and type(m.pda_player_dialogue_stats) == "table" then
+        player_dialogue_stats = {}
+        for k, v in pairs(m.pda_player_dialogue_stats) do
+            local n = tonumber(v)
+            if k and n then player_dialogue_stats[k] = n end
+        end
+    else
+        player_dialogue_stats = {}
+    end
+end
