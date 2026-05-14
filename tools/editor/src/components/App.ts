@@ -977,6 +977,12 @@ function renderMobileMoreActions(body: HTMLElement): void {
     createMobileSheetAction('save', 'Save Project', () => { closeMobileSheet(); exportProjectJson(); }),
     createMobileSheetAction('import', 'Import XML', () => { closeMobileSheet(); importFromXml(); }),
     createMobileSheetAction('export', 'Export XML', () => { closeMobileSheet(); exportXml(); }),
+    ...(state.advancedMode
+      ? [
+        createMobileSheetAction('xml', state.showXmlPreview ? 'XML Preview: On' : 'XML Preview: Off', () => store.toggleXmlPreview()),
+        createMobileSheetAction('strings', state.showSystemStringsPanel ? 'System Strings: On' : 'System Strings: Off', () => store.toggleSystemStringsPanel()),
+      ]
+      : []),
     createMobileSheetAction('undo', 'Undo', () => store.undo(), state.undoStack.length === 0),
     createMobileSheetAction('redo', 'Redo', () => store.redo(), state.redoStack.length === 0),
     createMobileSheetAction('share', 'Collections', () => { closeMobileSheet(); openCollectionsModal(); }),

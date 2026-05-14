@@ -208,6 +208,26 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
     ? { icon: 'user', label: ui('Privilege', 'Права'), title: ui('Set editor admins', 'Назначить админов редактора'), onclick: openPrivilegeModal }
     : null;
   const languageSwitcher = createLanguageSwitcher(state.uiLanguage);
+  const advancedViewActions: OverflowMenuAction[] = state.advancedMode
+    ? [
+      {
+        icon: 'xml',
+        label: ui('XML', 'XML'),
+        title: state.showXmlPreview
+          ? ui('Hide the live XML preview panel', 'Скрыть живую XML-панель')
+          : ui('Show the live XML preview panel', 'Показать живую XML-панель'),
+        onclick: () => store.toggleXmlPreview(),
+      },
+      {
+        icon: 'strings',
+        label: ui('Strings', 'Строки'),
+        title: state.showSystemStringsPanel
+          ? ui('Hide the shared system strings manager', 'Скрыть менеджер общих строк')
+          : ui('Show the shared system strings manager', 'Показать менеджер общих строк'),
+        onclick: () => store.toggleSystemStringsPanel(),
+      },
+    ]
+    : [];
 
   if (!isCompact) {
     const leftZone = document.createElement('div');
@@ -229,29 +249,10 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
     const search = renderQuickSearch();
     rightZone.appendChild(search);
 
-    if (state.advancedMode) {
-      const viewGroup = document.createElement('div');
-      viewGroup.className = 'toolbar-group toolbar-group-segmented';
-      viewGroup.appendChild(toggleBtn(
-        'xml',
-        ui('XML', 'XML'),
-        state.showXmlPreview,
-        () => store.toggleXmlPreview(),
-        state.showXmlPreview ? ui('Hide the live XML preview panel', 'Скрыть живую XML-панель') : ui('Show the live XML preview panel', 'Показать живую XML-панель'),
-      ));
-      viewGroup.appendChild(toggleBtn(
-        'strings',
-        ui('Strings', 'Строки'),
-        state.showSystemStringsPanel,
-        () => store.toggleSystemStringsPanel(),
-        state.showSystemStringsPanel ? ui('Hide the shared system strings manager', 'Скрыть менеджер общих строк') : ui('Show the shared system strings manager', 'Показать менеджер общих строк'),
-      ));
-      rightZone.appendChild(viewGroup);
-    }
-
     rightZone.append(roadmapBtn, leadersBtn, supportBtn, createUiThemeFactionPicker(state.uiThemeFaction, true));
 
     rightZone.appendChild(createOverflowMenu(ui('More', 'Ещё'), [
+      ...advancedViewActions,
       themeToggleAction,
       occlusionToggleAction,
       graphicsQualityAction,
@@ -313,6 +314,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
   if (isCompact) {
     const projectOverflowActions: OverflowMenuAction[] = [];
     projectOverflowActions.push(
+      ...advancedViewActions,
       themeToggleAction,
       occlusionToggleAction,
       graphicsQualityAction,
@@ -358,30 +360,11 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
   const utilityTier = document.createElement('div');
   utilityTier.className = 'toolbar-tier toolbar-tier-utility';
 
-  if (!isCompact && state.advancedMode) {
-    const utilityGroup = document.createElement('div');
-    utilityGroup.className = 'toolbar-group toolbar-group-segmented';
-    utilityGroup.appendChild(toggleBtn(
-      'xml',
-      ui('XML', 'XML'),
-      state.showXmlPreview,
-      () => store.toggleXmlPreview(),
-      state.showXmlPreview ? 'Hide the live XML preview panel' : 'Show the live XML preview panel',
-    ));
-    utilityGroup.appendChild(toggleBtn(
-      'strings',
-      ui('Strings', 'Строки'),
-      state.showSystemStringsPanel,
-      () => store.toggleSystemStringsPanel(),
-      state.showSystemStringsPanel ? 'Hide the shared system strings manager' : 'Show the shared system strings manager',
-    ));
-    utilityTier.appendChild(utilityGroup);
-  }
-
     utilityTier.appendChild(createLanguageSwitcher(state.uiLanguage));
     utilityTier.appendChild(createUiThemeFactionPicker(state.uiThemeFaction, true));
     utilityTier.appendChild(supportBtn);
     utilityTier.appendChild(createOverflowMenu(ui('More', 'Ещё'), [
+      ...advancedViewActions,
       themeToggleAction,
       occlusionToggleAction,
       graphicsQualityAction,
@@ -974,28 +957,6 @@ function btn(
   b.onclick = onclick;
   b.title = options.tooltip ?? tooltip ?? label;
   if (options.ariaLabel) b.setAttribute('aria-label', options.ariaLabel);
-  return b;
-}
-
-function toggleBtn(
-  icon: IconName,
-  label: string,
-  active: boolean,
-  onclick: () => void,
-  tooltip?: string,
-): HTMLButtonElement {
-  const b = btn(icon, label, onclick, tooltip, { classes: ['toolbar-toggle-button'] });
-  if (icon === 'xml') {
-    setBeginnerTooltip(b, 'toolbar-toggle-xml');
-  } else if (icon === 'strings') {
-    setBeginnerTooltip(b, 'toolbar-toggle-strings');
-  }
-  if (active) {
-    b.classList.add('is-active');
-    b.setAttribute('aria-pressed', 'true');
-  } else {
-    b.setAttribute('aria-pressed', 'false');
-  }
   return b;
 }
 

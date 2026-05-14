@@ -3500,6 +3500,10 @@ body.use-custom-cursor * {
   grid-template-columns: minmax(240px, 1fr) minmax(260px, 1.15fr);
 }
 
+.branch-inline-grid-placeholder-layout {
+  grid-template-columns: minmax(0, 1.45fr) minmax(240px, 0.75fr);
+}
+
 .branch-inline-grid-preconditions,
 .branch-inline-grid-outcomes {
   grid-template-columns: minmax(260px, 1fr) minmax(260px, 1fr);
@@ -3519,6 +3523,11 @@ body.use-custom-cursor * {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: rgba(255, 255, 255, 0.025);
+}
+
+.branch-inline-placeholder-pane {
+  width: clamp(240px, 24vw, 320px);
+  justify-self: end;
 }
 
 .branch-inline-pane-title {
@@ -3828,6 +3837,7 @@ body.use-custom-cursor * {
   .branch-inline-panel-header,
   .branch-inline-grid-two,
   .branch-inline-grid-preconditions,
+  .branch-inline-grid-placeholder-layout,
   .branch-inline-grid-outcomes,
   .branch-inline-grid-continuation {
     grid-template-columns: 1fr;
@@ -3835,6 +3845,11 @@ body.use-custom-cursor * {
 
   .branch-inline-workspace {
     grid-template-columns: 1fr;
+  }
+
+  .branch-inline-placeholder-pane {
+    width: 100%;
+    justify-self: stretch;
   }
 
   .branch-inline-sidebar {

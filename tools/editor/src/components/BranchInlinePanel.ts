@@ -398,6 +398,7 @@ function renderDialoguePanel(container: HTMLElement, conv: Conversation, turn: T
   }
 
   const placeholderPane = createPane(ui('Dynamic Placeholder List', 'Список динамических плейсхолдеров'));
+  placeholderPane.classList.add('branch-inline-placeholder-pane');
   renderPlaceholderPicker(placeholderPane, `branch-inline-${conv.id}-${turn.turnNumber}-${choice?.index ?? 'opener'}-placeholders`, { defaultCollapsed: true });
   placeholderPane.appendChild(createHint(ui('Emoji shortcodes are for PDA branches only.', 'Коды эмодзи работают только в PDA-ветках.')));
   renderEmojiPicker(
@@ -422,6 +423,7 @@ function renderDialoguePanel(container: HTMLElement, conv: Conversation, turn: T
   }
   placeholderPane.appendChild(actionRow);
 
+  grid.classList.add('branch-inline-grid-placeholder-layout');
   grid.append(textPane, placeholderPane);
   container.appendChild(grid);
 }
