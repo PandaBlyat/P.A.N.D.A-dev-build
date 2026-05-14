@@ -409,7 +409,6 @@ function DynamicNewsManager:TickNews()
 	end
 
 	ResetTimeEvent("DynamicNewsManager","TickNews",math.random(5,20)) -- reset the timer, the function will get called again after 5 ~ 20 sec
-	--printf(">>> Dyn News: TickNews call")
 	
 	-- Hooked here so it's guaranteed to continuously check for faction changes
 	self:CheckFactionChange()
@@ -456,7 +455,6 @@ function DynamicNewsManager:TickQuick()
 	end
 
 	ResetTimeEvent("DynamicNewsManager","TickQuick",3600)
-	--printf(">>> Dyn News: TickQuick call")
 	
 	-- news state check
 	if self:NewsToggle() or (not item_device.is_pda_charged(true)) then
@@ -549,7 +547,6 @@ function DynamicNewsManager:TickSpecial()
 	end
 
 	ResetTimeEvent("DynamicNewsManager","TickSpecial",math.random(cycle_TickSpecial + 1, cycle_TickSpecial*2 + 1))
-	--printf(">>> Dyn News: TickSpecial call - time cycle: " .. cycle_TickSpecial)
 	
 	-- news state check
 	if self:NewsToggle() or (not item_device.is_pda_charged(true)) then
@@ -589,7 +586,6 @@ function DynamicNewsManager:TickTask()
 	end
 
 	ResetTimeEvent("DynamicNewsManager","TickTask",math.random(cycle_TickTask + 1, cycle_TickTask*2 + 1))
-	--printf(">>> Dyn News: TickTask call - time cycle: " .. cycle_TickSpecial)
 	
 	-- news state check
 	if self:NewsToggle() or (not item_device.is_pda_charged(true)) then
@@ -634,7 +630,6 @@ function DynamicNewsManager:TickRandom()
 	end
 
 	ResetTimeEvent("DynamicNewsManager","TickRandom",math.random(cycle_TickRandom + 1, cycle_TickRandom*2 + 1))
-	--printf(">>> Dyn News: TickRandom call - time cycle: " .. cycle_TickRandom)
 	
 	-- news state check
 	if self:NewsToggle() or (not item_device.is_pda_charged(true)) then
@@ -680,7 +675,6 @@ function DynamicNewsManager:TickCompanion()
 	end
 
 	ResetTimeEvent("DynamicNewsManager","TickCompanion",math.random(cycle_TickCompanion + 1, cycle_TickCompanion*2 + 1))
-	--printf(">>> Dyn News: TickCompanion call - time cycle: " .. cycle_TickCompanion)
 	
 	-- news state check
 	if self:NewsToggle() or (not item_device.is_pda_charged(true)) then
@@ -723,7 +717,6 @@ function DynamicNewsManager:monster_on_net_spawn(npc,se_obj)
 end 
 
 function DynamicNewsManager:monster_on_death_callback(victim,who)
-	--printf(">>> Dyn News: monster_on_death_callback callback")
 	if not (who and IsStalker(who) and shw_death_mutant) then	-- if the killer is unknown, go back
 		return 
 	end
@@ -747,7 +740,6 @@ function DynamicNewsManager:monster_on_death_callback(victim,who)
 end
 
 function DynamicNewsManager:npc_on_death_callback(victim,who)
-	--printf(">>> Dyn News: npc_on_death_callback callback")
 	if not (db.actor and victim) then 
 		return 
 	end
@@ -833,7 +825,6 @@ function DynamicNewsManager:npc_on_hear_callback(npc,who_id,s_type,sound_dist,so
 end
 
 function DynamicNewsManager:npc_on_get_all_from_corpse(npc,corpse_npc,item,lootable_table) -- The looter, the looted and the loot.
-	--printf(">>> Dyn News: npc_on_get_all_from_corpse callback")
 	if not (shw_loot and db.actor and npc and item) then 
 		return
 	end
@@ -852,7 +843,6 @@ end
 -- Utilities
 ------------------------------------------------------------
 function DynamicNewsManager:PushToChannel(name,t,fifo) -- (name = faction , t = {message (translated), sender icon, news sound, name and faction of the sender, icon indicator (if its "npc" then use sender's icon), Type of news, Id of sender} , fifo = not used)
-	--printf(">>> Dyn News: PushToChannel call")
 	-- news state check
 	if (not enable_news)
 	or self:NewsToggle() -- necessary to prevent news stacking after surges.
@@ -899,7 +889,6 @@ function DynamicNewsManager:FindSpeakerNoVictim(who,same_as_who,not_in_combat) -
 			end
 		end
 	end
-	--printf(">>> Dyn News: FindSpeakerNoVictim pass - valid speakers: " .. #t)	
 	if (#t == 0) then
 		return nil
 	end
@@ -932,7 +921,6 @@ function DynamicNewsManager:FindSpeaker(victim,who,same_as_victim,same_as_who,no
 			end
 		end
 	end
-	--printf(">>> Dyn News: FindSpeaker pass - valid speakers: " .. #t)	
 	if (#t == 0) then
 		return nil
 	end
@@ -963,7 +951,6 @@ function DynamicNewsManager:FindSpeakerWithEnemy(victim,who,same_as_victim,same_
 			end
 		end
 	end
-	--printf(">>> Dyn News: FindSpeakerWithEnemy pass - valid speakers: " .. #t)
 	if (#t == 0) then
 		return nil
 	end
@@ -987,7 +974,6 @@ function DynamicNewsManager:FindSpeakerRandom(not_in_combat,speaker_community) -
 			end
 		end
 	end
-	--printf(">>> Dyn News: FindSpeakerRandom pass - valid speakers: " .. #t)
 	if (#t == 0) then
 		return nil
 	end
@@ -1055,7 +1041,6 @@ function DynamicNewsManager:FindSpeakerAndTarget(not_in_combat,distance,speaker_
 	
 	target = t2[math.random(#t2)]
 	
-	--printf(">>> Dyn News: FindSpeakerAndTarget pass - valid speakers: " .. #t1 .. " - valid enemies to speaker: " .. #t2)
 	return sender,target
 end
 
@@ -1105,7 +1090,6 @@ function DynamicNewsManager:IsCommunitySame(npc_1,npc_2) -- Check if both npcs a
 		comm_2 = comm_2:sub(7)
 	end 
 	
-	--printf(">>> Dyn News: IsCommunitySame | npc_1 community = " .. comm_1 .. " | npc_2 community = " .. comm_2)
 	return (comm_1 == comm_2)
 end
 
@@ -1117,7 +1101,6 @@ function DynamicNewsManager:PickCompanion() -- pick a random companion
 	
 	local picked = npcs[math.random(#npcs)]
 	
-	--printf(">>> Dyn News: help PickCompanion | #npcs = " .. #npcs)
 	return db.storage[picked] and db.storage[picked].object
 end
 
@@ -1145,7 +1128,6 @@ function DynamicNewsManager:PickNewCompanion() -- pick a random "new" companion
 		if (not is_same) and tbl_1[i] then
 			new_npcs[count] = tbl_1[i]
 			count = count + 1
-			--printf(">>> Dyn News: help PickNewCompanion - found new companion!")
 		end
 		is_same = false
 	end
@@ -1159,7 +1141,6 @@ function DynamicNewsManager:PickNewCompanion() -- pick a random "new" companion
 	
 	local picked = new_npcs[math.random(#new_npcs)]
 	
-	--printf(">>> Dyn News: help PickNewCompanion | #new_npcs = " .. #new_npcs)
 	return db.storage[picked] and db.storage[picked].object
 end
 
@@ -1169,7 +1150,6 @@ function DynamicNewsManager:GetLootValue(item_tbl) -- get value of whole loot
 		value = value + item_tbl[i]:cost()
 	end
 	
-	--printf(">>> Dyn News: help GetLootValue | value = " .. value)
 	return value
 end
 
@@ -1183,12 +1163,10 @@ function DynamicNewsManager:GetLootBestItem(item_tbl) -- get value of best loote
 		end
 	end
 
-	--printf(">>> Dyn News: help GetLootBestItem | best item's value: " .. value)
 	return best_item
 end
 
 function DynamicNewsManager:NewsToggle() -- turn off news if there is an emission, or player is underground
-	--printf(">>> Dyn News: help NewsToggle - self.surge_shift = " .. tostring(self.surge_shift) .. " - self.news_toggle = " .. tostring(self.news_toggle))
 	
 	-- necessary, otherwise the game will crash due to playing news sound before completely loading.
 	if device():is_paused() then	
@@ -1264,7 +1242,6 @@ end
 -- News
 ------------------------------------------------------------
 function DynamicNewsManager:WelcomeToNetwork() -- Welcome message on new game
-	--printf(">>> Dyn News: WelcomeToNetwork - call")
 	local clr_1 = "%" .. "%c[255,160,160,190]"
 	local clr_2 = "%" .. "%c[255,220,220,220]"
 	
@@ -1294,14 +1271,12 @@ end
 
 --< Report News >--
 function DynamicNewsManager:DeathBySurge(victim,who,comm) -- Death by blowouts reports
-	--printf(">>> Dyn News: DeathBySurge - call")
 	local msg = strformat("%c[255,160,160,160]%s, %s.\\n%c[default]st_dyn_news_ch_found %s. st_dyn_news_ch_blowout.",victim:character_name(),game.translate_string(comm),dynamic_news_helper.GetPointDescription(victim))
 	self:PushToChannel("general",{Mg=msg,Ic="deth",Snd="news",Se=game.translate_string("st_dyn_news_ch_died"),It="gr",Ty="death_by_surge",Id=victim})
 	return true
 end
 
 function DynamicNewsManager:ReportDeathBySurge() -- Report casualties of surges (fake)
-	--printf(">>> Dyn News: ReportDeathBySurge - call")	
 
 	if (not shw_death_report) and ((not self.sentences_fnames) or (not self.sentences_fnames)) then
 		return false
@@ -1341,7 +1316,6 @@ function DynamicNewsManager:ReportDeathBySurge() -- Report casualties of surges 
 end
 
 function DynamicNewsManager:DeathByStalker(victim,who,comm) -- Found dead stalker by stalker
-	--printf(">>> Dyn News: DeathByStalker - call")
 	local cls = dynamic_news_helper.GetWeaponClass(who)
 	if (cls == 1 or cls == 9) then 
 		return false
@@ -1352,7 +1326,6 @@ function DynamicNewsManager:DeathByStalker(victim,who,comm) -- Found dead stalke
 end
 
 function DynamicNewsManager:ReportDeathByStalker(victim,who) -- Death Report of stalker killing stalker
-	--printf(">>> Dyn News: ReportDeathByStalker - call")
 	
 	if self:IsCommunitySame(victim,who) then
 		return false
@@ -1383,7 +1356,6 @@ function DynamicNewsManager:ReportDeathByStalker(victim,who) -- Death Report of 
 end
 
 function DynamicNewsManager:DeathByMutant(victim,who,comm) -- Found dead stalker by mutant
-	--printf(">>> Dyn News: DeathByMutant - call")
 	local a = victim:character_name()
 	local b = game.translate_string(comm)
 	local c = dynamic_news_helper.GetPointDescription(victim)
@@ -1399,7 +1371,6 @@ function DynamicNewsManager:DeathByMutant(victim,who,comm) -- Found dead stalker
 end 
 
 function DynamicNewsManager:ReportDeathByMutant(victim,who) -- Death Report by mutant killing stalker
-	--printf(">>> Dyn News: ReportDeathByMutant - call")
 	local clr_1 = "%" .. "%c[255,160,160,190]"
 	local clr_2 = "%" .. "%c[255,220,220,220]"
 	local a = string.gsub(dynamic_news_helper.GetMonsterDescription(who,1),"(%l)?",string.upper("%1"),1)
@@ -1415,7 +1386,6 @@ function DynamicNewsManager:ReportDeathByMutant(victim,who) -- Death Report by m
 end
 
 function DynamicNewsManager:GossipDeathByStalker(sender,victim,who) -- hearing stalker killing a stalker
-	--printf(">>> Dyn News: GossipDeathByStalker - call")
 	local cls = dynamic_news_helper.GetWeaponClass(who)
 	if (cls == 1 or cls == 9) then 
 		return false
@@ -1450,7 +1420,6 @@ function DynamicNewsManager:GossipDeathByStalker(sender,victim,who) -- hearing s
 end
 
 function DynamicNewsManager:SOSDeathByStalker(victim,who,comm) -- stalker under stalkers attack
-	--printf(">>> Dyn News: SOSDeathByStalker - call")
 	local cls = dynamic_news_helper.GetWeaponClass(who)
 	if (cls == 1 or cls == 9) then 
 		return false
@@ -1478,7 +1447,6 @@ function DynamicNewsManager:SOSDeathByStalker(victim,who,comm) -- stalker under 
 end
 
 function DynamicNewsManager:SeenDeathOfStalker(sender,victim,who,comm) -- seeing stalker killing a stalker
-	--printf(">>> Dyn News: SeenDeathOfStalker - call")
 	local cls = dynamic_news_helper.GetWeaponClass(who)
 	if (cls == 1 or cls == 9) then 
 		return false
@@ -1513,7 +1481,6 @@ function DynamicNewsManager:SeenDeathOfStalker(sender,victim,who,comm) -- seeing
 end
 
 function DynamicNewsManager:SeenDeathOfMutant(victim,who) -- seeing stalker killing a mutant
-	--printf(">>> Dyn News: SeenDeathOfMutant - call")
 	local cls = dynamic_news_helper.GetWeaponClass(who)
 	if (cls == 1 or cls == 9) then 
 		return false
@@ -1544,7 +1511,6 @@ function DynamicNewsManager:SeenDeathOfMutant(victim,who) -- seeing stalker kill
 end
 
 function DynamicNewsManager:SeenDeathByMutant(sender,victim,who,comm) -- seeing stalker killed by a mutant
-	--printf(">>> Dyn News: SeenDeathByMutant - call")
 	local sender = sender or self:FindSpeaker(victim,who,false,nil,true)
 	if self:IsSpecialNPC(sender) then
 		return false
@@ -1571,7 +1537,6 @@ function DynamicNewsManager:SeenDeathByMutant(sender,victim,who,comm) -- seeing 
 end 
 
 function DynamicNewsManager:GossipDeathOfMutant(victim,who,comm) -- hearing stalker killing a mutant
-	--printf(">>> Dyn News: GossipDeathOfMutant - call")
 	local cls = dynamic_news_helper.GetWeaponClass(who)
 	if (cls == 1 or cls == 9) then 
 		return false
@@ -1602,7 +1567,6 @@ function DynamicNewsManager:GossipDeathOfMutant(victim,who,comm) -- hearing stal
 end 
 
 function DynamicNewsManager:SOSDeathByMutant(victim,who) -- stalker under mutants attack
-	--printf(">>> Dyn News: SOSDeathByMutant - call")
 	local sender = self:FindSpeakerWithEnemy(victim,who,true,nil)
 	if self:IsSpecialNPC(sender) then
 		return false
@@ -1621,7 +1585,6 @@ function DynamicNewsManager:SOSDeathByMutant(victim,who) -- stalker under mutant
 end
 
 function DynamicNewsManager:SOSBattleOffline(sq_v,sq_w) -- stalker under mutants/stalker attack in other maps
-	--printf(">>> Dyn News: SOSBattleOffline - call")
 	
 	if (not shw_death_stalker) then return end
 	
@@ -1688,7 +1651,6 @@ function DynamicNewsManager:SOSBattleOffline(sq_v,sq_w) -- stalker under mutants
 end
 
 function DynamicNewsManager:SOSWarfareCapture(sq) -- stalker under mutants/stalker attack in other maps
-	--printf(">>> Dyn News: SOSBattleOffline - call")
 	
 	if self:NewsToggle() or (not item_device.is_pda_charged(true)) then -- necessary to prevent news stacking after surges.
 		return
@@ -1740,7 +1702,6 @@ function DynamicNewsManager:SOSWarfareCapture(sq) -- stalker under mutants/stalk
 end
 
 function DynamicNewsManager:KillWounded(sender,victim,is_hostage) -- killing a wounded stalker
-	--printf(">>> Dyn News: KillWounded - call")
 	if not (shw_kill_wounded) then 
 		return false
 	end
@@ -1774,7 +1735,6 @@ function DynamicNewsManager:KillWounded(sender,victim,is_hostage) -- killing a w
 end 
 
 function DynamicNewsManager:RadioInHeli(sender,who)	-- requesting chopper assistance
-	--printf(">>> Dyn News: RadioInHeli - call")
 	if (not shw_heli_call) then
 		return false
 	end
@@ -1799,7 +1759,6 @@ function DynamicNewsManager:RadioInHeli(sender,who)	-- requesting chopper assist
 end
 
 function DynamicNewsManager:FoundArtefact(sender,itm) -- stalker found an artifact
-	--printf(">>> Dyn News: FoundArtefact - call")
 	if (not shw_found_artifact) then
 		return false
 	end
@@ -1823,7 +1782,6 @@ function DynamicNewsManager:FoundArtefact(sender,itm) -- stalker found an artifa
 end
 
 function DynamicNewsManager:FoundStash() -- reaction of angry stash owners
-	--printf(">>> Dyn News: FoundStash - call")
 	if not (shw_stash and self.sentences_fnames and self.sentences_snames) then
 		return false
 	end
@@ -1845,7 +1803,6 @@ function DynamicNewsManager:FoundStash() -- reaction of angry stash owners
 end
 
 function DynamicNewsManager:BoughtItems(sender,who,list) -- trading
-	--printf(">>> Dyn News: BoughtItems - call")
 	local sec = list[math.random(#list)]
 	local inv_name = ui_item.get_sec_name(sec)
 	local tbl = utils_data.collect_translations("st_dyn_news_gossip_buy_",true)
@@ -1864,7 +1821,6 @@ function DynamicNewsManager:BoughtItems(sender,who,list) -- trading
 end
 
 function DynamicNewsManager:UpgradedItems(sender,who,wpn_sec,list) -- upgrading
-	--printf(">>> Dyn News: UpgradedItems - call")
 	local upgrade = list[math.random(#list)]
 	local upg_str = upgrade and ini_sys:r_string_ex(upgrade,"name")
 	local upg_name = upg_str and game.translate_string(upg_str)
@@ -1887,7 +1843,6 @@ function DynamicNewsManager:UpgradedItems(sender,who,wpn_sec,list) -- upgrading
 end
 
 function DynamicNewsManager:GossipLoot(sender,best_item,all_value) -- talk about the loot
-	--printf(">>> Dyn News: GossipLoot - call")
 	if not (sender and best_item and all_value) then
 		return false
 	end
@@ -1937,7 +1892,6 @@ end
 
 --< Random News >--
 function DynamicNewsManager:ReportNextEmission() --  news about expected surge's date
-	--printf(">>> Dyn News: ReportNextEmission - call")
 	local SM, SurgeType, last_surge_time, AccuracyTier, comm, Se, clr, msg, a, b, c, d, Tbl_msg
 	local IsEmission, IsPsiStorm = false, false
 	
@@ -2014,7 +1968,6 @@ function DynamicNewsManager:ReportNextEmission() --  news about expected surge's
 end
 
 function DynamicNewsManager:ReportByFaction() -- faction's news
-	--printf(">>> Dyn News: ReportByFaction - call")
 	local comm = dynamic_news_helper.PickFaction()
 	local Se = game.translate_string("st_faction_" .. comm)
 	
@@ -2166,7 +2119,6 @@ function DynamicNewsManager:ReportZoneActivity() -- report activity of squads in
 end
 
 function DynamicNewsManager:SpamRandom() -- random news from all over the zone
-	--printf(">>> Dyn News: SpamRandom - call")
 	local clr_1 = "%" .. "%c[255,160,160,190]"
 	local clr_2 = "%" .. "%c[255,220,220,220]"
 	local tbl = utils_data.collect_translations("st_dyn_news_spam_",true)
@@ -2184,7 +2136,6 @@ function DynamicNewsManager:SpamRandom() -- random news from all over the zone
 end
 
 function DynamicNewsManager:FoundDead() -- report dead body findings
-	--printf(">>> Dyn News: FoundDead - call")
 	if (not self.sentences_fnames) or (not self.sentences_fnames) then
 		return false
 	end
@@ -2217,7 +2168,6 @@ end
 
 --< Special News >--
 function DynamicNewsManager:GossipTime() -- talk about time of day
-	--printf(">>> Dyn News: GossipTime - call")
 	if (not shw_time) then
 		return false
 	end
@@ -2242,7 +2192,6 @@ function DynamicNewsManager:GossipTime() -- talk about time of day
 end
 
 function DynamicNewsManager:GossipWeather() -- talk about the weather
-	--printf(">>> Dyn News: GossipWeather - call")
 	
 	-- no weather news in night
 	local hrs = level.get_time_hours()
@@ -2301,7 +2250,6 @@ function DynamicNewsManager:GossipWeather() -- talk about the weather
 end
 
 function DynamicNewsManager:GossipNearbyActivity() -- talk about movement of nearby enemy
-	--printf(">>> Dyn News: GossipNearbyActivity - call")
 	
 	local sender,target = self:FindSpeakerAndTarget(true,250)
 	if (not sender) or (not target) then
@@ -2353,7 +2301,6 @@ function DynamicNewsManager:GossipNearbyActivity() -- talk about movement of nea
 end
 
 function DynamicNewsManager:DumbZombie() -- zombies trying to talk over the radio
-	--printf(">>> Dyn News: DumbZombie - call")
 	
 	local sender = self:FindSpeakerRandom(true,"zombied") -- must use channel_status["general"] for intended zombied case
 	if self:IsSpecialNPC(sender) or self:IsMonoCommunity(sender) then
@@ -2378,7 +2325,6 @@ end
 
 --< Task News >--
 function DynamicNewsManager:GossipBounty() -- talk about the player's bounty
-	--printf(">>> Dyn News: GossipBounty - call")
 
 	local bounty
 	for task_id,npc_id in pairs(axr_task_manager.bounties_by_id) do	-- loop across npcs on task list
@@ -2411,7 +2357,6 @@ function DynamicNewsManager:GossipBounty() -- talk about the player's bounty
 end
 
 function DynamicNewsManager:GossipAlphaSquad() -- talk about the player being a bounty
-	--printf(">>> Dyn News: GossipAlphaSquad - call")
 
 	local se_actor = alife():actor()
 	actor_name = se_actor:character_name()
@@ -2460,7 +2405,6 @@ function DynamicNewsManager:GossipAlphaSquad() -- talk about the player being a 
 end
 
 function DynamicNewsManager:GossipTaskRepeatTimeout(task_id)
-	--printf(">>> Dyn News: GossipTaskRepeatTimeout - call")
 	local story_id = task_id:sub(1,-8)
 	local obj = get_story_object(story_id)
 	if not (obj) then 
@@ -2573,7 +2517,6 @@ end
 
 --< Companions News >--
 function DynamicNewsManager:CompanionAboutLife(sender) -- companion chitchat
-	--printf(">>> Dyn News: CompanionAboutLife - call")
 	if self:IsSpecialNPC(sender) or self:IsMonoCommunity(sender) then
 		return false
 	end
@@ -2603,7 +2546,6 @@ function DynamicNewsManager:CompanionAboutLife(sender) -- companion chitchat
 end
 
 function DynamicNewsManager:CompanionAboutLevel(sender) -- companion talk about the current map
-	--printf(">>> Dyn News: CompanionAboutLevel call")
 	if self:IsSpecialNPC(sender) or self:IsMonoCommunity(sender) then
 		return false
 	end
@@ -2671,7 +2613,6 @@ function DynamicNewsManager:CompanionAboutActor(sender) -- companion talk about 
 	local Se = strformat("%s, %s",sender:character_name(),game.translate_string("st_dyn_news_sender_companion"))
 	local msg = utils_data.parse_string_keys( tbl[math.random(#tbl)] , { ["name"]=se_actor:character_name() } )
 	
-	--printf(">>> Dyn News: CompanionAboutActor | Rank: " .. actor_rank .. ", Reputation: " .. actor_rep)
 	self:PushToChannel("general",{Mg=msg,Ic=sender:character_icon(),Snd="beep_1",Se=Se,It="npc"})
 	
 	return true
@@ -2679,7 +2620,6 @@ end
 
 --< Reaction News >--
 function DynamicNewsManager:GossipEmissionEnd(what) -- stalkers reacting about the surge
-	--printf(">>> Dyn News: GossipEmissionEnd - call")
 	if (not shw_reaction) or ((what ~= "emission") and (what ~= "storm")) then
 		return false
 	end
@@ -2704,7 +2644,6 @@ function DynamicNewsManager:GossipEmissionEnd(what) -- stalkers reacting about t
 end
 
 function DynamicNewsManager:ResponseOnFoundArtefact(who) -- react to people who found artifacts recently
-	--printf(">>> Dyn News: ResponseOnFoundArtefact - call")
 	local sender = self:FindSpeakerNoVictim(who,true,true) 
 	if self:IsSpecialNPC(sender) or self:IsMonoCommunity(sender) then
 		return false
@@ -2723,7 +2662,6 @@ function DynamicNewsManager:ResponseOnFoundArtefact(who) -- react to people who 
 end
 
 function DynamicNewsManager:ResponseOnFoundStash() -- react to people who lost their stashes
-	--printf(">>> Dyn News: ResponseOnFoundStash - call")
 	if (not self.sentences_fnames) or (not self.sentences_fnames) then
 		return false
 	end
@@ -2741,7 +2679,6 @@ function DynamicNewsManager:ResponseOnFoundStash() -- react to people who lost t
 end
 
 function DynamicNewsManager:ResponseOnBoughtItems(who) -- react to people who bought items recently
-	--printf(">>> Dyn News: ResponseOnBoughtItems - call")
 	local sender = self:FindSpeakerNoVictim(who,true,true)
 	if (not sender) then
 		return false
@@ -2760,7 +2697,6 @@ function DynamicNewsManager:ResponseOnBoughtItems(who) -- react to people who bo
 end
 
 function DynamicNewsManager:ResponseOnGossipNearbyActivity(who,activity) -- react to people reporting nearby activity
-	--printf(">>> Dyn News: ResponseOnGossipNearbyActivity - call")
 	local sender = self:FindSpeakerNoVictim(who,true,true)
 	if (not sender) then
 		return false
@@ -2779,7 +2715,6 @@ function DynamicNewsManager:ResponseOnGossipNearbyActivity(who,activity) -- reac
 end
 
 function DynamicNewsManager:ResponseOnDumbZombie() -- react to dumb zombies being dumb
-	--printf(">>> Dyn News: ResponseOnDumbZombie - call")
 	local sender = self:FindSpeakerRandom(true)
 	if self:IsSpecialNPC(sender) or self:IsMonoCommunity(sender) then
 		return false
@@ -2798,7 +2733,6 @@ function DynamicNewsManager:ResponseOnDumbZombie() -- react to dumb zombies bein
 end
 
 function DynamicNewsManager:ResponseOnDeathByStalker(who) -- react to stalker's death by another stalker
-	--printf(">>> Dyn News: ResponseOnDeathByStalker - call")
 	local sender = self:FindSpeakerNoVictim(who,true,true)
 	if (not sender) then
 		return false
@@ -2817,7 +2751,6 @@ function DynamicNewsManager:ResponseOnDeathByStalker(who) -- react to stalker's 
 end
 
 function DynamicNewsManager:ResponseOnDeathByMutant(who) -- react to stalker's death by mutants
-	--printf(">>> Dyn News: ResponseOnDeathByMutant - call")
 	local sender = self:FindSpeakerNoVictim(who,true,true)
 	if (not sender) then
 		return false
@@ -2836,7 +2769,6 @@ function DynamicNewsManager:ResponseOnDeathByMutant(who) -- react to stalker's d
 end
 
 function DynamicNewsManager:ResponseOnDeathBySurges(who) -- react to stalker's death by surges [NOT USED]
-	--printf(">>> Dyn News: ResponseOnDeathBySurges - call")
 	local sender = self:FindSpeakerNoVictim(who,true,true)
 	if (not sender) then
 		return false
@@ -2855,7 +2787,6 @@ function DynamicNewsManager:ResponseOnDeathBySurges(who) -- react to stalker's d
 end
 
 function DynamicNewsManager:ResponseOnDeathByStalker_Fake()	-- react to stalker's death by another stalker (fake)
-	--printf(">>> Dyn News: ResponseOnDeathByStalker_Fake - call")
 	if (not self.sentences_fnames) or (not self.sentences_fnames) then
 		return false
 	end
@@ -2873,7 +2804,6 @@ function DynamicNewsManager:ResponseOnDeathByStalker_Fake()	-- react to stalker'
 end
 
 function DynamicNewsManager:ResponseOnDeathByMutant_Fake() -- react to stalker's death by mutants (fake)
-	--printf(">>> Dyn News: ResponseOnDeathByMutant_Fake - call")
 	if (not self.sentences_fnames) or (not self.sentences_fnames) then
 		return false
 	end
@@ -2891,7 +2821,6 @@ function DynamicNewsManager:ResponseOnDeathByMutant_Fake() -- react to stalker's
 end
 
 function DynamicNewsManager:ResponseOnDeathBySurges_Fake() -- react to stalker's death by surges (fake)
-	--printf(">>> Dyn News: ResponseOnDeathBySurges_Fake - call")
 	if (not self.sentences_fnames) or (not self.sentences_fnames) then
 		return false
 	end

@@ -85,14 +85,10 @@ function sim_squad_scripted:__init(section) super (section)
 	self.rush = nil
 	self.item_on_all = nil
 	self:init_squad()
-	--if (USE_MARSHAL) then
-	--	RegisterScriptCallback("save_state",self.save_state,self)
-	--end
 	self.first_update 		= false
 end
 
 function sim_squad_scripted:init_squad()
-	--utils_data.debug_write("sim_squad_scripted:init_squad")
 	local settings_id 		= self:section_name()
 	
 	self.player_id 			= ini_sys:r_string_ex(settings_id,"faction") or "stalker"
@@ -132,12 +128,10 @@ function sim_squad_scripted:init_squad()
 end
 
 function sim_squad_scripted:init_squad_on_load()
-	--utils_data.debug_write(self:name().."init_squad_on_load start")
 	self:set_squad_sympathy()
 	sim_board.get_sim_board():assign_squad_to_smart(self, self.smart_id)
 	self.current_action = 0
 	self.need_to_reset_location_masks = true
-	--utils_data.debug_write(self:name().."init_squad_on_load end")
 end
 
 
@@ -145,7 +139,6 @@ end
 -- SCRIPT_TARGET_SELECTION
 --------------------------------------------------------------
 function sim_squad_scripted:get_script_target()
-	--utils_data.debug_write("sim_squad_scripted:get_script_target")
 	local new_target 
 	if (self.scripted_target) then 
 		new_target = self.scripted_target
@@ -187,25 +180,11 @@ function sim_squad_scripted:get_script_target()
 end
 
 function sim_squad_scripted:update()
-	--utils_data.debug_write("sim_squad_scripted:update START")
 	cse_alife_online_offline_group.update(self)
 	
 	if not (self.first_update) then 
 		self.first_update = true 
 		
-		--[[
-		local skip = false
-		local sim = alife()
-		local se_actor = sim:actor()
-		local se_obj = self:commander_id() and alife_object(self:commander_id())
-		if (se_obj) then
-			if (se_load_var(se_obj.id,se_obj:name(),"companion")) then
-				skip = true
-			elseif (se_load_var(se_obj.id,se_obj:name(),"do_not_deactivate")) then 
-				skip = true 
-			end
-		end
-		--]]
 		
 		if self.rush then
 			self.rush_to_target = true
@@ -221,35 +200,6 @@ function sim_squad_scripted:update()
 			end
 		end
 		
-		--[[ down below here is needed only if the feature to disable squads on non linked levels is true, which breaks lots of stuff 
-		if (skip ~= true) then
-			local gg = game_graph()
-
-			--printf("m_game_vertex_id=%s actor.m_game_vertex_id=%s",self.m_game_vertex_id,se_actor.m_game_vertex_id)
-			if (se_actor and gg:valid_vertex_id(self.m_game_vertex_id) and gg:valid_vertex_id(se_actor.m_game_vertex_id)) then
-				local lvl = sim:level_name(gg:vertex(self.m_game_vertex_id):level_id())
-				local actor_level = sim:level_name(gg:vertex(se_actor.m_game_vertex_id):level_id())
-
-				-- Disable any squad that is not on actor's level and not linked to actor's level through ai_tweaks\simulation_objects.ltx
-				if (lvl ~= actor_level) and (self:commander_id() and not sim:has_info(self:commander_id(),"npcx_is_companion")) then
-					if not (string.find(simulation_objects.config:r_value(actor_level,"target_maps",0,""),lvl)) then
-						if (DEACTIVATE_SIM_ON_NON_LINKED_LEVELS) then
-							SIMBOARD.squads[self.id] = nil
-							if (self.smart_id) then
-								--SIMBOARD.tmp_entered_squad[self.smart_id] = nil
-								SIMBOARD.tmp_assigned_squad[self.smart_id] = nil
-							end
-							--simulation_objects.unregister(self)
-							self.disabled = true
-							--printf("%s disabled",self:name())
-							--utils_data.debug_write("sim_squad_scripted:update END 3")
-							return
-						end
-					end
-				end
-			end
-		end
-		--]]
 		
 		SendScriptCallback("squad_on_first_update",self)
 	end
@@ -257,7 +207,6 @@ function sim_squad_scripted:update()
 	self:refresh()
 	
 	if (self.disabled) then
-		--utils_data.debug_write("sim_squad_scripted:update END 4")
 		return
 	end
 	
@@ -290,7 +239,6 @@ function sim_squad_scripted:update()
 		SendScriptCallback("squad_on_after_level_change",self, self.level_name, cur_lvl)
 		self.level_name = cur_lvl
 	end
-	--utils_data.debug_write("sim_squad_scripted:update END 2")
 end
 
 
@@ -319,7 +267,6 @@ local function get_help_target_id(squad)
 end
 
 function sim_squad_scripted:specific_update(script_target_id) -- This update is called for all squads with a scripted smart_terrain target
-	--utils_data.debug_write(strformat("%s:specific_update",self:name()))
 	local se_target = alife_object(script_target_id)
 	if not (se_target) then
 		return
@@ -376,7 +323,6 @@ function sim_squad_scripted:specific_update(script_target_id) -- This update is 
 end 
 
 function sim_squad_scripted:generic_update() -- This update is called for all squads with no scripted assigned target
-	--utils_data.debug_write(strformat("%s:generic_update",self:name()))
 	
 	if (self.__lock) then 
 		return -- so that squad doesn't continously try to find target which lowers FPS
@@ -456,7 +402,6 @@ end
 -- MEMBERS_CONTROL
 --------------------------------------------------------------
 function sim_squad_scripted:remove_squad()
-	--utils_data.debug_write(strformat("START sim_squad_scripted:remove_squad %s",self:name()))
 	
 	self.current_action = nil
 	SIMBOARD:assign_squad_to_smart(self, nil)
@@ -481,11 +426,9 @@ function sim_squad_scripted:remove_squad()
 	end
 	self:hide()
 	safe_release_manager.release(self)
-	--utils_data.debug_write(strformat("END sim_squad_scripted:remove_squad %s",self:name()))
 end
 
 function sim_squad_scripted:remove_npc(npc_id, force)
-	--utils_data.debug_write(strformat("%s:remove_npc %s",self:name(),npc_id))
 
 	local se_obj = alife_object(npc_id)
 	if (se_obj) then
@@ -517,7 +460,6 @@ function sim_squad_scripted:remove_npc(npc_id, force)
 end
 
 function sim_squad_scripted:on_npc_death(se_npc,se_killer)
-	--utils_data.debug_write(strformat("%s:on_npc_death %s",self:name(),se_npc and se_npc:name()))
 	--printf("Squad %s. Killed member %s", tostring(self.id), se_npc.id)
 	--self.sound_manager:unregister_npc(npc.id)
 		
@@ -538,7 +480,6 @@ function sim_squad_scripted:assign_squad_member_to_smart(member_id, smart, old_s
 	local obj = sim:object(member_id)
 	if obj ~= nil then
 		--printf("    npc [%s] smart [%s]", obj:name(), tostring(obj.m_smart_terrain_id))
-		--utils_data.debug_write(strformat("sim_squad_scripted:assign_squad_member_to_smart npc=%s smart=%s",obj and obj:name(),smart and smart:name()))
 		if obj.m_smart_terrain_id == self.smart_id then
 			return
 		end
@@ -554,7 +495,6 @@ function sim_squad_scripted:assign_squad_member_to_smart(member_id, smart, old_s
 end
 
 function sim_squad_scripted:assign_smart(smart,old_smart_id)
-	--utils_data.debug_write(strformat("%s:assign_smart %s",self:name(),smart and smart:name()))
 	local old_smart = old_smart_id and old_smart_id ~= 65535 and alife_object(old_smart_id)
 	if (smart == nil and old_smart == nil) then 
 		return 
@@ -637,7 +577,6 @@ function sim_squad_scripted:add_new_member_forced(section,pos,lvid,gvid)
 end 
 
 function sim_squad_scripted:add_squad_member(spawn_section, spawn_position, lv_id, gv_id)
-	--utils_data.debug_write("sim_squad_scripted:add_squad_member")
 	
 	if not (ini_sys:section_exist(spawn_section)) then 
 		printe("!ERROR: npc section %s does not exist!",spawn_section)
@@ -666,7 +605,6 @@ function sim_squad_scripted:add_squad_member(spawn_section, spawn_position, lv_i
 end
 
 function sim_squad_scripted:create_npc(spawn_smart,pos,lvid,gvid)
-	--utils_data.debug_write("sim_squad_scripted:create_npc")
 	local settings_id = self:section_name()
 	local spawn_sections = parse_names(ini_sys:r_string_ex(settings_id, "npc") or "")
 	
@@ -749,7 +687,6 @@ function sim_squad_scripted:create_npc(spawn_smart,pos,lvid,gvid)
 			local faction = ini_sys:r_string_ex(settings_id, "faction")
 			if (warfare_options.options.factions[faction]) then
 				if (warfare_options.options.factions[faction].random_squad_count) then
-					printf("!!! GETTING RANDOM COUNT FOR "..faction.." | " .. tonumber(warfare_options.options.factions[faction].min_random_squad_count) .. " - " .. tonumber(warfare_options.options.factions[faction].max_random_squad_count) .. " !!!!")
 					count[1] = tonumber(warfare_options.options.factions[faction].min_random_squad_count)
 					count[2] = tonumber(warfare_options.options.factions[faction].max_random_squad_count)
 				end
@@ -793,7 +730,6 @@ function sim_squad_scripted:create_npc(spawn_smart,pos,lvid,gvid)
 end
 
 function sim_squad_scripted:set_squad_sympathy(sympathy)
-	--utils_data.debug_write("sim_squad_scripted:set_squad_sympathy")
 	local symp = sympathy or self.sympathy
 	if(symp~=nil) then
 		local npc
@@ -812,7 +748,6 @@ function sim_squad_scripted:set_squad_sympathy(sympathy)
 end
 
 function sim_squad_scripted:set_squad_relation(relation)
-	--utils_data.debug_write("sim_squad_scripted:set_squad_relation")
 	if (is_squad_monster[self.player_id]) then 
 		return
 	end
@@ -832,7 +767,6 @@ function sim_squad_scripted:set_squad_relation(relation)
 end
 
 local function reset_animation(npc)
-	--utils_data.debug_write("sim_squad_scripted:reset_animation")
 	local state_mgr = db.storage[npc:id()].state_mgr
 	if state_mgr == nil then
 		return
@@ -861,7 +795,6 @@ local function reset_animation(npc)
 end
 
 function sim_squad_scripted:set_squad_position(position)
-	--utils_data.debug_write("sim_squad_scripted:set_squad_position")
 	if self.online == false then
 		self:force_change_position(position)
 	end
@@ -937,32 +870,27 @@ end
 --------------------------------------------------------------
 --[[
 function sim_squad_scripted:save_state(m_data)
-	--utils_data.debug_write(strformat("%s:%s sim_squad_scripted:save_state BEFORE",self:name(),self.id))
 	m_data.sim_squad_scripted[self.id] = {}
 	m_data.sim_squad_scripted[self.id].name = self:name() -- debugging only
 	m_data.sim_squad_scripted[self.id].current_target_id = self.current_target_id
 	m_data.sim_squad_scripted[self.id].respawn_point_id = self.respawn_point_id
 	m_data.sim_squad_scripted[self.id].respawn_point_prop_section = self.respawn_point_prop_section
 	m_data.sim_squad_scripted[self.id].smart_id = self.smart_id
-	--utils_data.debug_write(strformat("%s:%s sim_squad_scripted:save_state AFTER",self:name(),self.id))
 end 
 
 function sim_squad_scripted:load_state(m_data)
 	if not (m_data.sim_squad_scripted and m_data.sim_squad_scripted[self.id]) then 
 		return 
 	end
-	--utils_data.debug_write("sim_squad_scripted:load_state BEFORE")
 	self.current_target_id = m_data.sim_squad_scripted[self.id].current_target_id
 	self.respawn_point_id = m_data.sim_squad_scripted[self.id].respawn_point_id
 	self.respawn_point_prop_section = m_data.sim_squad_scripted[self.id].respawn_point_prop_section
 	self.smart_id = m_data.sim_squad_scripted[self.id].smart_id
 	m_data.sim_squad_scripted[self.id] = nil
-	--utils_data.debug_write("sim_squad_scripted:load_state AFTER")
 end 
 --]]
 
 function sim_squad_scripted:STATE_Write(packet)
-	--utils_data.debug_write("sim_squad_scripted:STATE_Write")
 	cse_alife_online_offline_group.STATE_Write (self, packet)
 	
 	--if (USE_MARSHAL) then 
@@ -986,7 +914,6 @@ function sim_squad_scripted:STATE_Write(packet)
 end
 
 function sim_squad_scripted:STATE_Read(packet, size)
-	--utils_data.debug_write( strformat("\n%s:STATE_Read start",self:name()) )
 	cse_alife_online_offline_group.STATE_Read (self, packet, size)
 	
 	--if (USE_MARSHAL) then 
@@ -1035,7 +962,6 @@ function sim_squad_scripted:STATE_Read(packet, size)
 	self:init_squad_on_load()
 	
 	set_save_marker(packet, "load", true, "sim_squad_scripted")
-	--utils_data.debug_write( strformat("%s:STATE_Read end",self:name()) )
 end
 
 
@@ -1043,16 +969,13 @@ end
 -- SERVER_OBJECT
 --------------------------------------------------------------
 function sim_squad_scripted:on_register()
-	--utils_data.debug_write( strformat("%s:on_register start",self:name()) )
 	cse_alife_online_offline_group.on_register( self )
 	SendScriptCallback("server_entity_on_register",self,"sim_squad_scripted")
 	sim_board.get_sim_board().squads[self.id] = true
 	--simulation_objects.register(self)
 	--SendScriptCallback("squad_on_register",self)
-	--utils_data.debug_write( strformat("%s:on_register end",self:name()) )
 end
 function sim_squad_scripted:on_unregister()
-	--utils_data.debug_write("sim_squad_scripted:on_unregister")
 	--SendScriptCallback("squad_on_unregister",self)
 	SendScriptCallback("server_entity_on_unregister",self,"sim_squad_scripted")
 	SIMBOARD.squads[self.id] = nil
@@ -1386,7 +1309,6 @@ function sim_squad_scripted:get_location()
 end
 
 function sim_squad_scripted:get_current_task() -- called from engine
-	--utils_data.debug_write("sim_self_scripted:get_current_task")
 	local se_target = self.assigned_target_id and simulation_objects.get_server_entity(self.assigned_target_id)
 	if (se_target) then
 		local npc_info = se_target.npc_info and se_target.npc_info[self:commander_id()]
@@ -1408,7 +1330,6 @@ function sim_squad_scripted:on_after_reach(squad)
 end
 
 function sim_squad_scripted:on_reach_target(squad)
-	--utils_data.debug_write("sim_squad_scripted:on_reach_target")
 	squad:set_location_types()
  	for k in squad:squad_members() do
 		db.spawned_vertex_by_id[k.id] = nil

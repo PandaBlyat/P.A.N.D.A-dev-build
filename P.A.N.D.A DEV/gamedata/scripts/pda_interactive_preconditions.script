@@ -383,33 +383,33 @@ end
 handlers["req_surge_soon"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
     local threshold = tonumber(parts[2]) or 0
     local remaining = get_manager_remaining_seconds(surge_manager, "get_surge_manager", "_delta", "last_surge_time")
-    printf("Precondition req_surge_soon: threshold=%s, remaining=%s", tostring(threshold), tostring(remaining))
+    precond_trace(nil, "req_surge_soon: threshold=%s, remaining=%s", tostring(threshold), tostring(remaining))
     if not remaining or remaining > threshold then return false, "surge not soon enough" end
 end
 
 handlers["req_not_surge_soon"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
     local threshold = tonumber(parts[2]) or 0
     local remaining = get_manager_remaining_seconds(surge_manager, "get_surge_manager", "_delta", "last_surge_time")
-    printf("Precondition req_not_surge_soon: threshold=%s, remaining=%s", tostring(threshold), tostring(remaining))
+    precond_trace(nil, "req_not_surge_soon: threshold=%s, remaining=%s", tostring(threshold), tostring(remaining))
     if not remaining or remaining <= threshold then return false, "surge too soon" end
 end
 
 handlers["req_psi_storm_soon"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
     local threshold = tonumber(parts[2]) or 0
     local remaining = get_manager_remaining_seconds(psi_storm_manager, "get_psi_storm_manager", "_delta", "last_psi_storm_time")
-    printf("Precondition req_psi_storm_soon: threshold=%s, remaining=%s", tostring(threshold), tostring(remaining))
+    precond_trace(nil, "req_psi_storm_soon: threshold=%s, remaining=%s", tostring(threshold), tostring(remaining))
     if not remaining or remaining > threshold then return false, "psi storm not soon enough" end
 end
 
 handlers["req_weather_fx_active"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
     local active = is_weather_fx_active_now()
-    printf("Precondition req_weather_fx_active: active=%s", tostring(active))
+    precond_trace(nil, "req_weather_fx_active: active=%s", tostring(active))
     if not active then return false, "weather fx inactive" end
 end
 
 handlers["req_weather_fx_not_active"] = function(parts, entry, npc_se, act, get_goodwill_actor_id)
     local active = is_weather_fx_active_now()
-    printf("Precondition req_weather_fx_not_active: active=%s", tostring(active))
+    precond_trace(nil, "req_weather_fx_not_active: active=%s", tostring(active))
     if active then return false, "weather fx active" end
 
         -- ========== HEALTH ==========

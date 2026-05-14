@@ -22,6 +22,13 @@
 local initialized = false
 panda_npc_creator = panda_npc_creator or {}
 
+local function dbg(fmt, ...)
+    local PANDA = _G.PANDA
+    if PANDA and PANDA.get_config and PANDA.get_config("debug_logging") then
+        printf(fmt, ...)
+    end
+end
+
 -- ============================================================
 -- STATE
 -- ============================================================
@@ -1470,7 +1477,7 @@ local function prune_squad_to_single_member(squad_obj, template_id)
         end
     end
 
-    printf("PANDA_NPC: pruned template '%s' squad_id=%s from %s members down to 1",
+    dbg("PANDA_NPC: pruned template '%s' squad_id=%s from %s members down to 1",
         tostring(template_id), tostring(squad_obj and squad_obj.id), tostring(#member_ids))
 
     local remaining_ids = collect_squad_member_ids(squad_obj)
@@ -3461,7 +3468,7 @@ function spawn_custom_npc(template_id, context)
             end
         end
         if not pos then
-            printf("PANDA_NPC: smart terrain '%s' not ready for template '%s'",
+            dbg("PANDA_NPC: smart terrain '%s' not ready for template '%s'",
                 tostring(resolved_smart_ref), tostring(template_id))
         end
     end
@@ -3679,7 +3686,7 @@ function spawn_custom_npc(template_id, context)
         })
     end
 
-    printf("PANDA_NPC: spawned template '%s' squad_id=%s section=%s relation=%s members=%s member_section=%s spawn_mode=%s",
+    dbg("PANDA_NPC: spawned template '%s' squad_id=%s section=%s relation=%s members=%s member_section=%s spawn_mode=%s",
         tostring(template_id), tostring(squad_id), tostring(sec), tostring(tpl.relation), tostring(member_count), tostring(single_member_section or "fallback"),
         spawned_single_npc and "single_npc" or "squad")
     return spawned_single_npc or squad
@@ -3895,7 +3902,7 @@ process_pending_story_targets = function(reason)
             else
                 req.attempts = (req.attempts or 0) + 1
                 remaining = remaining + 1
-                printf("PANDA_NPC: deferred story target '%s' still waiting (attempt=%d, smart=%s, trigger=%s, last_reason=%s)",
+                dbg("PANDA_NPC: deferred story target '%s' still waiting (attempt=%d, smart=%s, trigger=%s, last_reason=%s)",
                     tostring(template_id),
                     tonumber(req.attempts) or 0,
                     tostring(req.smart_ref),
@@ -4034,7 +4041,7 @@ local function on_npc_net_spawn(obj, se_obj)
             pcall(function() se:set_character_name(name) end)
         end
         pending_name_overrides[npc_id] = nil
-        printf("PANDA_NPC: applied name '%s' to npc_id=%s (deferred)", tostring(name), tostring(npc_id))
+        dbg("PANDA_NPC: applied name '%s' to npc_id=%s (deferred)", tostring(name), tostring(npc_id))
     end
 
     if pending_rank_overrides[npc_id] then
@@ -4105,7 +4112,7 @@ local function mark_custom_npc_dead(npc_id)
         for _, e in ipairs(entries) do
             if e.npc_id == npc_id and e.alive then
                 e.alive = false
-                printf("PANDA_NPC: npc_id=%s (template '%s') marked dead", tostring(npc_id), tostring(tpl_id))
+                dbg("PANDA_NPC: npc_id=%s (template '%s') marked dead", tostring(npc_id), tostring(tpl_id))
                 return true
             end
         end
