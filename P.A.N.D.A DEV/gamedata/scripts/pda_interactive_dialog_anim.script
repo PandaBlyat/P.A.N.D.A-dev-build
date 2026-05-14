@@ -36,12 +36,8 @@ local function is_panda_ic_shutdown_in_progress()
     return false
 end
 
--- True only while the game world is fully loaded. During quit-to-main-menu
--- the engine fires on_game_end, then continues servicing CreateTimeEvent
--- queues for a frame or two while alife/level are being torn down. Any
--- callback that reaches into level.object_by_id / npc:* during that window
--- dereferences invalidated C++ objects and surfaces as the crash in
--- MainMenu::ReloadUI -> xrFactory_Create.
+-- Time events keep firing for a frame or two after on_game_end while alife/level
+-- are torn down. Guard any callback that reaches into level.object_by_id with this.
 local function is_world_alive()
     if is_panda_ic_shutdown_in_progress() then return false end
     return db ~= nil and db.actor ~= nil

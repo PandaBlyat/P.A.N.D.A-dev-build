@@ -6,10 +6,20 @@ task_functor = task_functor or {}
 task_status_functor = task_status_functor or {}
 xr_effects = xr_effects or {}
 
+-- WARNING: SLOT_COUNT is baked into every saved task_id (panda_<family>_NN).
+-- Changing it invalidates existing saves — bump only with a migration path.
 local SLOT_COUNT = 16
 local SCAN_RADIUS = 12
 local TARGET_RADIUS_DEFAULT = 50
 local ESCORT_RECOVER_INTERVAL_MS = 5000
+
+-- Session-local counter for auto-generated runtime task ids. Combined with
+-- time_global() to keep ids unique across the lifetime of a save.
+local runtime_task_id_counter = 0
+local function next_runtime_task_id(prefix)
+    runtime_task_id_counter = runtime_task_id_counter + 1
+    return string.format("%s%d_%d", prefix, (time_global and time_global() or 0), runtime_task_id_counter)
+end
 
 local FAMILY_ICONS = {
     delivery = "ui_inGame2_Sdelka",
@@ -234,11 +244,13 @@ local function save_record(slot_id, record)
     local alias = tostring(record.external_task_id or slot_id)
     state.slot_to_alias[slot_id] = alias
     state.alias_to_slot[alias] = slot_id
-    state.records[slot_id] = clone_plain(record)
+
+    local snapshot = clone_plain(record)
+    state.records[slot_id] = snapshot
 
     local act = actor()
     if act and save_var then
-        save_var(act, slot_id, clone_plain(record))
+        save_var(act, slot_id, snapshot)
     end
 
     return true
@@ -264,7 +276,7 @@ local function load_record_by_slot(slot_id)
 
     rec = clone_plain(rec)
     rec.task_id = slot_id
-    state.records[slot_id] = clone_plain(rec)
+    state.records[slot_id] = rec
 
     local alias = tostring(rec.external_task_id or slot_id)
     state.slot_to_alias[slot_id] = alias
@@ -281,11 +293,12 @@ local function rebuild_alias_cache()
         for index = 1, SLOT_COUNT do
             local slot_id = slot_name(family, index)
             local rec = load_record_by_slot(slot_id)
-            if type(rec) == "table" and rec.active ~= false then
-                local alias = tostring(rec.external_task_id or slot_id)
-                state.slot_to_alias[slot_id] = alias
-                state.alias_to_slot[alias] = slot_id
-                state.records[slot_id] = clone_plain(rec)
+            if type(rec) == "table" and rec.active == false then
+                -- load_record_by_slot caches and aliases unconditionally; drop the
+                -- inactive entry so resolve_slot doesn't return a stale alias.
+                state.records[slot_id] = nil
+                state.alias_to_slot[tostring(rec.external_task_id or slot_id)] = nil
+                state.slot_to_alias[slot_id] = nil
             end
         end
     end
@@ -1434,7 +1447,7 @@ function M.start_auto_artifact_task(params)
         return nil, "bad_params"
     end
 
-    local task_id = tostring(params.external_task_id or params.runtime_task_id or ("panda_artifact_" .. tostring(math.random(100000, 999999))))
+    local task_id = tostring(params.external_task_id or params.runtime_task_id or next_runtime_task_id("panda_artifact_"))
     local adapter = ensure_artifact_adapter()
     if adapter and adapter.start_artifact_task then
         local ok, err = adapter.start_artifact_task(task_id, params.item_section, params.zone_name, params.detector_tier, params.timeout_seconds, params.giver_id)

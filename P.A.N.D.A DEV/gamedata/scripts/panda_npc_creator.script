@@ -1,26 +1,17 @@
--- ============================================================
--- P.A.N.D.A. Custom NPC Creator
--- ============================================================
--- Handles on-demand spawning of author-defined NPC templates.
--- Templates are defined in XML string keys:
---   st_panda_npc_template_<id>
--- Pipe-separated key=value format:
---   name=Petrov|faction=stalker|rank=veteran|primary=wpn_val:r:0|...
---   spawn_mode=player|smart|smart_ref=<smart_key>
---
--- New outcome commands:
---   spawn_custom_npc:<template_id>[:<delay>]
---   spawn_custom_npc_at:<template_id>:<smart_ref>[:<delay>]
---
--- New preconditions:
---   req_custom_story_npc:<template_id>:<smart_ref>
---   req_custom_npc_alive:<template_id>
---   req_custom_npc_dead:<template_id>
---   req_custom_npc_near:<template_id>:<dist>
--- ============================================================
+-- Custom NPC creator. Templates live in XML strings keyed st_panda_npc_template_<id>
+-- (pipe-separated key=value: name|faction|rank|primary|secondary|outfit|spawn_mode|smart_ref|...).
+-- Outcomes:   spawn_custom_npc[:<delay>]   spawn_custom_npc_at:<template>:<smart_ref>[:<delay>]
+-- Preconds:   req_custom_story_npc:<template>:<smart_ref>   req_custom_npc_alive|dead|near
 
 local initialized = false
 panda_npc_creator = panda_npc_creator or {}
+
+local function dbg(fmt, ...)
+    local PANDA = _G.PANDA
+    if PANDA and PANDA.get_config and PANDA.get_config("debug_logging") then
+        printf(fmt, ...)
+    end
+end
 
 -- ============================================================
 -- STATE
@@ -546,10 +537,7 @@ end
 
 install_engine_guards()
 
--- ============================================================
--- FACTION → SQUAD SECTION
--- ============================================================
-
+-- Faction → squad section mapping.
 local FACTION_SQUAD = {
     stalker  = "stalker_sim_squad_advanced",
     loner    = "stalker_sim_squad_advanced",
@@ -868,10 +856,7 @@ local function resolve_outfit_visual(faction, outfit_section)
     return visual
 end
 
--- ============================================================
--- TEMPLATE PARSING
--- ============================================================
-
+-- Template parsing.
 local function parse_template(template_id)
     if npc_templates[template_id] then
         return npc_templates[template_id]
@@ -1470,7 +1455,7 @@ local function prune_squad_to_single_member(squad_obj, template_id)
         end
     end
 
-    printf("PANDA_NPC: pruned template '%s' squad_id=%s from %s members down to 1",
+    dbg("PANDA_NPC: pruned template '%s' squad_id=%s from %s members down to 1",
         tostring(template_id), tostring(squad_obj and squad_obj.id), tostring(#member_ids))
 
     local remaining_ids = collect_squad_member_ids(squad_obj)
@@ -3138,10 +3123,7 @@ local function schedule_online_loadout_activation(npc_id)
     end)
 end
 
--- ============================================================
--- SMART TERRAIN RESOLUTION (inlined to avoid local-function deps)
--- ============================================================
-
+-- Smart-terrain resolution.
 local function resolve_smart_terrain(smart_ref)
     if not smart_ref or smart_ref == "" then return nil end
     if not SIMBOARD or not SIMBOARD.get_smart_by_name then return nil end
@@ -3461,7 +3443,7 @@ function spawn_custom_npc(template_id, context)
             end
         end
         if not pos then
-            printf("PANDA_NPC: smart terrain '%s' not ready for template '%s'",
+            dbg("PANDA_NPC: smart terrain '%s' not ready for template '%s'",
                 tostring(resolved_smart_ref), tostring(template_id))
         end
     end
@@ -3679,7 +3661,7 @@ function spawn_custom_npc(template_id, context)
         })
     end
 
-    printf("PANDA_NPC: spawned template '%s' squad_id=%s section=%s relation=%s members=%s member_section=%s spawn_mode=%s",
+    dbg("PANDA_NPC: spawned template '%s' squad_id=%s section=%s relation=%s members=%s member_section=%s spawn_mode=%s",
         tostring(template_id), tostring(squad_id), tostring(sec), tostring(tpl.relation), tostring(member_count), tostring(single_member_section or "fallback"),
         spawned_single_npc and "single_npc" or "squad")
     return spawned_single_npc or squad
@@ -3895,7 +3877,7 @@ process_pending_story_targets = function(reason)
             else
                 req.attempts = (req.attempts or 0) + 1
                 remaining = remaining + 1
-                printf("PANDA_NPC: deferred story target '%s' still waiting (attempt=%d, smart=%s, trigger=%s, last_reason=%s)",
+                dbg("PANDA_NPC: deferred story target '%s' still waiting (attempt=%d, smart=%s, trigger=%s, last_reason=%s)",
                     tostring(template_id),
                     tonumber(req.attempts) or 0,
                     tostring(req.smart_ref),
@@ -4034,7 +4016,7 @@ local function on_npc_net_spawn(obj, se_obj)
             pcall(function() se:set_character_name(name) end)
         end
         pending_name_overrides[npc_id] = nil
-        printf("PANDA_NPC: applied name '%s' to npc_id=%s (deferred)", tostring(name), tostring(npc_id))
+        dbg("PANDA_NPC: applied name '%s' to npc_id=%s (deferred)", tostring(name), tostring(npc_id))
     end
 
     if pending_rank_overrides[npc_id] then
@@ -4105,7 +4087,7 @@ local function mark_custom_npc_dead(npc_id)
         for _, e in ipairs(entries) do
             if e.npc_id == npc_id and e.alive then
                 e.alive = false
-                printf("PANDA_NPC: npc_id=%s (template '%s') marked dead", tostring(npc_id), tostring(tpl_id))
+                dbg("PANDA_NPC: npc_id=%s (template '%s') marked dead", tostring(npc_id), tostring(tpl_id))
                 return true
             end
         end

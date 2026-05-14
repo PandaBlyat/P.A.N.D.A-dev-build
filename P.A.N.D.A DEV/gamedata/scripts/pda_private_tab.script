@@ -9,10 +9,8 @@ local function get_conv_api()
     return _G
 end
 
--- True while the game world is being torn down (quit-to-main-menu, load screen, etc.).
--- During this window, db.actor, level.*, and game.get_game_time() can return nil or
--- dangling C++ pointers; touching them from a CUIScriptWnd:Update tick crashes the
--- engine inside MainMenu::ReloadUI -> xrFactory_Create.
+-- Skip Update work during quit-to-main-menu / load: db.actor and level.* go nil
+-- mid-frame and any reach into them crashes inside MainMenu::ReloadUI.
 local function is_game_world_alive()
     if not (db and db.actor) then return false end
     local api = get_conv_api()
@@ -22,9 +20,6 @@ local function is_game_world_alive()
     return true
 end
 
--- Drops the cached CUIScriptWnd singleton so a fresh instance is built on the next
--- PDA open. Called on game-end to avoid carrying stale C++ widget references between
--- sessions.
 function reset_singleton()
     SINGLETON = nil
 end
@@ -979,8 +974,8 @@ function pda_private_tab:Update()
             self.typing_anim_phase = phase
             local relative_time = get_relative_time(self.typing_entry_data.timestamp, game.get_game_time())
             local dots = string.rep(".", phase)
-            local display_text = string.format("%%c[255,255,200,50]%s %%c[255,100,100,100][%s]\\n%%c[default]Typing%s",
-                self.typing_entry_data.sender, relative_time, dots)
+            local display_text = string.format("%%c[255,255,200,50]%s %%c[255,100,100,100][%s]\\n%%c[default]%s%s",
+                self.typing_entry_data.sender, relative_time, game.translate_string("st_pda_priv_typing"), dots)
             
             self.typing_text_wnd:SetText(display_text)
         end
@@ -988,26 +983,30 @@ function pda_private_tab:Update()
         self.typing_anim_phase = -1
     end
 
-    -- Clean up orphan typing indicators: if no conversation is active for the contact
-    -- and no reply is pending globally, remove stale typing messages
-    local conv_api = get_conv_api()
-    if not conv_api.pda_reply_pending then
-        local log = conv_api.pda_private_log or {}
-        for i = 1, #log do
-            local entry = log[i]
-            if entry and entry.is_typing then
-                local entry_cid = entry.contact_id or entry.contact_name
-                local contact_conv = conv_api.active_conversations
-                    and conv_api.active_conversations[entry_cid]
-                local is_reply_pending = contact_conv and contact_conv.reply_pending
-                if not contact_conv and not is_reply_pending then
-                    if conv_api.clear_npc_typing_message then
-                        conv_api.clear_npc_typing_message(entry_cid)
+    -- Orphan typing-indicator sweep. Only relevant while at least one typing entry
+    -- exists; skipping when has_typing is false avoids an O(log) walk every frame.
+    -- Throttled to ~500ms to keep the steady-state Update tick cheap.
+    if has_typing and not conv_api.pda_reply_pending then
+        local now_ms = type(time_real_ms) == "function" and time_real_ms() or (os.clock() * 1000)
+        if (self.orphan_sweep_next_at or 0) <= now_ms then
+            self.orphan_sweep_next_at = now_ms + 500
+            local log = conv_api.pda_private_log or {}
+            for i = 1, #log do
+                local entry = log[i]
+                if entry and entry.is_typing then
+                    local entry_cid = entry.contact_id or entry.contact_name
+                    local contact_conv = conv_api.active_conversations
+                        and conv_api.active_conversations[entry_cid]
+                    local is_reply_pending = contact_conv and contact_conv.reply_pending
+                    if not contact_conv and not is_reply_pending then
+                        if conv_api.clear_npc_typing_message then
+                            conv_api.clear_npc_typing_message(entry_cid)
+                        end
+                        self.typing_text_wnd = nil
+                        self.typing_entry_data = nil
+                        self.choice_typewriter = nil
+                        break
                     end
-                    self.typing_text_wnd = nil
-                    self.typing_entry_data = nil
-                    self.choice_typewriter = nil
-                    break
                 end
             end
         end
@@ -1694,14 +1693,18 @@ function get_relative_time(timestamp_str, current_game_time)
     local diff_minutes = cur_minutes - msg_minutes
     if diff_minutes < 0 then diff_minutes = 0 end
     
-    if diff_minutes < 1 then return "Just now"
-    elseif diff_minutes < 60 then return string.format("%d minute%s ago", diff_minutes, diff_minutes == 1 and "" or "s")
+    if diff_minutes < 1 then return game.translate_string("st_pda_priv_just_now")
+    elseif diff_minutes < 60 then
+        local key = diff_minutes == 1 and "st_pda_priv_minute_ago" or "st_pda_priv_minutes_ago"
+        return string.format("%d %s", diff_minutes, game.translate_string(key))
     elseif diff_minutes < 1440 then
         local hours = math.floor(diff_minutes / 60)
-        return string.format("%d hour%s ago", hours, hours == 1 and "" or "s")
+        local key = hours == 1 and "st_pda_priv_hour_ago" or "st_pda_priv_hours_ago"
+        return string.format("%d %s", hours, game.translate_string(key))
     else
         local days = math.floor(diff_minutes / 1440)
-        return string.format("%d day%s ago", days, days == 1 and "" or "s")
+        local key = days == 1 and "st_pda_priv_day_ago" or "st_pda_priv_days_ago"
+        return string.format("%d %s", days, game.translate_string(key))
     end
 end
 
@@ -1726,25 +1729,22 @@ function get_npc_data(contact_name)
             end
         end
     end
-    -- Fallback: scan by character name (legacy contacts)
-    for i = 1, 65534 do
-        local se_obj = alife_object(i)
-        if se_obj then
-            local obj = level.object_by_id(se_obj.id)
-            if obj and IsStalker(obj) then
-                local npc_name = obj:character_name()
-                if npc_name == contact_name then
-                    local community = obj:character_community() or "stalker"
-                    local rank_name = ranks.get_obj_rank_name(obj) or "Unknown"
-                    local goodwill = obj.general_goodwill and obj:general_goodwill(db.actor) or 0
-                    local relation = 0
-                    if relation_registry and relation_registry.community_relation then
-                        local player_comm = character_community(db.actor)
-                        relation = relation_registry.community_relation(community, player_comm) or 0
-                    end
-                    local icon = obj:character_icon() or "ui_inGame2_neutral_1"
-                    return { name = contact_name, community = community, relation = relation, goodwill = goodwill, rank = rank_name, icon = icon, obj = obj, is_alive = true }
+    -- Fallback: scan online stalkers by character name (legacy contacts)
+    local online = db.OnlineStalkers
+    if online then
+        for i = 1, #online do
+            local obj = level.object_by_id(online[i])
+            if obj and IsStalker(obj) and obj:character_name() == contact_name then
+                local community = obj:character_community() or "stalker"
+                local rank_name = ranks.get_obj_rank_name(obj) or "Unknown"
+                local goodwill = obj.general_goodwill and obj:general_goodwill(db.actor) or 0
+                local relation = 0
+                if relation_registry and relation_registry.community_relation then
+                    local player_comm = character_community(db.actor)
+                    relation = relation_registry.community_relation(community, player_comm) or 0
                 end
+                local icon = obj:character_icon() or "ui_inGame2_neutral_1"
+                return { name = contact_name, community = community, relation = relation, goodwill = goodwill, rank = rank_name, icon = icon, obj = obj, is_alive = true }
             end
         end
     end
@@ -2223,12 +2223,7 @@ function pda_private_tab:OnSelectNPC()
         if (entry.contact_id or entry.contact_name or "Unknown") == item.contact_id then
             row_idx = row_idx + 1
 
-            -- ===================================================================
-            -- MAP ATTACHMENT LANE: Discord/WhatsApp-style file attachment bubble.
-            -- Rendered for entries where msg_type == "map_attachment".
-            -- Clicking the file icon navigates the PDA to the map tab and
-            -- highlights the referenced smart terrain location.
-            -- ===================================================================
+            -- Map attachment bubble: clicking jumps the PDA to the map tab on the smart.
             if entry.msg_type == "map_attachment" then
                 local attach_icon_size = 44
                 local attach_label_h   = 14
@@ -2346,7 +2341,7 @@ function pda_private_tab:OnSelectNPC()
 			if entry.is_typing then
 				local current_time = type(time_real_ms) == "function" and time_real_ms() or (os.clock() * 1000)
 				local phase = math.floor((current_time / 350) % 4)
-				body_text = "Typing" .. string.rep(".", phase)
+				body_text = game.translate_string("st_pda_priv_typing") .. string.rep(".", phase)
 			end
             local display_body_text, emoji_textures = strip_known_emoji_tokens(body_text)
 			local header_sender = is_player_lane and "You" or tostring(entry.sender or "Unknown")

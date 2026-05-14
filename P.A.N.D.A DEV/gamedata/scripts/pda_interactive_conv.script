@@ -11,6 +11,11 @@
 local DIK_SPACE, DIK_0, DIK_1, DIK_2, DIK_3, DIK_4 = 57, 11, 2, 3, 4, 5
 local CHOICE_KEYS = { [DIK_1]=1, [DIK_2]=2, [DIK_3]=3, [DIK_4]=4 }
 local FALLBACK_NPC_ICON = "ui_inGame2_neutral_1"
+
+local function resolve_sender_icon(npc_id)
+    local obj = npc_id and level and level.object_by_id and level.object_by_id(npc_id)
+    return (obj and obj:character_icon()) or FALLBACK_NPC_ICON
+end
 local F2F_SCANNER_SUPPRESS_LOG_WINDOW_MS = 15000
 local F2F_HANDOFF_ACTIONABLE_GRACE_MS = 2 * 60 * 1000
 local PRIVATE_MESSAGES_SECTION = "eptPrivateMessages"
@@ -18,6 +23,13 @@ local LEGACY_PRIVATE_MESSAGES_SECTION = "eptPrivate"
 
 local safe_remove_time_event
 local ensure_panda_task_bridge
+
+local function dbg(fmt, ...)
+    local PANDA_REF = _G.PANDA
+    if PANDA_REF and PANDA_REF.get_config and PANDA_REF.get_config("debug_logging") then
+        printf(fmt, ...)
+    end
+end
 -- Bundled module-state flags (kept in single table to stay under Lua's
 -- 200-locals-per-chunk hard limit).
 local _panda_state = {
@@ -727,7 +739,7 @@ function set_dialogue_stat(key, value)
     if not key or key == "" or key == "rank" then return end
     local v = clamp_stat(tonumber(value) or 0)
     player_dialogue_stats[key] = v
-    printf("PANDA_IC: dialogue stat '%s' set to %d", tostring(key), v)
+    dbg("PANDA_IC: dialogue stat '%s' set to %d", tostring(key), v)
 end
 
 function change_dialogue_stat(key, delta)
@@ -736,7 +748,7 @@ function change_dialogue_stat(key, delta)
     local d = tonumber(delta) or 0
     local new_val = clamp_stat(current + d)
     player_dialogue_stats[key] = new_val
-    printf("PANDA_IC: dialogue stat '%s' %+d -> %d", tostring(key), d, new_val)
+    dbg("PANDA_IC: dialogue stat '%s' %+d -> %d", tostring(key), d, new_val)
 end
 
 function get_all_dialogue_stats()
@@ -867,7 +879,7 @@ function evaluate_dialogue_check(stat_key, required_level, difficulty)
     local chance = clamp(base + luck_bonus - diff, 5, 95)
     local roll = math.random(1, 100)
     local result = (roll <= chance) and "success" or "fail"
-    printf("PANDA_IC: skill check stat=%s req=%s val=%d mod=%d luck=%d luck_mod=%d diff=%d chance=%d roll=%d -> %s",
+    dbg("PANDA_IC: skill check stat=%s req=%s val=%d mod=%d luck=%d luck_mod=%d diff=%d chance=%d roll=%d -> %s",
         tostring(stat_key), tostring(req), stat_val, tonumber(stat_info.modifier) or 0,
         luck, tonumber(luck_info.modifier) or 0, diff, chance, roll, result)
     return result
@@ -879,7 +891,7 @@ function evaluate_random_chance(percent)
     p = clamp(p, 1, 99)
     local roll = math.random(1, 100)
     local result = (roll <= p) and "success" or "fail"
-    printf("PANDA_IC: random check percent=%d roll=%d -> %s", p, roll, result)
+    dbg("PANDA_IC: random check percent=%d roll=%d -> %s", p, roll, result)
     return result
 end
 
@@ -1315,13 +1327,13 @@ local function add_map_spot_for_object_id(obj_id, spot_type, hint)
     -- reports has_object_spot != 0 across loads, which would silently block
     -- the new add). Then add unconditionally.
     if level.map_has_object_spot and level.map_has_object_spot(obj_id, spot_type) ~= 0 then
-        printf("PANDA_IC: add_map_spot_for_object_id removing stale spot obj_id=%s spot=%s",
+        dbg("PANDA_IC: add_map_spot_for_object_id removing stale spot obj_id=%s spot=%s",
             tostring(obj_id), tostring(spot_type))
         level.map_remove_object_spot(obj_id, spot_type)
     end
 
     level.map_add_object_spot_ser(obj_id, spot_type, hint)
-    printf("PANDA_IC: add_map_spot_for_object_id ADDED obj_id=%s spot=%s hint=%s",
+    dbg("PANDA_IC: add_map_spot_for_object_id ADDED obj_id=%s spot=%s hint=%s",
         tostring(obj_id), tostring(spot_type), tostring(hint))
 
     return obj_id
@@ -1359,7 +1371,7 @@ end
 
 local function queue_f2f_handoff_attachment(contact_id, sender_npc_name, sender_icon, target_npc_id, target_npc_name, token)
     local target_id = tonumber(target_npc_id)
-    printf("PANDA_IC: queue_f2f_handoff_attachment contact_id=%s target_npc_id=%s target_npc_name=%s",
+    dbg("PANDA_IC: queue_f2f_handoff_attachment contact_id=%s target_npc_id=%s target_npc_name=%s",
         tostring(contact_id), tostring(target_npc_id), tostring(target_npc_name))
     if not contact_id or not target_id then
         printf("PANDA_IC: queue_f2f_handoff_attachment aborted (missing contact_id or target_id)")
@@ -1372,7 +1384,7 @@ local function queue_f2f_handoff_attachment(contact_id, sender_npc_name, sender_
     local spot_type = "secondary_task_location"
     local marker_hint = string.format("Locate %s to continue story", target_name)
     local spot_id = add_map_spot_for_object_id(target_id, spot_type, marker_hint)
-    printf("PANDA_IC: queue_f2f_handoff_attachment spot_id=%s spot_type=%s",
+    dbg("PANDA_IC: queue_f2f_handoff_attachment spot_id=%s spot_type=%s",
         tostring(spot_id), tostring(spot_type))
 
     pda_private_add_message(
@@ -1404,7 +1416,7 @@ end
 -- Public wrapper so panda_f2f_bridge can drop the same handoff attachment
 -- (map pin + chat entry) when an F2F dialogue branches to a new NPC.
 function queue_f2f_handoff_attachment_public(contact_id, sender_npc_name, sender_icon, target_npc_id, target_npc_name, token)
-    printf("PANDA_IC: queue_f2f_handoff_attachment_public entry contact_id=%s target_npc_id=%s",
+    dbg("PANDA_IC: queue_f2f_handoff_attachment_public entry contact_id=%s target_npc_id=%s",
         tostring(contact_id), tostring(target_npc_id))
     return queue_f2f_handoff_attachment(contact_id, sender_npc_name, sender_icon, target_npc_id, target_npc_name, token)
 end
@@ -1454,7 +1466,7 @@ local function register_location_reference(location_ref, sender_npc_name, sender
 
     -- Send a map attachment message in the private chat instead of a global tip notification.
     -- The renderer in pda_private_tab will display this as a clickable file-icon attachment.
-    local sender_icon = (sender_npc_id and level.object_by_id(sender_npc_id) and level.object_by_id(sender_npc_id):character_icon()) or FALLBACK_NPC_ICON
+    local sender_icon = resolve_sender_icon(sender_npc_id)
     local contact_id = entry.sender_contact_id or (sender_npc_id and tostring(sender_npc_id))
     pda_private_add_message(
         contact_id,
@@ -1489,7 +1501,7 @@ local function register_anomaly_zone_reference(zone_name, sender_npc_name, sende
         return nil
     end
 
-    local sender_icon = (sender_npc_id and level.object_by_id(sender_npc_id) and level.object_by_id(sender_npc_id):character_icon()) or FALLBACK_NPC_ICON
+    local sender_icon = resolve_sender_icon(sender_npc_id)
     local contact_id = sender_contact_id or (sender_npc_id and tostring(sender_npc_id))
     local spot_id = zone.object:id()
     local spot_type = "primary_object"
@@ -3494,7 +3506,7 @@ function reveal_random_stash()
 end
 
 local function queue_stash_attachment_reward(sender_npc_name, sender_npc_id, sender_contact_id)
-    local sender_icon = (sender_npc_id and level.object_by_id(sender_npc_id) and level.object_by_id(sender_npc_id):character_icon()) or FALLBACK_NPC_ICON
+    local sender_icon = resolve_sender_icon(sender_npc_id)
     local contact_id = sender_contact_id or (sender_npc_id and tostring(sender_npc_id))
 
     pda_private_add_message(
@@ -3519,7 +3531,7 @@ local function queue_stash_attachment_reward(sender_npc_name, sender_npc_id, sen
 end
 
 local function queue_stash_attachment_reward_custom(sender_npc_name, sender_npc_id, sender_contact_id, custom_items)
-    local sender_icon = (sender_npc_id and level.object_by_id(sender_npc_id) and level.object_by_id(sender_npc_id):character_icon()) or FALLBACK_NPC_ICON
+    local sender_icon = resolve_sender_icon(sender_npc_id)
     local contact_id = sender_contact_id or (sender_npc_id and tostring(sender_npc_id))
 
     pda_private_add_message(
@@ -3568,7 +3580,7 @@ local function find_stash_id_by_name(target_name)
 end
 
 local function queue_stash_attachment_at(stash_name, sender_npc_name, sender_npc_id, sender_contact_id)
-    local sender_icon = (sender_npc_id and level.object_by_id(sender_npc_id) and level.object_by_id(sender_npc_id):character_icon()) or FALLBACK_NPC_ICON
+    local sender_icon = resolve_sender_icon(sender_npc_id)
     local contact_id = sender_contact_id or (sender_npc_id and tostring(sender_npc_id))
 
     pda_private_add_message(
@@ -3594,7 +3606,7 @@ local function queue_stash_attachment_at(stash_name, sender_npc_name, sender_npc
 end
 
 local function queue_stash_items_attachment_at(stash_name, custom_items, sender_npc_name, sender_npc_id, sender_contact_id)
-    local sender_icon = (sender_npc_id and level.object_by_id(sender_npc_id) and level.object_by_id(sender_npc_id):character_icon()) or FALLBACK_NPC_ICON
+    local sender_icon = resolve_sender_icon(sender_npc_id)
     local contact_id = sender_contact_id or (sender_npc_id and tostring(sender_npc_id))
 
     pda_private_add_message(
@@ -5227,7 +5239,7 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
         local prefix = is_gain and "+" or "-"
         local icon = is_gain and "ui\\green_ruble" or "ui\\red_ruble"
         local text = string.format("Account %s%s RU", prefix, format_money_value(abs_amount))
-        pda_private_add_message(sender_contact_id, sender_npc_name, "System Notification", text, level.object_by_id(sender_npc_id) and level.object_by_id(sender_npc_id):character_icon() or FALLBACK_NPC_ICON, false, nil, nil, icon, { skip_personality = true })
+        pda_private_add_message(sender_contact_id, sender_npc_name, "System Notification", text, resolve_sender_icon(sender_npc_id), false, nil, nil, icon, { skip_personality = true })
     end
 
     local mod = ensure_pda_interactive_outcomes()
@@ -6035,7 +6047,7 @@ function create_squad_safely(sec, pos, lvid, gvid)
         -- If a job spawn collector is active, register this squad for tracking
         if _panda_ic_runtime.job_spawn_collector then
             table.insert(_panda_ic_runtime.job_spawn_collector, obj.id)
-            printf("PANDA_IC: Job collector captured squad ID %d (%s)", obj.id, tostring(sec))
+            dbg("PANDA_IC: Job collector captured squad ID %d (%s)", obj.id, tostring(sec))
         end
     end
     return obj
@@ -6942,7 +6954,7 @@ function on_player_choice(idx, contact_id)
                                 category      = c.category,
                                 applied_outcomes = clone_plain_table(c.applied_outcomes) or {},
                             })
-                            printf("PANDA_IC: multi-npc handoff pda contact_id=%s -> new_npc_id=%s story_id=%s conv_id=%s turn=%s",
+                            dbg("PANDA_IC: multi-npc handoff pda contact_id=%s -> new_npc_id=%s story_id=%s conv_id=%s turn=%s",
                                 tostring(cid), tostring(new_npc_id), tostring(ch.next_npc_id),
                                 tostring(c.conv_id), tostring(ch.next_turn))
                             handed_off = true
@@ -7131,7 +7143,7 @@ function on_player_choice(idx, contact_id)
                                     local ok_ni, ni = pcall(function() return new_se:character_icon() end)
                                     if ok_nn and nn and nn ~= "" then handoff_row.npc_name = nn end
                                     if ok_ni and ni and ni ~= "" then handoff_row.npc_icon = ni end
-                                    printf("PANDA_IC: multi-npc handoff f2f contact_id=%s -> new_npc_id=%s story_id=%s",
+                                    dbg("PANDA_IC: multi-npc handoff f2f contact_id=%s -> new_npc_id=%s story_id=%s",
                                         tostring(cid), tostring(new_f2f_id), tostring(ch.next_npc_id))
                                 end
                             end

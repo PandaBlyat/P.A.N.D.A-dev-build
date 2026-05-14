@@ -82,6 +82,7 @@ local inject_f2f_direct_for_story_npcs  -- forward declaration; body assigned be
 
 local runtime = {
     state_by_id = {},
+    state_by_npc_id = {},
     latest_state = nil,
     pending_state = nil,
     active_token = nil,
@@ -163,6 +164,11 @@ local function register_active_state(state)
         if previous_state and previous_state.runtime_state_id then
             runtime.state_by_id[previous_state.runtime_state_id] = nil
         end
+        if previous_state and previous_state.indexed_npc_id then
+            if runtime.state_by_npc_id[previous_state.indexed_npc_id] == previous_state then
+                runtime.state_by_npc_id[previous_state.indexed_npc_id] = nil
+            end
+        end
         -- Clean up handler functions from the replaced session to prevent
         -- stale closures holding references to destroyed engine objects
         if type(previous_state) == "table" then
@@ -175,6 +181,11 @@ local function register_active_state(state)
     if state.active_token then
         runtime.state_by_id["token:" .. tostring(state.active_token)] = state
         runtime.active_token = tostring(state.active_token)
+    end
+    local indexed_npc_id = resolve_server_npc_id(state.npc_se, "register_active_state")
+    if indexed_npc_id then
+        state.indexed_npc_id = indexed_npc_id
+        runtime.state_by_npc_id[indexed_npc_id] = state
     end
     runtime.latest_state = state
     return state_id
@@ -195,6 +206,9 @@ local function unregister_active_state(state)
             runtime.active_token = nil
         end
     end
+    if state.indexed_npc_id and runtime.state_by_npc_id[state.indexed_npc_id] == state then
+        runtime.state_by_npc_id[state.indexed_npc_id] = nil
+    end
     if runtime.latest_state == state then
         runtime.latest_state = nil
     end
@@ -209,6 +223,11 @@ local function resolve_runtime_state_for_npc(npc_id)
             return latest
         end
         return nil
+    end
+
+    local indexed = runtime.state_by_npc_id[sid]
+    if type(indexed) == "table" and indexed.teardown_in_progress ~= true then
+        return indexed
     end
 
     local active_token = runtime.active_token
@@ -1218,6 +1237,7 @@ end
 
 local function clear_runtime_transient_state()
     runtime.state_by_id = {}
+    runtime.state_by_npc_id = {}
     runtime.latest_state = nil
     runtime.pending_state = nil
     runtime.active_token = nil
@@ -3647,7 +3667,9 @@ local function build_dialog_tree(dialog, state)
         npc_open_phrase_id = nil
         npc_open_use_script_text = false
     elseif state.missing_turn_open then
-        npc_open_phrase_id = "[DEBUG] Missing conversation opening line."
+        -- Player-facing fallback when the conversation's opening turn is missing.
+        -- bridge_warn() below logs the real cause for content authors.
+        npc_open_phrase_id = "..."
         npc_open_use_script_text = false
         bridge_warn(
             "build_dialog_tree fallback reason=missing_turn_open conv_id=%s turn=%s preferred=%s fallback=%s",
