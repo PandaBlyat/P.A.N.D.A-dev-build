@@ -1352,7 +1352,7 @@ function renderBranchInlineModalOverlay(options: {
   overlay.onclick = (event) => event.stopPropagation();
 
   const modal = document.createElement('div');
-  modal.className = 'branch-inline-modal';
+  modal.className = `branch-inline-modal ${choice ? 'is-choice-scope' : 'is-opener-scope'}`;
   modal.setAttribute('role', 'dialog');
   modal.setAttribute('aria-modal', 'true');
   modal.setAttribute('aria-label', t('flow.aria.branchEditor'));

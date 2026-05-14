@@ -3452,7 +3452,7 @@ body.use-custom-cursor * {
 }
 
 .branch-inline-modal {
-  width: fit-content;
+  width: min(var(--branch-inline-modal-width, 1440px), calc(100vw - 32px));
   min-width: min(360px, calc(100vw - 32px));
   max-width: calc(100vw - 32px);
   height: auto;
@@ -3461,8 +3461,16 @@ body.use-custom-cursor * {
   margin: 0;
 }
 
+.branch-inline-modal.is-opener-scope {
+  --branch-inline-modal-width: clamp(1380px, 86vw, 1520px);
+}
+
+.branch-inline-modal.is-choice-scope {
+  --branch-inline-modal-width: clamp(1180px, 78vw, 1360px);
+}
+
 .branch-inline-modal .branch-inline-panel {
-  width: fit-content;
+  width: 100%;
   max-width: 100%;
   height: auto;
   max-height: calc(100dvh - 96px);
@@ -3501,7 +3509,15 @@ body.use-custom-cursor * {
 }
 
 .branch-inline-grid-placeholder-layout {
-  grid-template-columns: minmax(0, 1.45fr) minmax(240px, 0.75fr);
+  grid-template-columns: minmax(0, 1.4fr) minmax(240px, 0.8fr);
+}
+
+.branch-inline-modal.is-opener-scope .branch-inline-grid-placeholder-layout {
+  grid-template-columns: minmax(0, 1.5fr) minmax(260px, 0.85fr);
+}
+
+.branch-inline-modal.is-choice-scope .branch-inline-grid-placeholder-layout {
+  grid-template-columns: minmax(0, 1.3fr) minmax(250px, 0.9fr);
 }
 
 .branch-inline-grid-preconditions,
@@ -3526,7 +3542,7 @@ body.use-custom-cursor * {
 }
 
 .branch-inline-placeholder-pane {
-  width: clamp(240px, 24vw, 320px);
+  width: min(100%, 320px);
   justify-self: end;
 }
 
@@ -26017,7 +26033,7 @@ button.pa-avatar:focus-visible {
 }
 
 .branch-inline-modal {
-  width: fit-content;
+  width: min(var(--branch-inline-modal-width, 1440px), calc(100vw - 32px));
   min-width: min(360px, calc(100vw - 32px));
   max-width: calc(100vw - 32px);
   height: auto;
@@ -26026,7 +26042,7 @@ button.pa-avatar:focus-visible {
 }
 
 .branch-inline-modal .branch-inline-panel {
-  width: fit-content;
+  width: 100%;
   max-width: 100%;
   height: auto;
   max-height: calc(100dvh - 96px);
