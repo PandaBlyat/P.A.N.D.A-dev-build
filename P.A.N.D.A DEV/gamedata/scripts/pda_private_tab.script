@@ -988,26 +988,30 @@ function pda_private_tab:Update()
         self.typing_anim_phase = -1
     end
 
-    -- Clean up orphan typing indicators: if no conversation is active for the contact
-    -- and no reply is pending globally, remove stale typing messages
-    local conv_api = get_conv_api()
-    if not conv_api.pda_reply_pending then
-        local log = conv_api.pda_private_log or {}
-        for i = 1, #log do
-            local entry = log[i]
-            if entry and entry.is_typing then
-                local entry_cid = entry.contact_id or entry.contact_name
-                local contact_conv = conv_api.active_conversations
-                    and conv_api.active_conversations[entry_cid]
-                local is_reply_pending = contact_conv and contact_conv.reply_pending
-                if not contact_conv and not is_reply_pending then
-                    if conv_api.clear_npc_typing_message then
-                        conv_api.clear_npc_typing_message(entry_cid)
+    -- Orphan typing-indicator sweep. Only relevant while at least one typing entry
+    -- exists; skipping when has_typing is false avoids an O(log) walk every frame.
+    -- Throttled to ~500ms to keep the steady-state Update tick cheap.
+    if has_typing and not conv_api.pda_reply_pending then
+        local now_ms = type(time_real_ms) == "function" and time_real_ms() or (os.clock() * 1000)
+        if (self.orphan_sweep_next_at or 0) <= now_ms then
+            self.orphan_sweep_next_at = now_ms + 500
+            local log = conv_api.pda_private_log or {}
+            for i = 1, #log do
+                local entry = log[i]
+                if entry and entry.is_typing then
+                    local entry_cid = entry.contact_id or entry.contact_name
+                    local contact_conv = conv_api.active_conversations
+                        and conv_api.active_conversations[entry_cid]
+                    local is_reply_pending = contact_conv and contact_conv.reply_pending
+                    if not contact_conv and not is_reply_pending then
+                        if conv_api.clear_npc_typing_message then
+                            conv_api.clear_npc_typing_message(entry_cid)
+                        end
+                        self.typing_text_wnd = nil
+                        self.typing_entry_data = nil
+                        self.choice_typewriter = nil
+                        break
                     end
-                    self.typing_text_wnd = nil
-                    self.typing_entry_data = nil
-                    self.choice_typewriter = nil
-                    break
                 end
             end
         end
@@ -1726,25 +1730,22 @@ function get_npc_data(contact_name)
             end
         end
     end
-    -- Fallback: scan by character name (legacy contacts)
-    for i = 1, 65534 do
-        local se_obj = alife_object(i)
-        if se_obj then
-            local obj = level.object_by_id(se_obj.id)
-            if obj and IsStalker(obj) then
-                local npc_name = obj:character_name()
-                if npc_name == contact_name then
-                    local community = obj:character_community() or "stalker"
-                    local rank_name = ranks.get_obj_rank_name(obj) or "Unknown"
-                    local goodwill = obj.general_goodwill and obj:general_goodwill(db.actor) or 0
-                    local relation = 0
-                    if relation_registry and relation_registry.community_relation then
-                        local player_comm = character_community(db.actor)
-                        relation = relation_registry.community_relation(community, player_comm) or 0
-                    end
-                    local icon = obj:character_icon() or "ui_inGame2_neutral_1"
-                    return { name = contact_name, community = community, relation = relation, goodwill = goodwill, rank = rank_name, icon = icon, obj = obj, is_alive = true }
+    -- Fallback: scan online stalkers by character name (legacy contacts)
+    local online = db.OnlineStalkers
+    if online then
+        for i = 1, #online do
+            local obj = level.object_by_id(online[i])
+            if obj and IsStalker(obj) and obj:character_name() == contact_name then
+                local community = obj:character_community() or "stalker"
+                local rank_name = ranks.get_obj_rank_name(obj) or "Unknown"
+                local goodwill = obj.general_goodwill and obj:general_goodwill(db.actor) or 0
+                local relation = 0
+                if relation_registry and relation_registry.community_relation then
+                    local player_comm = character_community(db.actor)
+                    relation = relation_registry.community_relation(community, player_comm) or 0
                 end
+                local icon = obj:character_icon() or "ui_inGame2_neutral_1"
+                return { name = contact_name, community = community, relation = relation, goodwill = goodwill, rank = rank_name, icon = icon, obj = obj, is_alive = true }
             end
         end
     end

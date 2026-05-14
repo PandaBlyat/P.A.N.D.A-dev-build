@@ -170,7 +170,10 @@ local function resolve_tip_sender(mode, value, fallback_icon, current_sender_nam
     mode = tostring(mode or "system"):lower()
     if mode == "system" then return "System", fallback_icon end
     if mode == "unknown" then return "Unknown", fallback_icon end
-    if mode == "current" then return current_sender_name or "Unknown", (current_sender_id and level.object_by_id(current_sender_id) and level.object_by_id(current_sender_id):character_icon()) or fallback_icon end
+    if mode == "current" then
+        local cur_obj = current_sender_id and level.object_by_id(current_sender_id)
+        return current_sender_name or "Unknown", (cur_obj and cur_obj:character_icon()) or fallback_icon
+    end
     if mode == "story" then return resolve_story_tip_sender(value, fallback_icon) end
     if mode == "custom" then return resolve_custom_tip_sender(value, fallback_icon) end
     if mode == "faction" then return resolve_faction_tip_sender(value, fallback_icon, current_sender_faction) end
@@ -361,19 +364,21 @@ handlers["fail_if_artifact_lost"] = function(parts, cmd_str, cmd)
 end
 
 handlers["give_task_cat"] = function(parts, cmd_str, cmd)
+    local sender_obj = sender_npc_id and level.object_by_id(sender_npc_id)
+    local sender_icon = (sender_obj and sender_obj:character_icon()) or "ui_inGame2_neutral_1"
     if panda_give_task(pre_found_task_id, sender_npc_id) then
         task_given = true
         dynamic_news_helper.send_tip(
             game.translate_string("st_pda_ic_outcome_task_given"),
             sender_npc_name, 0, 10,
-            level.object_by_id(sender_npc_id):character_icon(),
+            sender_icon,
             "beep_2", "npc"
         )
     else
         dynamic_news_helper.send_tip(
             "Error assigning task protocol.",
             sender_npc_name, 0, 5,
-            level.object_by_id(sender_npc_id):character_icon(),
+            sender_icon,
             "beep_1", "npc"
         )
     end

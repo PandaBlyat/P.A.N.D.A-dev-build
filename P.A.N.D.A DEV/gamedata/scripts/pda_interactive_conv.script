@@ -11,6 +11,11 @@
 local DIK_SPACE, DIK_0, DIK_1, DIK_2, DIK_3, DIK_4 = 57, 11, 2, 3, 4, 5
 local CHOICE_KEYS = { [DIK_1]=1, [DIK_2]=2, [DIK_3]=3, [DIK_4]=4 }
 local FALLBACK_NPC_ICON = "ui_inGame2_neutral_1"
+
+local function resolve_sender_icon(npc_id)
+    local obj = npc_id and level and level.object_by_id and level.object_by_id(npc_id)
+    return (obj and obj:character_icon()) or FALLBACK_NPC_ICON
+end
 local F2F_SCANNER_SUPPRESS_LOG_WINDOW_MS = 15000
 local F2F_HANDOFF_ACTIONABLE_GRACE_MS = 2 * 60 * 1000
 local PRIVATE_MESSAGES_SECTION = "eptPrivateMessages"
@@ -1454,7 +1459,7 @@ local function register_location_reference(location_ref, sender_npc_name, sender
 
     -- Send a map attachment message in the private chat instead of a global tip notification.
     -- The renderer in pda_private_tab will display this as a clickable file-icon attachment.
-    local sender_icon = (sender_npc_id and level.object_by_id(sender_npc_id) and level.object_by_id(sender_npc_id):character_icon()) or FALLBACK_NPC_ICON
+    local sender_icon = resolve_sender_icon(sender_npc_id)
     local contact_id = entry.sender_contact_id or (sender_npc_id and tostring(sender_npc_id))
     pda_private_add_message(
         contact_id,
@@ -1489,7 +1494,7 @@ local function register_anomaly_zone_reference(zone_name, sender_npc_name, sende
         return nil
     end
 
-    local sender_icon = (sender_npc_id and level.object_by_id(sender_npc_id) and level.object_by_id(sender_npc_id):character_icon()) or FALLBACK_NPC_ICON
+    local sender_icon = resolve_sender_icon(sender_npc_id)
     local contact_id = sender_contact_id or (sender_npc_id and tostring(sender_npc_id))
     local spot_id = zone.object:id()
     local spot_type = "primary_object"
@@ -3494,7 +3499,7 @@ function reveal_random_stash()
 end
 
 local function queue_stash_attachment_reward(sender_npc_name, sender_npc_id, sender_contact_id)
-    local sender_icon = (sender_npc_id and level.object_by_id(sender_npc_id) and level.object_by_id(sender_npc_id):character_icon()) or FALLBACK_NPC_ICON
+    local sender_icon = resolve_sender_icon(sender_npc_id)
     local contact_id = sender_contact_id or (sender_npc_id and tostring(sender_npc_id))
 
     pda_private_add_message(
@@ -3519,7 +3524,7 @@ local function queue_stash_attachment_reward(sender_npc_name, sender_npc_id, sen
 end
 
 local function queue_stash_attachment_reward_custom(sender_npc_name, sender_npc_id, sender_contact_id, custom_items)
-    local sender_icon = (sender_npc_id and level.object_by_id(sender_npc_id) and level.object_by_id(sender_npc_id):character_icon()) or FALLBACK_NPC_ICON
+    local sender_icon = resolve_sender_icon(sender_npc_id)
     local contact_id = sender_contact_id or (sender_npc_id and tostring(sender_npc_id))
 
     pda_private_add_message(
@@ -3568,7 +3573,7 @@ local function find_stash_id_by_name(target_name)
 end
 
 local function queue_stash_attachment_at(stash_name, sender_npc_name, sender_npc_id, sender_contact_id)
-    local sender_icon = (sender_npc_id and level.object_by_id(sender_npc_id) and level.object_by_id(sender_npc_id):character_icon()) or FALLBACK_NPC_ICON
+    local sender_icon = resolve_sender_icon(sender_npc_id)
     local contact_id = sender_contact_id or (sender_npc_id and tostring(sender_npc_id))
 
     pda_private_add_message(
@@ -3594,7 +3599,7 @@ local function queue_stash_attachment_at(stash_name, sender_npc_name, sender_npc
 end
 
 local function queue_stash_items_attachment_at(stash_name, custom_items, sender_npc_name, sender_npc_id, sender_contact_id)
-    local sender_icon = (sender_npc_id and level.object_by_id(sender_npc_id) and level.object_by_id(sender_npc_id):character_icon()) or FALLBACK_NPC_ICON
+    local sender_icon = resolve_sender_icon(sender_npc_id)
     local contact_id = sender_contact_id or (sender_npc_id and tostring(sender_npc_id))
 
     pda_private_add_message(
@@ -5227,7 +5232,7 @@ local function apply_outcome_internal(outcome_str, sender_npc_name, sender_facti
         local prefix = is_gain and "+" or "-"
         local icon = is_gain and "ui\\green_ruble" or "ui\\red_ruble"
         local text = string.format("Account %s%s RU", prefix, format_money_value(abs_amount))
-        pda_private_add_message(sender_contact_id, sender_npc_name, "System Notification", text, level.object_by_id(sender_npc_id) and level.object_by_id(sender_npc_id):character_icon() or FALLBACK_NPC_ICON, false, nil, nil, icon, { skip_personality = true })
+        pda_private_add_message(sender_contact_id, sender_npc_name, "System Notification", text, resolve_sender_icon(sender_npc_id), false, nil, nil, icon, { skip_personality = true })
     end
 
     local mod = ensure_pda_interactive_outcomes()

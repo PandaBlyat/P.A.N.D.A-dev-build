@@ -3494,20 +3494,30 @@ function DynamicNewsManager:IsConvOnCooldown(faction, conv_id)
 end
 
 -- Stamps all tags from this conversation's _meta with the current
--- game time so they enter cooldown.
+-- game time so they enter cooldown. Also prunes any expired tags for
+-- this faction so the table can't grow unbounded over a long save.
 function DynamicNewsManager:MarkConvTopics(faction, conv_id)
     local meta_key = "st_dyn_news_conversation_faction_" .. faction .. "_" .. conv_id .. "_meta"
     local meta_str = game.translate_string(meta_key)
     if meta_str == meta_key then return end
 
-    if not self.recent_conv_topics[faction] then
-        self.recent_conv_topics[faction] = {}
+    local faction_topics = self.recent_conv_topics[faction]
+    if not faction_topics then
+        faction_topics = {}
+        self.recent_conv_topics[faction] = faction_topics
     end
 
     local now = game.get_game_time()
+    local cooldown = self.topic_cooldown_min or 120
+    for tag, played_time in pairs(faction_topics) do
+        if played_time and now:diffSec(played_time) / 60 > cooldown then
+            faction_topics[tag] = nil
+        end
+    end
+
     for tag in string.gmatch(meta_str, "([^,]+)") do
         tag = tag:match("^%s*(.-)%s*$")
-        self.recent_conv_topics[faction][tag] = now
+        faction_topics[tag] = now
     end
 end
 

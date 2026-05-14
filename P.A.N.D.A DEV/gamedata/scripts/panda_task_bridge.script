@@ -234,11 +234,13 @@ local function save_record(slot_id, record)
     local alias = tostring(record.external_task_id or slot_id)
     state.slot_to_alias[slot_id] = alias
     state.alias_to_slot[alias] = slot_id
-    state.records[slot_id] = clone_plain(record)
+
+    local snapshot = clone_plain(record)
+    state.records[slot_id] = snapshot
 
     local act = actor()
     if act and save_var then
-        save_var(act, slot_id, clone_plain(record))
+        save_var(act, slot_id, snapshot)
     end
 
     return true
@@ -264,7 +266,7 @@ local function load_record_by_slot(slot_id)
 
     rec = clone_plain(rec)
     rec.task_id = slot_id
-    state.records[slot_id] = clone_plain(rec)
+    state.records[slot_id] = rec
 
     local alias = tostring(rec.external_task_id or slot_id)
     state.slot_to_alias[slot_id] = alias
@@ -281,11 +283,12 @@ local function rebuild_alias_cache()
         for index = 1, SLOT_COUNT do
             local slot_id = slot_name(family, index)
             local rec = load_record_by_slot(slot_id)
-            if type(rec) == "table" and rec.active ~= false then
-                local alias = tostring(rec.external_task_id or slot_id)
-                state.slot_to_alias[slot_id] = alias
-                state.alias_to_slot[alias] = slot_id
-                state.records[slot_id] = clone_plain(rec)
+            if type(rec) == "table" and rec.active == false then
+                -- load_record_by_slot caches and aliases unconditionally; drop the
+                -- inactive entry so resolve_slot doesn't return a stale alias.
+                state.records[slot_id] = nil
+                state.alias_to_slot[tostring(rec.external_task_id or slot_id)] = nil
+                state.slot_to_alias[slot_id] = nil
             end
         end
     end
