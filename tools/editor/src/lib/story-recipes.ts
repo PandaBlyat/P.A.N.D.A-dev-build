@@ -2,6 +2,7 @@ import { RANKS, LEVEL_DISPLAY_NAMES } from './constants';
 import type { Conversation, FactionId, NpcTemplate, Outcome, PreconditionEntry, Project, Turn, Choice } from './types';
 import { FACTION_DISPLAY_NAMES, getConversationFaction } from './types';
 import { createChoice, createConversation, createTurn } from './xml-export';
+import { getOutcomeResumeTurnParamIndices } from './outcome-branching';
 
 export type StoryStartPattern = 'pda' | 'f2f' | 'pda_to_f2f' | 'f2f_to_pda';
 export type StorySpeakerTarget = 'any_friendly' | 'friendly_faction' | 'named_npc' | 'custom_npc';
@@ -431,6 +432,7 @@ export function buildStoryFromDraft(project: Project, input: StoryWizardDraft): 
   conversation.turns = createStartTurns(startPattern);
 
   applyDraftContent(conversation, finalDraft);
+  normalizeGeneratedStoryTurns(conversation);
 
   const npcTemplates = finalDraft.speakerTarget === 'custom_npc' || finalDraft.recipeId === 'custom_npc_encounter'
     ? [createDraftNpcTemplate(finalDraft)]
@@ -1374,6 +1376,51 @@ function appendTerminalTurn(conversation: Conversation, channel: 'pda' | 'f2f', 
 
 function nextTurnNumber(conversation: Conversation): number {
   return conversation.turns.reduce((max, turn) => Math.max(max, turn.turnNumber), 0) + 1;
+}
+
+function normalizeGeneratedStoryTurns(conversation: Conversation): void {
+  const orderedTurns = [...conversation.turns].sort((a, b) => a.turnNumber - b.turnNumber);
+  const oldToNew = new Map<number, number>();
+  const turnToNew = new Map<Turn, number>();
+
+  orderedTurns.forEach((turn, index) => {
+    const nextNumber = index + 1;
+    oldToNew.set(turn.turnNumber, nextNumber);
+    turnToNew.set(turn, nextNumber);
+  });
+
+  for (const turn of orderedTurns) {
+    turn.turnNumber = turnToNew.get(turn) ?? turn.turnNumber;
+  }
+
+  for (const turn of orderedTurns) {
+    for (const choice of turn.choices) {
+      if (choice.continueTo != null) {
+        choice.continueTo = oldToNew.get(choice.continueTo) ?? choice.continueTo;
+      }
+
+      for (const entry of choice.outcomes) {
+        remapOutcomeTurnParams(entry, oldToNew);
+      }
+    }
+  }
+
+  conversation.turns = orderedTurns;
+}
+
+function remapOutcomeTurnParams(outcomeEntry: Outcome, oldToNew: ReadonlyMap<number, number>): void {
+  const indices = getOutcomeResumeTurnParamIndices(outcomeEntry.command);
+  if (!indices) return;
+
+  for (const index of [indices.successIndex, indices.failIndex, indices.timeoutIndex]) {
+    if (index < 0) continue;
+    const raw = outcomeEntry.params[index];
+    if (!raw) continue;
+    const parsed = Number.parseInt(raw, 10);
+    if (!Number.isFinite(parsed)) continue;
+    const mapped = oldToNew.get(parsed);
+    if (mapped != null) outcomeEntry.params[index] = String(mapped);
+  }
 }
 
 function transitionOpeningFor(recipeId: StoryRecipeId, details: StoryDetailOptions): string {

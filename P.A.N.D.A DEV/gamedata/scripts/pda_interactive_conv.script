@@ -5753,6 +5753,7 @@ function on_player_choice(idx, contact_id)
     local ch = c.choices[idx]
     local continuation_channel = (ch.next_channel == "f2f") and "f2f" or "pda"
     local npc_name = c.npc_name
+    local npc_icon = c.npc_icon
     local cid = c.contact_id
 
     -- Add player choice to log, NO global tip
@@ -6122,10 +6123,28 @@ function on_player_choice(idx, contact_id)
                             end
                         end
 
+                        -- Keep active conversation state aligned with the actual F2F
+                        -- target. Otherwise pda_f2f_handoffs points at the new NPC
+                        -- while active_conversations still points at the old sender,
+                        -- leaving stale pending state after the handoff is consumed.
+                        if tonumber(handoff_row.npc_id) and tonumber(handoff_row.npc_id) ~= tonumber(c.npc_id) then
+                            c.npc_id = handoff_row.npc_id
+                            c.npc_name = handoff_row.npc_name
+                            c.npc_icon = handoff_row.npc_icon
+                            c.story_id = handoff_row.story_id
+                            c.canonical_id = handoff_row.canonical_id
+                            c.pending_in_person_story_id = handoff_row.story_id
+                            c.pending_in_person_canonical_id = handoff_row.canonical_id
+                        end
+
+                        handoff_token = make_f2f_handoff_token(handoff_row.npc_id, c.conv_id, ch.next_turn, c.pending_in_person_set_at)
+                        c.pending_in_person_token = handoff_token
+                        handoff_row.token = handoff_token
+
                         queue_f2f_handoff_attachment(
                             cid,
                             npc_name,
-                            c.npc_icon,
+                            npc_icon,
                             handoff_row.npc_id,
                             handoff_row.npc_name,
                             handoff_token

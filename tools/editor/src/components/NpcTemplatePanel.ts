@@ -506,52 +506,11 @@ function openNpcBuilderPanel(options: {
     };
     const hint = document.createElement('div');
     hint.className = 'command-description';
-    hint.textContent = ui('Female uses woman voice. Set visual preset/model for Dux female meshes; no Hip fallback.', 'Female uses woman voice. Set visual preset/model for Dux female meshes; no Hip fallback.');
+    hint.textContent = ui('Female uses woman voice; no Hip fallback.', 'Female uses woman voice; no Hip fallback.');
     content.append(sel, hint);
     genderRow.appendChild(wrap);
     sec.appendChild(genderRow);
 
-    const appearanceRow = document.createElement('div');
-    appearanceRow.className = 'npc-builder-row';
-    {
-      const { wrap, content } = makeField(ui('Visual preset', 'Visual preset'));
-      const input = document.createElement('input');
-      input.className = 'npc-builder-input';
-      input.placeholder = ui('dux_loner', 'dux_loner');
-      input.value = form.visualPreset;
-      input.oninput = () => { form.visualPreset = input.value.trim(); };
-      const hint = document.createElement('div');
-      hint.className = 'command-description';
-      hint.textContent = ui('Examples: dux_loner, dux_loner_veteran, dux_duty, dux_freedom, dux_ecolog.', 'Examples: dux_loner, dux_loner_veteran, dux_duty, dux_freedom, dux_ecolog.');
-      content.append(input, hint);
-      appearanceRow.appendChild(wrap);
-    }
-    {
-      const { wrap, content } = makeField(ui('Visual path', 'Visual path'));
-      const input = document.createElement('input');
-      input.className = 'npc-builder-input';
-      input.placeholder = ui('actors\\stalker_neutral\\stalker_f_neutral_sci_sunrise_1', 'actors\\stalker_neutral\\stalker_f_neutral_sci_sunrise_1');
-      input.value = form.visual;
-      input.oninput = () => { form.visual = input.value.trim(); };
-      content.appendChild(input);
-      appearanceRow.appendChild(wrap);
-    }
-    sec.appendChild(appearanceRow);
-
-    const memberRow = document.createElement('div');
-    memberRow.className = 'npc-builder-row';
-    const memberField = makeField(ui('Member section', 'Member section'));
-    const memberInput = document.createElement('input');
-    memberInput.className = 'npc-builder-input';
-    memberInput.placeholder = ui('custom spawn section (optional)', 'custom spawn section (optional)');
-    memberInput.value = form.memberSection;
-    memberInput.oninput = () => { form.memberSection = memberInput.value.trim(); };
-    const memberHint = document.createElement('div');
-    memberHint.className = 'command-description';
-    memberHint.textContent = ui('Use only when mod adds a real spawn section backed by desired character_profile.', 'Use only when mod adds a real spawn section backed by desired character_profile.');
-    memberField.content.append(memberInput, memberHint);
-    memberRow.appendChild(memberField.wrap);
-    sec.appendChild(memberRow);
     body.appendChild(sec);
   }
 
@@ -1036,6 +995,20 @@ function fieldKeyFromTrigger(el: HTMLElement): string {
  * renderParamEditors field.  The widget shows the current template summary
  * and a button that opens the NPC builder modal.
  */
+export function openNpcTemplateEditor(templateId: string, trigger: HTMLElement): void {
+  openNpcBuilderPanel({
+    trigger,
+    existingTemplateId: templateId,
+    showSpawnDistance: true,
+    onSave: (saved) => {
+      store.upsertNpcTemplate(saved);
+    },
+    onDelete: (id) => {
+      store.removeNpcTemplate(id);
+    },
+  });
+}
+
 export function createCustomNpcBuilderEditor(
   currentTemplateId: string,
   onChange: (templateId: string) => void,

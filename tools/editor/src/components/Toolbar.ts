@@ -1,9 +1,10 @@
 // P.A.N.D.A. Conversation Editor — Toolbar
 
 import { requestFlowCenter } from '../lib/flow-navigation';
-import { store, type FlowGraphicsQuality } from '../lib/state';
+import { store, type FlowGraphicsQuality, type FocusedCharacterRef } from '../lib/state';
 import { FACTION_IDS } from '../lib/constants';
 import { FACTION_DISPLAY_NAMES, FACTION_DISPLAY_NAMES_RU, type FactionId } from '../lib/types';
+import { collectConversationCharacters, type CharacterFocusEntry } from '../lib/character-focus';
 import { createTurnDisplayLabeler } from '../lib/turn-labels';
 import { exportProjectJson, exportXml, importFromXml, importFromJson } from '../lib/project-io';
 import { openSharePanel } from './SharePanel';
@@ -18,6 +19,7 @@ import { openPublicProfile, renderProfileBadge } from './ProfileBadge';
 import { openLeaderboardOverlay } from './LeaderboardOverlay';
 import { openRoadMapModal } from './RoadMapModal';
 import { canOpenPrivilegeModal, openPrivilegeModal } from './PrivilegeModal';
+import { openNpcTemplateEditor } from './NpcTemplatePanel';
 import { areBeginnerTooltipsDisabled, setBeginnerTooltip, setBeginnerTooltipsDisabled } from '../lib/beginner-tooltips';
 import { getActiveEditorLocalUserId, getStoredUsername, type ActiveEditorUser, type RecentVisitor, type UserProfile } from '../lib/api-client';
 import { createCollabRoster } from './CollabRoster';
@@ -208,6 +210,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
     ? { icon: 'user', label: ui('Privilege', 'Права'), title: ui('Set editor admins', 'Назначить админов редактора'), onclick: openPrivilegeModal }
     : null;
   const languageSwitcher = createLanguageSwitcher(state.uiLanguage);
+  const charactersMenu = createCharactersMenu();
   const advancedViewActions: OverflowMenuAction[] = state.advancedMode
     ? [
       {
@@ -240,7 +243,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
 
     const projectGroup = document.createElement('div');
     projectGroup.className = 'toolbar-group toolbar-group-project';
-    projectGroup.append(openBtn, importBtn, saveBtn, exportXmlBtn, collectionsBtn, communityBtn, languageSwitcher, reportsBtn, helpBtn);
+    projectGroup.append(openBtn, importBtn, saveBtn, exportXmlBtn, collectionsBtn, communityBtn, charactersMenu, languageSwitcher, reportsBtn, helpBtn);
     centerZone.appendChild(projectGroup);
 
     const rightZone = document.createElement('div');
@@ -303,6 +306,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
     setBeginnerTooltip(moreBtn, 'toolbar-more');
     fileGroup.append(
       collectionsBtn,
+      charactersMenu,
       languageSwitcher,
       moreBtn,
     );
@@ -328,6 +332,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
     fileGroup.appendChild(exportXmlBtn);
     fileGroup.appendChild(collectionsBtn);
     fileGroup.appendChild(communityBtn);
+    fileGroup.appendChild(charactersMenu);
     fileGroup.appendChild(reportsBtn);
     fileGroup.appendChild(helpBtn);
     fileGroup.appendChild(languageSwitcher);
@@ -341,6 +346,7 @@ export function renderToolbar(layoutMode: ToolbarLayoutMode = 'desktop', options
     fileGroup.appendChild(sep());
     fileGroup.appendChild(collectionsBtn);
     fileGroup.appendChild(communityBtn);
+    fileGroup.appendChild(charactersMenu);
     fileGroup.appendChild(languageSwitcher);
     fileGroup.appendChild(reportsBtn);
     fileGroup.appendChild(helpBtn);
@@ -624,6 +630,106 @@ function createOverflowMenu(label: string, actions: OverflowMenuAction[]): HTMLE
 
   details.appendChild(menu);
   return details;
+}
+
+function createCharactersMenu(): HTMLElement {
+  const state = store.get();
+  const ui = createUiText(state.uiLanguage);
+  const conv = store.getSelectedConversation();
+  const details = document.createElement('details');
+  details.className = 'toolbar-overflow toolbar-characters';
+
+  const summary = document.createElement('summary');
+  summary.className = 'toolbar-button toolbar-overflow-toggle';
+  summary.textContent = ui('Characters', 'NPC');
+  summary.setAttribute('role', 'button');
+  summary.setAttribute('aria-label', ui('Characters menu', 'Characters menu'));
+  summary.title = ui('Focus branches by story or custom NPC', 'Focus branches by story or custom NPC');
+  setBeginnerTooltip(summary, 'toolbar-more');
+  details.appendChild(summary);
+
+  const menu = document.createElement('div');
+  menu.className = 'toolbar-overflow-menu toolbar-characters-menu';
+
+  if (!conv) {
+    menu.appendChild(createCharactersEmptyState(ui('No story selected', 'No story selected')));
+    details.appendChild(menu);
+    return details;
+  }
+
+  const characters = collectConversationCharacters(conv, state.project.npcTemplates ?? []);
+  if (state.focusedCharacterRef) {
+    const clear = document.createElement('button');
+    clear.type = 'button';
+    clear.className = 'toolbar-overflow-item toolbar-character-clear';
+    setButtonContent(clear, 'eye', ui('Clear Highlight', 'Clear Highlight'));
+    clear.onclick = () => {
+      details.open = false;
+      store.setFocusedCharacterRef(null);
+    };
+    menu.appendChild(clear);
+  }
+
+  if (characters.length === 0) {
+    menu.appendChild(createCharactersEmptyState(ui('No NPCs in this story', 'No NPCs in this story')));
+    details.appendChild(menu);
+    return details;
+  }
+
+  for (const character of characters) {
+    menu.appendChild(createCharacterMenuItem(details, conv.id, character, state.focusedCharacterRef));
+  }
+
+  details.appendChild(menu);
+  return details;
+}
+
+function createCharactersEmptyState(label: string): HTMLElement {
+  const empty = document.createElement('div');
+  empty.className = 'toolbar-characters-empty';
+  empty.textContent = label;
+  return empty;
+}
+
+function createCharacterMenuItem(
+  details: HTMLDetailsElement,
+  conversationId: number,
+  character: CharacterFocusEntry,
+  focusedCharacterRef: FocusedCharacterRef | null,
+): HTMLElement {
+  const item = document.createElement('button');
+  item.type = 'button';
+  item.className = 'toolbar-character-item';
+  if (focusedCharacterRef === character.ref) item.classList.add('is-active');
+  item.title = character.kind === 'custom'
+    ? 'Focus branches and edit custom NPC'
+    : 'Focus branches for this story NPC';
+
+  const title = document.createElement('span');
+  title.className = 'toolbar-character-title';
+  title.textContent = character.label;
+
+  const meta = document.createElement('span');
+  meta.className = 'toolbar-character-meta';
+  meta.textContent = character.meta;
+
+  const count = document.createElement('span');
+  count.className = 'toolbar-character-count';
+  count.textContent = `${character.branchCount} branch${character.branchCount === 1 ? '' : 'es'}`;
+
+  item.append(title, meta, count);
+  item.onclick = () => {
+    details.open = false;
+    store.setFocusedCharacterRef(character.ref);
+    if (character.firstTurnNumber != null) {
+      store.selectTurn(character.firstTurnNumber);
+      requestFlowCenter({ conversationId, turnNumber: character.firstTurnNumber });
+    }
+    if (character.kind === 'custom') {
+      openNpcTemplateEditor(character.id, item);
+    }
+  };
+  return item;
 }
 
 function createLanguageSwitcher(currentLanguage: UiLanguage): HTMLElement {

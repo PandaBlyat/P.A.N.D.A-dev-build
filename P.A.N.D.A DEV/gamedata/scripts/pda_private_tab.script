@@ -1229,6 +1229,7 @@ end
 
 function pda_private_tab:OnComposerQuick1Clicked()
     if not is_game_world_alive() then return end
+    if self.choice_typewriter then return end
     self:TriggerButtonFlash("composer_quick_1", 140)
     self:ToggleQuickMenu()
 end
@@ -1352,6 +1353,8 @@ function pda_private_tab:GetSelectedContactName()
 end
 
 function pda_private_tab:ToggleQuickMenu()
+    if self.choice_typewriter then return end
+
     local contact_name = self:GetSelectedContactName()
     if not contact_name then
         self.quick_menu_open = false

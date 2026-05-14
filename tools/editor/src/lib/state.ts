@@ -24,6 +24,7 @@ export type FlowGraphicsQuality = 'low' | 'medium' | 'high';
 export type BottomWorkspaceTab = 'strings' | 'xml';
 export type CursorAnimationIntensity = 'low' | 'medium' | 'high';
 export type BranchInlinePanelMode = 'dialogue' | 'preconditions' | 'outcomes' | 'continuation' | 'skillCheck';
+export type FocusedCharacterRef = `custom:${string}` | `story:${string}`;
 
 export interface BranchInlinePanelState {
   mode: BranchInlinePanelMode;
@@ -162,6 +163,7 @@ export interface AppState {
   bottomWorkspaceTab: BottomWorkspaceTab | null;
   bottomWorkspaceHeight: number;
   branchInlinePanel: BranchInlinePanelState | null;
+  focusedCharacterRef: FocusedCharacterRef | null;
   flowDensity: FlowDensity;
   flowOcclusionEnabled: boolean;
   flowGraphicsQuality: FlowGraphicsQuality;
@@ -516,6 +518,7 @@ class StateManager {
       bottomWorkspaceTab: null,
       bottomWorkspaceHeight: 420,
       branchInlinePanel: null,
+      focusedCharacterRef: null,
       flowDensity: 'standard',
       flowOcclusionEnabled: loadFlowOcclusionEnabled(),
       flowGraphicsQuality: loadFlowGraphicsQuality(),
@@ -1601,6 +1604,7 @@ class StateManager {
     this.state.bottomWorkspaceTab = null;
     this.state.bottomWorkspaceHeight = 280;
     this.state.branchInlinePanel = null;
+    this.state.focusedCharacterRef = null;
     this.state.dirty = false;
     this.state.undoStack = [];
     this.state.redoStack = [];
@@ -1721,6 +1725,7 @@ class StateManager {
   selectConversation(id: number | null): void {
     this.state.selectedConversationId = id;
     this.state.branchInlinePanel = null;
+    this.state.focusedCharacterRef = null;
     this.clearSelection({ notify: false });
     this.notify(FULL_APP_RENDER);
   }
@@ -1736,6 +1741,12 @@ class StateManager {
     this.state.selectedChoiceIndex = index;
     if (index != null) this.state.propertiesTab = 'selection';
     this.notify(SELECTION_RENDER);
+  }
+
+  setFocusedCharacterRef(ref: FocusedCharacterRef | null): void {
+    if (this.state.focusedCharacterRef === ref) return;
+    this.state.focusedCharacterRef = ref;
+    this.notify(createFlowChange('selection', 'toolbar', 'flowEditor'));
   }
 
   openBranchInlinePanel(panel: BranchInlinePanelState): void {

@@ -1,6 +1,6 @@
 // P.A.N.D.A. Conversation Editor — Visual Flow Editor (Center Panel)
 
-import { store, type StateChange } from '../lib/state';
+import { store, type FocusedCharacterRef, type StateChange } from '../lib/state';
 import { t } from '../lib/i18n';
 import { requestFlowCenter, setActiveFlowViewport, type FlowViewportApi } from '../lib/flow-navigation';
 import { createTurnDisplayLabeler } from '../lib/turn-labels';
@@ -25,6 +25,7 @@ import { STORY_NPC_OPTIONS } from '../lib/generated/story-npc-catalog';
 import { renderBranchInlinePanel } from './BranchInlinePanel';
 import { parseOutcomeResumeTurnNumbers } from '../lib/outcome-branching';
 import { collectSegmentStartTurns as collectBranchSegmentStartTurns } from '../lib/branch-segments';
+import { turnMatchesCharacter } from '../lib/character-focus';
 
 type TurnPositionMap = Map<number, { x: number; y: number }>;
 type EdgeKind = 'continue' | 'pause-success' | 'pause-fail';
@@ -42,6 +43,7 @@ type EdgeDescriptor = {
   bend: number;
   highlight: HighlightState;
   kind: EdgeKind;
+  characterFocused: boolean;
 };
 
 type EdgeElementRefs = {
@@ -208,6 +210,7 @@ type LiveFlowState = {
   viewState: ViewState;
   density: FlowDensity;
   graphModel: FlowGraphModel;
+  focusedCharacterRef: FocusedCharacterRef | null;
   // Tracks last applied visibility per turn / edge so we can skip redundant
   // style writes (writes invalidate style even when value is identical).
   visibleTurnState: Map<number, boolean>;
@@ -274,11 +277,15 @@ export function updateFlowSelection(): boolean {
 
   liveFlow.selectedTurnNumber = nextSelected;
   liveFlow.selectedChoiceIndex = nextChoiceIndex;
+  liveFlow.focusedCharacterRef = state.focusedCharacterRef;
 
   // Update turn node classes
+  const turnByNumber = new Map(conv.turns.map(turn => [turn.turnNumber, turn] as const));
   for (const [turnNumber, node] of liveFlow.nodeElements) {
     const isSelected = turnNumber === nextSelected;
+    const turn = turnByNumber.get(turnNumber);
     node.classList.toggle('selected', isSelected);
+    node.classList.toggle('character-focused', Boolean(turn && turnMatchesCharacter(conv, turn, state.focusedCharacterRef)));
     node.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
 
     // Update choice item selection
@@ -300,6 +307,15 @@ export function updateFlowSelection(): boolean {
       activeTurnNumbers.add(edge.sourceTurnNumber);
       activeTurnNumbers.add(edge.targetTurnNumber);
     }
+    const sourceTurn = turnByNumber.get(edge.sourceTurnNumber);
+    const targetTurn = turnByNumber.get(edge.targetTurnNumber);
+    edge.characterFocused = Boolean(
+      state.focusedCharacterRef
+      && (
+        (sourceTurn && turnMatchesCharacter(conv, sourceTurn, state.focusedCharacterRef))
+        || (targetTurn && turnMatchesCharacter(conv, targetTurn, state.focusedCharacterRef))
+      ),
+    );
     const key = edgeKey(edge);
     const group = liveFlow.edgeElements.get(key);
     if (group) {
@@ -572,6 +588,7 @@ export function renderFlowEditor(container: HTMLElement): void {
     edges = buildEdgeDescriptors(conv, state.selectedTurnNumber, state.selectedChoiceIndex, factionColor);
     memoEdges = { key: mk, edges };
   }
+  applyCharacterFocusToEdges(conv, edges, state.focusedCharacterRef);
   const graphSize = getFlowGraphSize(conv.turns.length, edges.length);
   const renderEdgePackets = shouldRenderEdgePackets(graphicsQuality, mobilePerformanceMode, graphSize);
   const lowGraphicsMode = graphicsQuality === 'low';
@@ -670,6 +687,7 @@ export function renderFlowEditor(container: HTMLElement): void {
       density,
       viewState,
       turnLabels,
+      focusedCharacterRef: state.focusedCharacterRef,
       mobilePerformanceMode,
       onPreviewPosition: (previewPositions, affectedTurnNumbers, redrawEdges) => draw(previewPositions, affectedTurnNumbers, redrawEdges),
       onChoicePortDragStart: (choiceIndex, event) => {
@@ -1291,6 +1309,7 @@ export function renderFlowEditor(container: HTMLElement): void {
     viewState,
     density,
     graphModel,
+    focusedCharacterRef: state.focusedCharacterRef,
     visibleTurnState: new Map(),
     visibleEdgeState: new Map(),
   };
@@ -2046,6 +2065,7 @@ type RenderTurnNodeOptions = {
   viewState: ViewState;
   mobilePerformanceMode: boolean;
   turnLabels: ReturnType<typeof createTurnDisplayLabeler>;
+  focusedCharacterRef: FocusedCharacterRef | null;
   onPreviewPosition: (positions?: TurnPositionMap, affectedTurnNumbers?: ReadonlySet<number>, redrawEdges?: boolean) => void;
   onChoicePortDragStart: (choiceIndex: number, event: PointerEvent) => void;
   onCreateConnectedTurn: (choiceIndex: number) => void;
@@ -2223,6 +2243,7 @@ function renderLiteTurnNode(options: RenderTurnNodeOptions): HTMLElement {
     density,
     viewState,
     turnLabels,
+    focusedCharacterRef,
     onPreviewPosition,
     onChoicePortDragStart,
     onCreateConnectedTurn,
@@ -2233,6 +2254,7 @@ function renderLiteTurnNode(options: RenderTurnNodeOptions): HTMLElement {
   const state = store.get();
   const hasWarning = turn.choices.some(c => !c.text && !c.reply);
   const isPathActive = edges.some(edge => edge.highlight === 'active' && (edge.sourceTurnNumber === turn.turnNumber || edge.targetTurnNumber === turn.turnNumber));
+  const isCharacterFocused = turnMatchesCharacter(conv, turn, focusedCharacterRef);
   const turnIndex = conv.turns.indexOf(turn);
   const factionColor = FACTION_COLORS[getConversationFaction(conv, state.project.faction)];
   const branchColor = getBranchColor(turn, turnIndex, factionColor);
@@ -2245,6 +2267,7 @@ function renderLiteTurnNode(options: RenderTurnNodeOptions): HTMLElement {
     + (selected ? ' selected' : '')
     + (hasWarning ? ' has-warning' : '')
     + (isPathActive ? ' path-active' : '')
+    + (isCharacterFocused ? ' character-focused' : '')
     + (turn.turnNumber === 1 ? ' is-starter-turn' : '');
   node.dataset.turnNumber = String(turn.turnNumber);
   node.tabIndex = 0;
@@ -2423,6 +2446,7 @@ function renderTurnNode(options: RenderTurnNodeOptions): HTMLElement {
     viewState,
     mobilePerformanceMode,
     turnLabels,
+    focusedCharacterRef,
     onPreviewPosition,
     onChoicePortDragStart,
     onCreateConnectedTurn,
@@ -2436,6 +2460,7 @@ function renderTurnNode(options: RenderTurnNodeOptions): HTMLElement {
   const layout = getFlowNodeLayout(density);
   const hasWarning = turn.choices.some(c => !c.text && !c.reply);
   const isPathActive = edges.some(edge => edge.highlight === 'active' && (edge.sourceTurnNumber === turn.turnNumber || edge.targetTurnNumber === turn.turnNumber));
+  const isCharacterFocused = turnMatchesCharacter(conv, turn, focusedCharacterRef);
   const turnIndex = conv.turns.indexOf(turn);
   const factionColor = FACTION_COLORS[getConversationFaction(conv, state.project.faction)];
   const branchColor = getBranchColor(turn, turnIndex, factionColor);
@@ -2454,6 +2479,7 @@ function renderTurnNode(options: RenderTurnNodeOptions): HTMLElement {
     + (inlinePanelActive ? ' has-inline-panel' : '')
     + (hasWarning ? ' has-warning' : '')
     + (isPathActive ? ' path-active' : '')
+    + (isCharacterFocused ? ' character-focused' : '')
     + (turn.turnNumber === 1 ? ' is-starter-turn' : '');
   node.dataset.turnNumber = String(turn.turnNumber);
   node.tabIndex = 0;
@@ -3989,6 +4015,27 @@ function getEdgeElementRefs(group: SVGGElement): EdgeElementRefs {
   return refs;
 }
 
+function applyCharacterFocusToEdges(
+  conv: Conversation,
+  edges: EdgeDescriptor[],
+  focusedCharacterRef: FocusedCharacterRef | null,
+): void {
+  if (!focusedCharacterRef) {
+    for (const edge of edges) edge.characterFocused = false;
+    return;
+  }
+
+  const turnByNumber = new Map(conv.turns.map(turn => [turn.turnNumber, turn] as const));
+  for (const edge of edges) {
+    const sourceTurn = turnByNumber.get(edge.sourceTurnNumber);
+    const targetTurn = turnByNumber.get(edge.targetTurnNumber);
+    edge.characterFocused = Boolean(
+      (sourceTurn && turnMatchesCharacter(conv, sourceTurn, focusedCharacterRef))
+      || (targetTurn && turnMatchesCharacter(conv, targetTurn, focusedCharacterRef)),
+    );
+  }
+}
+
 function drawEdges(options: {
   svg: SVGSVGElement;
   conv: Conversation;
@@ -4059,10 +4106,11 @@ function drawEdges(options: {
     const handleAnchor = getBendHandleAnchor(sourceAnchor, targetAnchor, edge.offsetIndex, edge.bend);
     const showBendHandle = edge.kind === 'continue';
     const highlightSuffix = edge.highlight !== 'normal' ? ` is-${edge.highlight}` : '';
-    const groupClass = `flow-edge${highlightSuffix}`;
-    const pathClass = `flow-edge-path ${edge.pathClassName}${highlightSuffix}`;
-    const packetClass = `flow-edge-packet ${edge.pathClassName}${highlightSuffix}`;
-    const labelClass = `flow-edge-label ${edge.textClassName}${highlightSuffix}`;
+    const characterSuffix = edge.characterFocused ? ' character-focused' : '';
+    const groupClass = `flow-edge${highlightSuffix}${characterSuffix}`;
+    const pathClass = `flow-edge-path ${edge.pathClassName}${highlightSuffix}${characterSuffix}`;
+    const packetClass = `flow-edge-packet ${edge.pathClassName}${highlightSuffix}${characterSuffix}`;
+    const labelClass = `flow-edge-label ${edge.textClassName}${highlightSuffix}${characterSuffix}`;
 
     const existing = edgeElements.get(key);
     if (existing) {
@@ -4795,6 +4843,7 @@ function buildEdgeDescriptors(
           bend: conv.flowEdgeBends?.[key] ?? 0,
           highlight: getEdgeHighlightState(turn.turnNumber, choice.index, target.turnNumber, selectedTurnNumber, selectedChoiceIndex),
           kind: target.kind,
+          characterFocused: false,
         });
       }
     }
