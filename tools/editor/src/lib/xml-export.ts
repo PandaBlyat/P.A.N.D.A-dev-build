@@ -201,6 +201,9 @@ function collectConversationNpcRefs(conv: Conversation): string[] {
         if (outcome.command === 'panda_task_escort' && outcome.params[4] === 'story_npc') {
           addNpcRef(refs, 'story', outcome.params[5]);
         }
+        if (outcome.command === 'panda_task_rescue' && outcome.params[3] && outcome.params[3] !== 'random') {
+          addNpcRef(refs, 'custom', outcome.params[3]);
+        }
       }
     }
   }

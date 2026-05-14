@@ -356,6 +356,27 @@ local function make_bridge_handoff_token(npc_id, conv_id, turn, set_at)
     )
 end
 
+local function add_handoff_map_marker_for_object(target_id, target_name)
+    local obj_id = tonumber(target_id)
+    if not obj_id or obj_id <= 0 then
+        return nil
+    end
+    obj_id = math.floor(obj_id)
+
+    local spot_type = "secondary_task_location"
+    local hint = string.format("Locate %s to continue story", tostring(target_name or "contact"))
+    if not (level and level.map_add_object_spot_ser) then
+        return nil
+    end
+
+    if level.map_has_object_spot and level.map_has_object_spot(obj_id, spot_type) ~= 0 then
+        pcall(level.map_remove_object_spot, obj_id, spot_type)
+    end
+
+    level.map_add_object_spot_ser(obj_id, spot_type, hint)
+    return obj_id, spot_type
+end
+
 local function register_f2f_continuation_handoff(active_state, active_npc_id, branch)
     if type(active_state) ~= "table" or type(branch) ~= "table" then
         return false
@@ -455,7 +476,11 @@ local function register_f2f_continuation_handoff(active_state, active_npc_id, br
         tostring(pda_interactive_conv ~= nil),
         tostring(pda_interactive_conv and pda_interactive_conv.queue_f2f_handoff_attachment_public ~= nil)
     )
-    if pda_interactive_conv and pda_interactive_conv.queue_f2f_handoff_attachment_public then
+    local queue_marker_fn = pda_interactive_conv and pda_interactive_conv.queue_f2f_handoff_attachment_public
+        or rawget(_G, "queue_f2f_handoff_attachment_public")
+    local marker_spot_id = nil
+    local marker_spot_type = "secondary_task_location"
+    if queue_marker_fn then
         local sender_id = tonumber(active_npc_id)
         local sender_se = sender_id and alife_object(sender_id) or nil
         local sender_name = "Unknown"
@@ -470,17 +495,34 @@ local function register_f2f_continuation_handoff(active_state, active_npc_id, br
                 if ok_i and ic and ic ~= "" then sender_icon = tostring(ic) end
             end
         end
-        local sender_contact_id = sender_id and tostring(sender_id) or contact_id
-        local ok_call, call_err = pcall(pda_interactive_conv.queue_f2f_handoff_attachment_public,
-            sender_contact_id, sender_name, sender_icon, target_id, target_name, token)
+        local ok_call, queued_spot_id = pcall(queue_marker_fn,
+            contact_id, sender_name, sender_icon, target_id, target_name, token, {
+                suppress_chat_attachment = true,
+                attachment_icon = "panda_marker_task",
+            })
+        if ok_call and queued_spot_id then
+            marker_spot_id = queued_spot_id
+        end
         bridge_debug(
-            "register_f2f_continuation_handoff queue_f2f_handoff_attachment_public ok=%s err=%s sender_id=%s target_id=%s",
-            tostring(ok_call), tostring(call_err), tostring(sender_id), tostring(target_id)
+            "register_f2f_continuation_handoff queue_f2f_handoff_attachment_public ok=%s spot_id=%s sender_id=%s target_id=%s",
+            tostring(ok_call), tostring(ok_call and queued_spot_id or "nil"), tostring(sender_id), tostring(target_id)
         )
     else
         bridge_warn(
             "register_f2f_continuation_handoff cannot post handoff attachment: pda_interactive_conv.queue_f2f_handoff_attachment_public unavailable"
         )
+    end
+    if not marker_spot_id then
+        marker_spot_id, marker_spot_type = add_handoff_map_marker_for_object(target_id, target_name)
+        bridge_debug(
+            "register_f2f_continuation_handoff direct_map_marker spot_id=%s target_id=%s",
+            tostring(marker_spot_id or "nil"),
+            tostring(target_id)
+        )
+    end
+    if marker_spot_id then
+        handoff_row.map_spot_id = marker_spot_id
+        handoff_row.map_spot_type = marker_spot_type or "secondary_task_location"
     end
 
     local owner_tag = string.format("f2f_handoff_%s_%s_%s", tostring(contact_id), tostring(active_state.conv_id), tostring(branch.next_turn))
@@ -5134,6 +5176,26 @@ function panda_f2f_bridge.init_dialog(dialog, ...)
         tostring(build_result.npc_open_ok == true),
         tostring(build_result.actor_choice_count_added or 0),
         tostring(build_result.npc_reply_count_added or 0)
+    )
+    local marker_cleared = false
+    local conv_api = get_conv_api()
+    if conv_api and type(conv_api.clear_f2f_handoff_marker) == "function" then
+        local ok_clear, clear_result = pcall(conv_api.clear_f2f_handoff_marker,
+            state.resolved_npc_id or state.npc_se and state.npc_se.id,
+            state.handoff_conv_id or state.conv_id,
+            state.handoff_turn or state.turn,
+            state.handoff_token,
+            state.handoff_set_at
+        )
+        marker_cleared = ok_clear and clear_result == true
+    end
+    bridge_warn(
+        "init_dialog handoff_marker_clear npc_id=%s cleared=%s conv_id=%s turn=%s token=%s",
+        tostring(state.resolved_npc_id or state.npc_se and state.npc_se.id or "nil"),
+        tostring(marker_cleared == true),
+        tostring(state.handoff_conv_id or state.conv_id or "nil"),
+        tostring(state.handoff_turn or state.turn or "nil"),
+        tostring(state.handoff_token or "nil")
     )
     debug_resolve_snapshot("build", state.npc_se, state, nil)
 end

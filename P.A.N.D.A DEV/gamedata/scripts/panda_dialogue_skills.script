@@ -509,6 +509,9 @@ local function patch_item_info_update()
     utils_ui.UIInfoItem.Update = function(self, obj, sec, flags)
         local result = tooltip_original_update(self, obj, sec, flags)
         if not (self and self.dialog and self.dialog:IsShown() and self.desc) then return result end
+        local original_frame_h = self.frame and self.frame:GetHeight() or 0
+        local original_dialog_h = self.dialog:GetHeight()
+        local original_desc_h = self.desc:GetHeight()
 
         local item_sec = obj and safe_section(obj) or sec or self.section
         if not item_sec then return result end
@@ -530,6 +533,7 @@ local function patch_item_info_update()
             self.desc:SetText(base_desc)
         end
         self.desc:AdjustHeightToText()
+        local desc_delta = math.max(0, self.desc:GetHeight() - original_desc_h)
 
         local bottom = self.desc
         if self.stats_dialog and self.stats_dialog:IsShown() then
@@ -541,7 +545,12 @@ local function patch_item_info_update()
             bottom = self.ammo
         end
         if self.frame and bottom then
-            self:Sync_H(bottom, self.frame, 10)
+            local height = self:Sync_H(bottom, self.frame, 10)
+            height = math.max(height, original_frame_h + desc_delta, original_dialog_h + desc_delta)
+            self.frame:SetWndSize(vector2():set(self.frame:GetWidth(), height))
+            if self.dialog then
+                self.dialog:SetWndSize(vector2():set(self.dialog:GetWidth(), height))
+            end
         end
         self:Show(true)
         return result

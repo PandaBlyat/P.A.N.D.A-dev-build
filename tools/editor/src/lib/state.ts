@@ -1,6 +1,6 @@
 // P.A.N.D.A. Conversation Editor — Application State
 
-import type { Project, Conversation, Turn, Choice, Outcome, ValidationMessage, NpcTemplate, FlowAnnotation, FactionId } from './types';
+import type { Project, Conversation, Turn, Choice, Outcome, ValidationMessage, NpcTemplate, FlowAnnotation, FactionId, PreconditionEntry, AnyPreconditionOption, SimplePrecondition } from './types';
 import type { CollabActivity, CollabLock, CollabOp, CollabParticipant, CollabRemoteCursor } from './collab-protocol';
 import { FACTION_XML_KEYS, getConversationFaction } from './types';
 import { applyCollabOpsToConversation, cloneConversation } from './collab-protocol';
@@ -316,6 +316,198 @@ function normalizeOptionalNonNegativeInteger(value: unknown): number | undefined
   }
   const normalized = Math.floor(value);
   return normalized >= 0 ? normalized : undefined;
+}
+
+const CUSTOM_NPC_REF_PRECONDITIONS = new Set([
+  'req_custom_story_npc',
+  'req_custom_npc_alive',
+  'req_custom_npc_dead',
+  'req_custom_npc_near',
+]);
+const CUSTOM_NPC_REF_OUTCOMES = new Set([
+  'spawn_custom_npc',
+  'spawn_custom_npc_at',
+  'spawn_dead_custom_npc',
+  'spawn_dead_custom_npc_at',
+]);
+
+function stripNpcPrefix(value: string): string {
+  return value.startsWith('npc:') ? value.slice(4).trim() : value.trim();
+}
+
+function normalizeCharacterRefForState(value: string | undefined | null): FocusedCharacterRef | null {
+  const raw = (value ?? '').trim();
+  if (!raw) return null;
+  if (raw.startsWith('custom:')) return `custom:${raw.slice(7).trim()}`;
+  if (raw.startsWith('story:')) return `story:${raw.slice(6).trim()}`;
+  if (raw.startsWith('npc:')) return `custom:${raw.slice(4).trim()}`;
+  return `story:${raw}`;
+}
+
+function characterValueMatchesRef(value: string | undefined | null, ref: FocusedCharacterRef): boolean {
+  return normalizeCharacterRefForState(value) === ref;
+}
+
+function customNpcValueMatchesRef(value: string | undefined | null, ref: FocusedCharacterRef): boolean {
+  if (!ref.startsWith('custom:')) return false;
+  const raw = (value ?? '').trim();
+  return raw !== '' && `custom:${stripNpcPrefix(raw)}` === ref;
+}
+
+function simplePreconditionMatchesCharacter(entry: SimplePrecondition, ref: FocusedCharacterRef): boolean {
+  if (entry.command === 'req_story_npc') return characterValueMatchesRef(entry.params[0], ref);
+  if (CUSTOM_NPC_REF_PRECONDITIONS.has(entry.command)) return customNpcValueMatchesRef(entry.params[0], ref);
+  return false;
+}
+
+function filterCharacterPreconditions(
+  entries: readonly PreconditionEntry[] | undefined,
+  ref: FocusedCharacterRef,
+): { entries: PreconditionEntry[]; changed: boolean } {
+  let changed = false;
+  const next: PreconditionEntry[] = [];
+  for (const entry of entries ?? []) {
+    const filtered = filterCharacterPreconditionEntry(entry, ref);
+    if (!filtered) {
+      changed = true;
+      continue;
+    }
+    if (filtered !== entry) changed = true;
+    next.push(filtered);
+  }
+  return { entries: next, changed };
+}
+
+function filterCharacterPreconditionEntry(entry: PreconditionEntry, ref: FocusedCharacterRef): PreconditionEntry | null {
+  if (entry.type === 'simple') return simplePreconditionMatchesCharacter(entry, ref) ? null : entry;
+  if (entry.type === 'not') {
+    const inner = filterCharacterPreconditionEntry(entry.inner, ref);
+    if (!inner) return null;
+    return inner === entry.inner ? entry : { ...entry, inner };
+  }
+  if (entry.type === 'any') {
+    let changed = false;
+    const options: AnyPreconditionOption[] = [];
+    for (const option of entry.options) {
+      const filtered = filterCharacterPreconditionOption(option, ref);
+      if (!filtered) {
+        changed = true;
+        continue;
+      }
+      if (filtered !== option) changed = true;
+      options.push(filtered);
+    }
+    if (options.length === 0) return null;
+    return changed ? { ...entry, options } : entry;
+  }
+  return entry;
+}
+
+function filterCharacterPreconditionOption(option: AnyPreconditionOption, ref: FocusedCharacterRef): AnyPreconditionOption | null {
+  if (option.type === 'all') {
+    const filtered = filterCharacterPreconditions(option.entries, ref);
+    if (filtered.entries.length === 0) return null;
+    return filtered.changed ? { ...option, entries: filtered.entries } : option;
+  }
+  return filterCharacterPreconditionEntry(option, ref);
+}
+
+function removeCharacterFromOutcomes(outcomes: readonly Outcome[], ref: FocusedCharacterRef): { outcomes: Outcome[]; changed: boolean } {
+  let changed = false;
+  const next: Outcome[] = [];
+  for (const outcome of outcomes) {
+    if (CUSTOM_NPC_REF_OUTCOMES.has(outcome.command) && customNpcValueMatchesRef(outcome.params[0], ref)) {
+      changed = true;
+      continue;
+    }
+    if (
+      outcome.command === 'panda_task_escort'
+      && ((outcome.params[4] === 'custom_npc' && customNpcValueMatchesRef(outcome.params[5], ref))
+        || (outcome.params[4] === 'story_npc' && characterValueMatchesRef(outcome.params[5], ref)))
+    ) {
+      const params = [...outcome.params];
+      params[4] = '';
+      params[5] = '';
+      next.push({ ...outcome, params });
+      changed = true;
+      continue;
+    }
+    if (outcome.command === 'panda_task_rescue' && customNpcValueMatchesRef(outcome.params[3], ref)) {
+      const params = [...outcome.params];
+      params[3] = 'random';
+      next.push({ ...outcome, params });
+      changed = true;
+      continue;
+    }
+    next.push(outcome);
+  }
+  return { outcomes: next, changed };
+}
+
+function conversationHasCharacterRef(conversation: Conversation, ref: FocusedCharacterRef): boolean {
+  for (const value of conversation.npc_refs ?? []) {
+    if (characterValueMatchesRef(value, ref)) return true;
+  }
+  if (filterCharacterPreconditions(conversation.preconditions, ref).changed) return true;
+  for (const turn of conversation.turns) {
+    if (characterValueMatchesRef(turn.speaker_npc_id, ref)) return true;
+    if (filterCharacterPreconditions(turn.preconditions, ref).changed) return true;
+    for (const choice of turn.choices) {
+      if (characterValueMatchesRef(choice.story_npc_id, ref) || characterValueMatchesRef(choice.cont_npc_id, ref)) return true;
+      if (filterCharacterPreconditions(choice.preconditions, ref).changed) return true;
+      if (removeCharacterFromOutcomes(choice.outcomes, ref).changed) return true;
+    }
+  }
+  return false;
+}
+
+function removeCharacterRefsFromConversation(conversation: Conversation, ref: FocusedCharacterRef): boolean {
+  let changed = false;
+  if (conversation.npc_refs?.length) {
+    const nextRefs = [...new Set(conversation.npc_refs)]
+      .map((value) => value.trim())
+      .filter((value) => value && !characterValueMatchesRef(value, ref));
+    changed = changed || nextRefs.length !== conversation.npc_refs.length || nextRefs.some((value, index) => value !== conversation.npc_refs?.[index]);
+    if (nextRefs.length > 0) conversation.npc_refs = nextRefs;
+    else delete conversation.npc_refs;
+  }
+  const conversationPreconditions = filterCharacterPreconditions(conversation.preconditions, ref);
+  if (conversationPreconditions.changed) {
+    conversation.preconditions = conversationPreconditions.entries;
+    changed = true;
+  }
+  for (const turn of conversation.turns) {
+    if (characterValueMatchesRef(turn.speaker_npc_id, ref)) {
+      delete turn.speaker_npc_id;
+      changed = true;
+    }
+    const turnPreconditions = filterCharacterPreconditions(turn.preconditions, ref);
+    if (turnPreconditions.changed) {
+      turn.preconditions = turnPreconditions.entries;
+      changed = true;
+    }
+    for (const choice of turn.choices) {
+      if (characterValueMatchesRef(choice.story_npc_id, ref)) {
+        delete choice.story_npc_id;
+        changed = true;
+      }
+      if (characterValueMatchesRef(choice.cont_npc_id, ref)) {
+        delete choice.cont_npc_id;
+        changed = true;
+      }
+      const choicePreconditions = filterCharacterPreconditions(choice.preconditions, ref);
+      if (choicePreconditions.changed) {
+        choice.preconditions = choicePreconditions.entries;
+        changed = true;
+      }
+      const choiceOutcomes = removeCharacterFromOutcomes(choice.outcomes, ref);
+      if (choiceOutcomes.changed) {
+        choice.outcomes = choiceOutcomes.outcomes;
+        changed = true;
+      }
+    }
+  }
+  return changed;
 }
 
 function normalizeFlowEdgeBends(value: unknown): Record<string, number> | undefined {
@@ -2882,6 +3074,32 @@ class StateManager {
     const templates = (this.state.project.npcTemplates ?? []).filter(t => t.id !== id);
     this.state.project = { ...this.state.project, npcTemplates: templates };
     this.finishProjectMutation();
+  }
+
+  removeCharacterFromConversation(conversationId: number, ref: FocusedCharacterRef): void {
+    const conv = this.getConversationById(conversationId);
+    if (!conv || !conversationHasCharacterRef(conv, ref)) return;
+
+    this.pushUndo();
+    const changed = removeCharacterRefsFromConversation(conv, ref);
+    let templateChanged = false;
+    if (ref.startsWith('custom:')) {
+      const templateId = ref.slice(7);
+      const stillUsed = this.state.project.conversations.some((candidate) => conversationHasCharacterRef(candidate, ref));
+      if (!stillUsed && this.state.project.npcTemplates?.some((template) => template.id === templateId)) {
+        this.state.project = {
+          ...this.state.project,
+          npcTemplates: this.state.project.npcTemplates.filter((template) => template.id !== templateId),
+        };
+        templateChanged = true;
+      }
+    }
+    if (this.state.focusedCharacterRef === ref) {
+      this.state.focusedCharacterRef = null;
+    }
+    if (changed || templateChanged) {
+      this.finishProjectMutation({ change: FULL_APP_RENDER });
+    }
   }
 
   setSystemString(key: string, value: string): void {

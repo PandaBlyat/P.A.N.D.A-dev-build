@@ -11,6 +11,9 @@
 local DIK_SPACE, DIK_0, DIK_1, DIK_2, DIK_3, DIK_4 = 57, 11, 2, 3, 4, 5
 local CHOICE_KEYS = { [DIK_1]=1, [DIK_2]=2, [DIK_3]=3, [DIK_4]=4 }
 local FALLBACK_NPC_ICON = "ui_inGame2_neutral_1"
+local PDA_MARKER_TASK_ICON = "panda_marker_task"
+local PDA_PRIVATE_MAP_NAV_TASK_ID = "panda_private_map_nav"
+pda_interactive_conv = pda_interactive_conv or {}
 
 local function resolve_sender_icon(npc_id)
     local obj = npc_id and level and level.object_by_id and level.object_by_id(npc_id)
@@ -50,6 +53,7 @@ local abort_contact_f2f_state
 local build_savable_f2f_handoffs
 local is_handoff_actionable
 local consume_pending_f2f_handoff_internal
+local clear_f2f_handoff_marker_internal
 local clear_pda_choices_for_pending_handoff
 local remove_active_conversation_entry
 local is_conversation_identity_in_use
@@ -856,7 +860,54 @@ local function remove_f2f_handoff_attachment(token, contact_id, npc_id)
     return removed
 end
 
-local function queue_f2f_handoff_attachment(contact_id, sender_npc_name, sender_icon, target_npc_id, target_npc_name, token)
+local function remove_f2f_handoff_map_spot(handoff)
+    if type(handoff) ~= "table" then
+        return false
+    end
+
+    local spot_id = handoff.map_spot_id
+    if not spot_id then
+        return false
+    end
+
+    remove_map_spot_for_id(spot_id, handoff.map_spot_type or "secondary_task_location")
+    handoff.map_spot_id = nil
+    handoff.map_spot_type = nil
+    return true
+end
+
+local function clear_private_map_nav_task()
+    if not (db and db.actor and db.actor.get_task) then
+        return false
+    end
+
+    local ok_task, nav_task = pcall(function()
+        return db.actor:get_task(PDA_PRIVATE_MAP_NAV_TASK_ID, true)
+    end)
+    if not ok_task or not nav_task then
+        return false
+    end
+
+    local cleared = false
+    if nav_task.remove_map_locations then
+        local ok_remove = pcall(function()
+            nav_task:remove_map_locations(false)
+        end)
+        cleared = ok_remove == true or cleared
+    end
+
+    if task_manager and task_manager.get_task_manager then
+        local ok_tm, tm = pcall(task_manager.get_task_manager)
+        if ok_tm and tm and type(tm.task_info) == "table" then
+            tm.task_info[PDA_PRIVATE_MAP_NAV_TASK_ID] = nil
+        end
+    end
+
+    return cleared
+end
+
+local function queue_f2f_handoff_attachment(contact_id, sender_npc_name, sender_icon, target_npc_id, target_npc_name, token, options)
+    options = type(options) == "table" and options or {}
     local target_id = tonumber(target_npc_id)
     dbg("PANDA_IC: queue_f2f_handoff_attachment contact_id=%s target_npc_id=%s target_npc_name=%s",
         tostring(contact_id), tostring(target_npc_id), tostring(target_npc_name))
@@ -873,6 +924,10 @@ local function queue_f2f_handoff_attachment(contact_id, sender_npc_name, sender_
     local spot_id = add_map_spot_for_object_id(target_id, spot_type, marker_hint)
     dbg("PANDA_IC: queue_f2f_handoff_attachment spot_id=%s spot_type=%s",
         tostring(spot_id), tostring(spot_type))
+
+    if options.suppress_chat_attachment == true then
+        return spot_id
+    end
 
     pda_private_add_message(
         contact_id,
@@ -891,6 +946,8 @@ local function queue_f2f_handoff_attachment(contact_id, sender_npc_name, sender_
             map_spot_id = spot_id,
             map_spot_type = spot_type,
             location_name = target_name,
+            attachment_icon = options.attachment_icon or PDA_MARKER_TASK_ICON,
+            attachment_hover_icon = options.attachment_hover_icon or options.attachment_icon or PDA_MARKER_TASK_ICON,
             f2f_handoff_token = token,
             f2f_handoff_npc_id = target_id,
             skip_personality = true,
@@ -902,11 +959,13 @@ end
 
 -- Public wrapper so panda_f2f_bridge can drop the same handoff attachment
 -- (map pin + chat entry) when an F2F dialogue branches to a new NPC.
-function queue_f2f_handoff_attachment_public(contact_id, sender_npc_name, sender_icon, target_npc_id, target_npc_name, token)
+function queue_f2f_handoff_attachment_public(contact_id, sender_npc_name, sender_icon, target_npc_id, target_npc_name, token, options)
     dbg("PANDA_IC: queue_f2f_handoff_attachment_public entry contact_id=%s target_npc_id=%s",
         tostring(contact_id), tostring(target_npc_id))
-    return queue_f2f_handoff_attachment(contact_id, sender_npc_name, sender_icon, target_npc_id, target_npc_name, token)
+    return queue_f2f_handoff_attachment(contact_id, sender_npc_name, sender_icon, target_npc_id, target_npc_name, token, options)
 end
+
+pda_interactive_conv.queue_f2f_handoff_attachment_public = queue_f2f_handoff_attachment_public
 
 
 local function register_location_reference(location_ref, sender_npc_name, sender_npc_id, radius, sender_contact_id, opts)
@@ -6807,6 +6866,7 @@ consume_pending_f2f_handoff_internal = function(npc_id, conv_id, turn, token, se
     if pda_f2f_handoffs then
         for key, handoff in pairs(pda_f2f_handoffs) do
             if handoff_matches_target(handoff) then
+                remove_f2f_handoff_map_spot(handoff)
                 pda_f2f_handoffs[key] = nil
                 consumed = true
             elseif tonumber(handoff.npc_id) == npc_sid
@@ -6872,9 +6932,70 @@ consume_pending_f2f_handoff_internal = function(npc_id, conv_id, turn, token, se
 
     if consumed then
         remove_f2f_handoff_attachment(target_token, nil, npc_sid)
+        clear_private_map_nav_task()
     end
 
     return consumed
+end
+
+clear_f2f_handoff_marker_internal = function(npc_id, conv_id, turn, token, set_at)
+    local npc_sid = tonumber(npc_id)
+    if not npc_sid then
+        return false
+    end
+
+    local target_conv_id = tonumber(conv_id)
+    local target_turn = tonumber(turn)
+    local target_set_at = tonumber(set_at)
+    local target_token = token and tostring(token) or nil
+    local cleared = false
+
+    local function handoff_matches_target(handoff)
+        if type(handoff) ~= "table" then
+            return false
+        end
+
+        if tonumber(handoff.npc_id) ~= npc_sid then
+            return false
+        end
+
+        if target_token then
+            return tostring(handoff.token or "") == target_token
+        end
+
+        if target_set_at then
+            local handoff_set_at = tonumber(handoff.set_at)
+            return handoff_set_at ~= nil and handoff_set_at == target_set_at
+        end
+
+        if target_conv_id and tonumber(handoff.conv_id) ~= target_conv_id then
+            return false
+        end
+
+        if target_turn and tonumber(handoff.turn) ~= target_turn then
+            return false
+        end
+
+        return true
+    end
+
+    if pda_f2f_handoffs then
+        for _, handoff in pairs(pda_f2f_handoffs) do
+            if handoff_matches_target(handoff) and remove_f2f_handoff_map_spot(handoff) == true then
+                cleared = true
+            end
+        end
+    end
+
+    if remove_f2f_handoff_attachment(target_token, nil, npc_sid) > 0 then
+        cleared = true
+    end
+
+    if clear_private_map_nav_task() == true then
+        cleared = true
+    end
+
+    return cleared
 end
 
 build_savable_f2f_handoffs = function()
@@ -7267,6 +7388,10 @@ end
 
 function PANDA_CONV_API.consume_pending_f2f_handoff(npc_id, conv_id, turn, token, set_at)
     return consume_pending_f2f_handoff_internal(npc_id, conv_id, turn, token, set_at)
+end
+
+function PANDA_CONV_API.clear_f2f_handoff_marker(npc_id, conv_id, turn, token, set_at)
+    return clear_f2f_handoff_marker_internal(npc_id, conv_id, turn, token, set_at)
 end
 
 function PANDA_CONV_API.sweep_expired_f2f_markers(reason)

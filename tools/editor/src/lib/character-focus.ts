@@ -3,6 +3,7 @@ import type {
   Conversation,
   FactionId,
   NpcTemplate,
+  Outcome,
   PreconditionEntry,
   SimplePrecondition,
   Turn,
@@ -18,10 +19,23 @@ export type CharacterFocusEntry = {
   label: string;
   meta: string;
   branchCount: number;
+  usageCount: number;
   firstTurnNumber: number | null;
 };
 
 const storyNpcById = new Map(STORY_NPC_OPTIONS.map((option) => [option.value, option] as const));
+const CUSTOM_NPC_REF_PRECONDITIONS = new Set([
+  'req_custom_story_npc',
+  'req_custom_npc_alive',
+  'req_custom_npc_dead',
+  'req_custom_npc_near',
+]);
+const CUSTOM_NPC_REF_OUTCOMES = new Set([
+  'spawn_custom_npc',
+  'spawn_custom_npc_at',
+  'spawn_dead_custom_npc',
+  'spawn_dead_custom_npc_at',
+]);
 
 export function normalizeCharacterRef(value: string | undefined | null): FocusedCharacterRef | null {
   const raw = (value ?? '').trim();
@@ -58,6 +72,7 @@ export function collectConversationCharacters(
       kind,
       ...getCharacterDisplay(kind, id, npcTemplates),
       branchCount: matchingTurns.length,
+      usageCount: countCharacterUsages(conversation, ref),
       firstTurnNumber: matchingTurns[0]?.turnNumber ?? conversation.turns[0]?.turnNumber ?? null,
     };
   });
@@ -121,6 +136,7 @@ function collectPreconditionCharacterRef(entry: PreconditionEntry, refs: Set<Foc
     return;
   }
   if (entry.type === 'not') {
+    collectPreconditionCharacterRef(entry.inner, refs);
     return;
   }
   if (entry.type === 'any') {
@@ -136,7 +152,7 @@ function collectPreconditionCharacterRef(entry: PreconditionEntry, refs: Set<Foc
 
 function addSimplePreconditionRef(refs: Set<FocusedCharacterRef>, entry: SimplePrecondition): void {
   const value = entry.params[0];
-  if (entry.command === 'req_custom_story_npc') {
+  if (CUSTOM_NPC_REF_PRECONDITIONS.has(entry.command)) {
     const id = (value ?? '').trim();
     if (id) refs.add(`custom:${stripNpcPrefix(id)}`);
     return;
@@ -149,12 +165,97 @@ function addSimplePreconditionRef(refs: Set<FocusedCharacterRef>, entry: SimpleP
 function getConversationNpcRefs(conversation: Conversation): FocusedCharacterRef[] {
   const refs = new Set<FocusedCharacterRef>();
   for (const value of conversation.npc_refs ?? []) addNormalized(refs, value);
+  for (const turn of conversation.turns) {
+    for (const choice of turn.choices) {
+      for (const outcome of choice.outcomes) {
+        for (const ref of getOutcomeCharacterRefs(outcome)) refs.add(ref);
+      }
+    }
+  }
+  return [...refs];
+}
+
+function getOutcomeCharacterRefs(outcome: Outcome): FocusedCharacterRef[] {
+  const refs = new Set<FocusedCharacterRef>();
+  if (CUSTOM_NPC_REF_OUTCOMES.has(outcome.command)) {
+    addCustom(refs, outcome.params[0]);
+  }
+  if (outcome.command === 'panda_task_escort') {
+    if (outcome.params[4] === 'custom_npc') addCustom(refs, outcome.params[5]);
+    if (outcome.params[4] === 'story_npc') addNormalized(refs, outcome.params[5]);
+  }
+  if (outcome.command === 'panda_task_rescue') {
+    const survivorTemplate = outcome.params[3];
+    if (survivorTemplate && survivorTemplate !== 'random') addCustom(refs, survivorTemplate);
+  }
   return [...refs];
 }
 
 function addNormalized(refs: Set<FocusedCharacterRef>, value: string | undefined | null): void {
   const ref = normalizeCharacterRef(value);
   if (ref) refs.add(ref);
+}
+
+function addCustom(refs: Set<FocusedCharacterRef>, value: string | undefined | null): void {
+  const id = (value ?? '').trim();
+  if (!id) return;
+  refs.add(`custom:${stripNpcPrefix(id)}`);
+}
+
+function countCharacterUsages(conversation: Conversation, ref: FocusedCharacterRef): number {
+  let count = 0;
+  const bump = (value: string | undefined | null): void => {
+    if (normalizeCharacterRef(value) === ref) count += 1;
+  };
+  const bumpCustom = (value: string | undefined | null): void => {
+    const id = (value ?? '').trim();
+    if (id && `custom:${stripNpcPrefix(id)}` === ref) count += 1;
+  };
+  for (const value of new Set(conversation.npc_refs ?? [])) bump(value);
+  count += countPreconditionUsages(conversation.preconditions, ref);
+  for (const turn of conversation.turns) {
+    bump(turn.speaker_npc_id);
+    count += countPreconditionUsages(turn.preconditions, ref);
+    for (const choice of turn.choices) {
+      bump(choice.story_npc_id);
+      bump(choice.cont_npc_id);
+      count += countPreconditionUsages(choice.preconditions, ref);
+      for (const outcome of choice.outcomes) {
+        if (CUSTOM_NPC_REF_OUTCOMES.has(outcome.command)) bumpCustom(outcome.params[0]);
+        if (outcome.command === 'panda_task_escort') {
+          if (outcome.params[4] === 'custom_npc') bumpCustom(outcome.params[5]);
+          if (outcome.params[4] === 'story_npc') bump(outcome.params[5]);
+        }
+        if (outcome.command === 'panda_task_rescue') bumpCustom(outcome.params[3]);
+      }
+    }
+  }
+  return count;
+}
+
+function countPreconditionUsages(entries: readonly PreconditionEntry[] | undefined, ref: FocusedCharacterRef): number {
+  let count = 0;
+  for (const entry of entries ?? []) count += countPreconditionUsage(entry, ref);
+  return count;
+}
+
+function countPreconditionUsage(entry: PreconditionEntry, ref: FocusedCharacterRef): number {
+  if (entry.type === 'simple') {
+    if (entry.command === 'req_story_npc') return normalizeCharacterRef(entry.params[0]) === ref ? 1 : 0;
+    if (CUSTOM_NPC_REF_PRECONDITIONS.has(entry.command)) {
+      const id = (entry.params[0] ?? '').trim();
+      return id && `custom:${stripNpcPrefix(id)}` === ref ? 1 : 0;
+    }
+    return 0;
+  }
+  if (entry.type === 'not') return countPreconditionUsage(entry.inner, ref);
+  if (entry.type === 'any') {
+    return entry.options.reduce((total, option) => {
+      if (option.type === 'all') return total + countPreconditionUsages(option.entries, ref);
+      return total + countPreconditionUsage(option, ref);
+    }, 0);
+  }
+  return 0;
 }
 
 function stripNpcPrefix(value: string): string {

@@ -677,9 +677,11 @@ function pda_private_tab:UpdateHoverButtonTints()
             local icon = binding and binding.icon or nil
             local btn = binding and binding.btn or nil
             if icon and btn then
-                local target_tex = is_button_hovered(btn) and "panda_file_hover" or "panda_file"
+                local normal_tex = binding.normal_tex or "panda_file"
+                local hover_tex = binding.hover_tex or "panda_file_hover"
+                local target_tex = is_button_hovered(btn) and hover_tex or normal_tex
                 if binding.current_tex ~= target_tex then
-                    local applied_tex = try_set_texture(icon, target_tex, "panda_file")
+                    local applied_tex = try_set_texture(icon, target_tex, normal_tex)
                     binding.current_tex = applied_tex
                 end
             end
@@ -1582,7 +1584,7 @@ function pda_private_tab:NavigateToMapMarker(location_ref, map_spot_id, map_spot
             nav_task:set_id(nav_task_id)
             nav_task:set_title("PDA Attachment Marker")
             nav_task:set_description("Coordinates from PDA attachment")
-            nav_task:set_icon_name("ui_inGame2_PDA")
+            nav_task:set_icon_name("panda_marker_task")
             nav_task:set_priority(0)
             nav_task:set_type((task and task.insignificant) or (task and task.additional) or 2)
             nav_task:set_map_location("secondary_task_location")
@@ -2273,11 +2275,13 @@ function pda_private_tab:OnSelectNPC()
                 end
                 lane_root:AttachChild(attach_box_bg)
 
-                -- panda_file.dds icon
+                -- Attachment thumbnail icon
                 local icon_static = CUIStatic()
                 icon_static:SetWndPos(vector2():set(content_left + 10 + attach_box_pad, attach_box_y + attach_box_pad))
                 icon_static:SetWndSize(vector2():set(attach_icon_size, attach_icon_size))
-                try_set_texture(icon_static, "panda_file", "ui\\ui_noise")
+                local attachment_icon = entry.attachment_icon or "panda_file"
+                local attachment_hover_icon = entry.attachment_hover_icon or attachment_icon
+                try_set_texture(icon_static, attachment_icon, "panda_file")
                 icon_static:SetStretchTexture(true)
                 lane_root:AttachChild(icon_static)
 
@@ -2311,7 +2315,9 @@ function pda_private_tab:OnSelectNPC()
                 table.insert(self.map_attach_icon_bindings, {
                     icon = icon_static,
                     btn = map_btn,
-                    current_tex = "panda_file",
+                    normal_tex = attachment_icon,
+                    hover_tex = attachment_hover_icon,
+                    current_tex = attachment_icon,
                 })
 
                 style_message_lane(lane_root, lane_bg, false, row_idx)

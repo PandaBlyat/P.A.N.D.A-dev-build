@@ -26,6 +26,7 @@ import { renderBranchInlinePanel } from './BranchInlinePanel';
 import { parseOutcomeResumeTurnNumbers } from '../lib/outcome-branching';
 import { collectSegmentStartTurns as collectBranchSegmentStartTurns } from '../lib/branch-segments';
 import { turnMatchesCharacter } from '../lib/character-focus';
+import { createCharactersMenu } from './CharactersMenu';
 
 type TurnPositionMap = Map<number, { x: number; y: number }>;
 type EdgeKind = 'continue' | 'pause-success' | 'pause-fail';
@@ -1531,6 +1532,8 @@ function renderControls(options: {
   textButton.onclick = () => setAnnotationTool('text');
   annotationButtons.push(textButton);
 
+  const charactersMenu = createCharactersMenu();
+
   const annotationColor = document.createElement('input');
   annotationColor.type = 'color';
   annotationColor.className = 'flow-annotation-color';
@@ -1600,11 +1603,11 @@ function renderControls(options: {
   sizeInput.oninput = () => options.onSetCursorSize(Number(sizeInput.value));
 
   if (options.mobilePerformanceMode) {
-    controls.append(zoomOut, zoomIn, undo, redo, addBranch, drawButton, textButton, annotationColor, fit, authorMode, densitySelect);
+    controls.append(zoomOut, zoomIn, undo, redo, addBranch, charactersMenu, drawButton, textButton, annotationColor, fit, authorMode, densitySelect);
     return controls;
   }
 
-  controls.append(zoomOut, options.zoomValue, zoomIn, undo, redo, addBranch, drawButton, textButton, annotationColor, clearAnnotations, fit, reset, authorMode, densitySelect, cursorToggle, sizeInput);
+  controls.append(zoomOut, options.zoomValue, zoomIn, undo, redo, addBranch, charactersMenu, drawButton, textButton, annotationColor, clearAnnotations, fit, reset, authorMode, densitySelect, cursorToggle, sizeInput);
   return controls;
 }
 
