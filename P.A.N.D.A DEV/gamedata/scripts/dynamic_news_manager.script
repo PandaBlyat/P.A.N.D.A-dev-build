@@ -868,7 +868,7 @@ function DynamicNewsManager:PushToChannel(name,t,fifo) -- (name = faction , t = 
 	end
 end
 
-function DynamicNewsManager:FindSpeakerNoVictim(who,same_as_who,not_in_combat) -- Find a speaker ( [game_object] the guy of interest | [boolean] if true, speaker must be from guy's community | [boolean] if true, speaker must not be in combat )
+function DynamicNewsManager:FindSpeakerNoVictim(who,same_as_who,not_in_combat)
 	local comm_sender
 	local comm_who = who and character_community(who) or nil
 	local who_id = who and who:id() or nil
@@ -895,7 +895,7 @@ function DynamicNewsManager:FindSpeakerNoVictim(who,same_as_who,not_in_combat) -
 	return t[math.random(#t)]
 end
 
-function DynamicNewsManager:FindSpeaker(victim,who,same_as_victim,same_as_who,not_in_combat,can_see) -- Find a speaker ( [game_object] the victim | [game_object] the killer | [boolean] if true, speaker must be from victim's community | [boolean] if true, speaker must be from killer's community | [boolean] if true, speaker must not be in combat | [boolean] if true, speaker must see the victim )
+function DynamicNewsManager:FindSpeaker(victim,who,same_as_victim,same_as_who,not_in_combat,can_see)
 	local comm = character_community(victim)
 	local comm_sender
 	local comm_who = character_community(who)
@@ -927,7 +927,7 @@ function DynamicNewsManager:FindSpeaker(victim,who,same_as_victim,same_as_who,no
 	return t[math.random(#t)]
 end
 
-function DynamicNewsManager:FindSpeakerWithEnemy(victim,who,same_as_victim,same_as_who,can_see) -- Find a speaker under attack ( [game_object] the victim | [game_object] the killer | [boolean] if true, speaker must be from victim's community | [boolean] if true, speaker must be from killer's community | [boolean] if true, speaker must see the victim )
+function DynamicNewsManager:FindSpeakerWithEnemy(victim,who,same_as_victim,same_as_who,can_see)
 	local comm = character_community(victim)
 	local comm_sender
 	local comm_who = character_community(who)
@@ -957,7 +957,7 @@ function DynamicNewsManager:FindSpeakerWithEnemy(victim,who,same_as_victim,same_
 	return t[math.random(#t)]
 end
 
-function DynamicNewsManager:FindSpeakerRandom(not_in_combat,speaker_community) -- Find a random speaker ([boolean] if true, speaker must not be in combat | [string] if declared, speaker must belong to this community)
+function DynamicNewsManager:FindSpeakerRandom(not_in_combat,speaker_community)
 	local comm_sender
 	local t = {}
 	for i=1, #db.OnlineStalkers do
@@ -980,7 +980,7 @@ function DynamicNewsManager:FindSpeakerRandom(not_in_combat,speaker_community) -
 	return t[math.random(#t)]
 end
 
-function DynamicNewsManager:FindSpeakerAndTarget(not_in_combat,distance,speaker_community) -- Find a random speaker ([boolean] if true, speaker must not be in combat | [string] if declared, speaker must belong to this community)
+function DynamicNewsManager:FindSpeakerAndTarget(not_in_combat,distance,speaker_community)
 	local sender,target,comm_sender
 	local dis = distance or 300
 	local t1,t2 = {},{}
@@ -1044,7 +1044,7 @@ function DynamicNewsManager:FindSpeakerAndTarget(not_in_combat,distance,speaker_
 	return sender,target
 end
 
-function DynamicNewsManager:FindSpeakerAnywhere(natural_only,faction) -- Find a random speaker ([boolean] if true, speaker must not be in combat | [string] if declared, speaker must belong to this community)
+function DynamicNewsManager:FindSpeakerAnywhere(natural_only,faction)
 	
 	local t = {}
 	local size_t = 0

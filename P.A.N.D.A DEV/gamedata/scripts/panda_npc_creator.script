@@ -1,23 +1,7 @@
--- ============================================================
--- P.A.N.D.A. Custom NPC Creator
--- ============================================================
--- Handles on-demand spawning of author-defined NPC templates.
--- Templates are defined in XML string keys:
---   st_panda_npc_template_<id>
--- Pipe-separated key=value format:
---   name=Petrov|faction=stalker|rank=veteran|primary=wpn_val:r:0|...
---   spawn_mode=player|smart|smart_ref=<smart_key>
---
--- New outcome commands:
---   spawn_custom_npc:<template_id>[:<delay>]
---   spawn_custom_npc_at:<template_id>:<smart_ref>[:<delay>]
---
--- New preconditions:
---   req_custom_story_npc:<template_id>:<smart_ref>
---   req_custom_npc_alive:<template_id>
---   req_custom_npc_dead:<template_id>
---   req_custom_npc_near:<template_id>:<dist>
--- ============================================================
+-- Custom NPC creator. Templates live in XML strings keyed st_panda_npc_template_<id>
+-- (pipe-separated key=value: name|faction|rank|primary|secondary|outfit|spawn_mode|smart_ref|...).
+-- Outcomes:   spawn_custom_npc[:<delay>]   spawn_custom_npc_at:<template>:<smart_ref>[:<delay>]
+-- Preconds:   req_custom_story_npc:<template>:<smart_ref>   req_custom_npc_alive|dead|near
 
 local initialized = false
 panda_npc_creator = panda_npc_creator or {}
@@ -553,10 +537,7 @@ end
 
 install_engine_guards()
 
--- ============================================================
--- FACTION → SQUAD SECTION
--- ============================================================
-
+-- Faction → squad section mapping.
 local FACTION_SQUAD = {
     stalker  = "stalker_sim_squad_advanced",
     loner    = "stalker_sim_squad_advanced",
@@ -875,10 +856,7 @@ local function resolve_outfit_visual(faction, outfit_section)
     return visual
 end
 
--- ============================================================
--- TEMPLATE PARSING
--- ============================================================
-
+-- Template parsing.
 local function parse_template(template_id)
     if npc_templates[template_id] then
         return npc_templates[template_id]
@@ -3145,10 +3123,7 @@ local function schedule_online_loadout_activation(npc_id)
     end)
 end
 
--- ============================================================
--- SMART TERRAIN RESOLUTION (inlined to avoid local-function deps)
--- ============================================================
-
+-- Smart-terrain resolution.
 local function resolve_smart_terrain(smart_ref)
     if not smart_ref or smart_ref == "" then return nil end
     if not SIMBOARD or not SIMBOARD.get_smart_by_name then return nil end

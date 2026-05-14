@@ -3667,7 +3667,9 @@ local function build_dialog_tree(dialog, state)
         npc_open_phrase_id = nil
         npc_open_use_script_text = false
     elseif state.missing_turn_open then
-        npc_open_phrase_id = "[DEBUG] Missing conversation opening line."
+        -- Player-facing fallback when the conversation's opening turn is missing.
+        -- bridge_warn() below logs the real cause for content authors.
+        npc_open_phrase_id = "..."
         npc_open_use_script_text = false
         bridge_warn(
             "build_dialog_tree fallback reason=missing_turn_open conv_id=%s turn=%s preferred=%s fallback=%s",

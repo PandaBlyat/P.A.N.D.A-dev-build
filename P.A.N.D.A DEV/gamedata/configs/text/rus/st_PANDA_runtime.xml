@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="windows-1251"?>
+
+<!--===========================================================
+<
+<   P.A.N.D.A. — Runtime UI strings (PDA Private Messages tab)
+<
+<===========================================================-->
+
+<string_table>
+
+    <string id="st_pda_priv_just_now">
+        <text>Just now</text>
+    </string>
+    <string id="st_pda_priv_minute_ago">
+        <text>minute ago</text>
+    </string>
+    <string id="st_pda_priv_minutes_ago">
+        <text>minutes ago</text>
+    </string>
+    <string id="st_pda_priv_hour_ago">
+        <text>hour ago</text>
+    </string>
+    <string id="st_pda_priv_hours_ago">
+        <text>hours ago</text>
+    </string>
+    <string id="st_pda_priv_day_ago">
+        <text>day ago</text>
+    </string>
+    <string id="st_pda_priv_days_ago">
+        <text>days ago</text>
+    </string>
+    <string id="st_pda_priv_typing">
+        <text>Typing</text>
+    </string>
+
+</string_table>

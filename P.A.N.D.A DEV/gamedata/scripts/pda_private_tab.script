@@ -9,10 +9,8 @@ local function get_conv_api()
     return _G
 end
 
--- True while the game world is being torn down (quit-to-main-menu, load screen, etc.).
--- During this window, db.actor, level.*, and game.get_game_time() can return nil or
--- dangling C++ pointers; touching them from a CUIScriptWnd:Update tick crashes the
--- engine inside MainMenu::ReloadUI -> xrFactory_Create.
+-- Skip Update work during quit-to-main-menu / load: db.actor and level.* go nil
+-- mid-frame and any reach into them crashes inside MainMenu::ReloadUI.
 local function is_game_world_alive()
     if not (db and db.actor) then return false end
     local api = get_conv_api()
@@ -22,9 +20,6 @@ local function is_game_world_alive()
     return true
 end
 
--- Drops the cached CUIScriptWnd singleton so a fresh instance is built on the next
--- PDA open. Called on game-end to avoid carrying stale C++ widget references between
--- sessions.
 function reset_singleton()
     SINGLETON = nil
 end
@@ -979,8 +974,8 @@ function pda_private_tab:Update()
             self.typing_anim_phase = phase
             local relative_time = get_relative_time(self.typing_entry_data.timestamp, game.get_game_time())
             local dots = string.rep(".", phase)
-            local display_text = string.format("%%c[255,255,200,50]%s %%c[255,100,100,100][%s]\\n%%c[default]Typing%s",
-                self.typing_entry_data.sender, relative_time, dots)
+            local display_text = string.format("%%c[255,255,200,50]%s %%c[255,100,100,100][%s]\\n%%c[default]%s%s",
+                self.typing_entry_data.sender, relative_time, game.translate_string("st_pda_priv_typing"), dots)
             
             self.typing_text_wnd:SetText(display_text)
         end
@@ -1698,14 +1693,18 @@ function get_relative_time(timestamp_str, current_game_time)
     local diff_minutes = cur_minutes - msg_minutes
     if diff_minutes < 0 then diff_minutes = 0 end
     
-    if diff_minutes < 1 then return "Just now"
-    elseif diff_minutes < 60 then return string.format("%d minute%s ago", diff_minutes, diff_minutes == 1 and "" or "s")
+    if diff_minutes < 1 then return game.translate_string("st_pda_priv_just_now")
+    elseif diff_minutes < 60 then
+        local key = diff_minutes == 1 and "st_pda_priv_minute_ago" or "st_pda_priv_minutes_ago"
+        return string.format("%d %s", diff_minutes, game.translate_string(key))
     elseif diff_minutes < 1440 then
         local hours = math.floor(diff_minutes / 60)
-        return string.format("%d hour%s ago", hours, hours == 1 and "" or "s")
+        local key = hours == 1 and "st_pda_priv_hour_ago" or "st_pda_priv_hours_ago"
+        return string.format("%d %s", hours, game.translate_string(key))
     else
         local days = math.floor(diff_minutes / 1440)
-        return string.format("%d day%s ago", days, days == 1 and "" or "s")
+        local key = days == 1 and "st_pda_priv_day_ago" or "st_pda_priv_days_ago"
+        return string.format("%d %s", days, game.translate_string(key))
     end
 end
 
@@ -2224,12 +2223,7 @@ function pda_private_tab:OnSelectNPC()
         if (entry.contact_id or entry.contact_name or "Unknown") == item.contact_id then
             row_idx = row_idx + 1
 
-            -- ===================================================================
-            -- MAP ATTACHMENT LANE: Discord/WhatsApp-style file attachment bubble.
-            -- Rendered for entries where msg_type == "map_attachment".
-            -- Clicking the file icon navigates the PDA to the map tab and
-            -- highlights the referenced smart terrain location.
-            -- ===================================================================
+            -- Map attachment bubble: clicking jumps the PDA to the map tab on the smart.
             if entry.msg_type == "map_attachment" then
                 local attach_icon_size = 44
                 local attach_label_h   = 14
@@ -2347,7 +2341,7 @@ function pda_private_tab:OnSelectNPC()
 			if entry.is_typing then
 				local current_time = type(time_real_ms) == "function" and time_real_ms() or (os.clock() * 1000)
 				local phase = math.floor((current_time / 350) % 4)
-				body_text = "Typing" .. string.rep(".", phase)
+				body_text = game.translate_string("st_pda_priv_typing") .. string.rep(".", phase)
 			end
             local display_body_text, emoji_textures = strip_known_emoji_tokens(body_text)
 			local header_sender = is_player_lane and "You" or tostring(entry.sender or "Unknown")
