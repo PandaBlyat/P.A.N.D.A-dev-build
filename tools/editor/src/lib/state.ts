@@ -2197,14 +2197,48 @@ class StateManager {
     nextConversation.id = maxId + 1;
     nextConversation.faction = getConversationFaction(nextConversation, this.state.project.faction);
     nextConversation.language = nextConversation.language ?? this.state.uiLanguage;
-    nextConversation.turns.forEach((turn, index) => {
+    // Sort turns by turnNumber before renumbering. Wizard-generated stories
+    // are already normalized, but defensive: if the template was hand-built
+    // or merged from somewhere else, the array order may not match turnNumber.
+    // Without sorting, the index+1 assignment below silently corrupts any
+    // choice.continueTo and outcome turn-param references that still point
+    // to the OLD turnNumber — producing the "branch numbers not sequential"
+    // export error users were hitting.
+    const sortedTurns = [...nextConversation.turns].sort((a, b) => a.turnNumber - b.turnNumber);
+    const oldToNewTurnNumber = new Map<number, number>();
+    sortedTurns.forEach((turn, index) => {
+      oldToNewTurnNumber.set(turn.turnNumber, index + 1);
+    });
+    sortedTurns.forEach((turn, index) => {
       turn.turnNumber = index + 1;
-      turn.choices = turn.choices.map((choice, choiceIndex) => ({
-        ...choice,
-        index: choiceIndex + 1,
-      }));
+      turn.choices = turn.choices.map((choice, choiceIndex) => {
+        const next: Choice = { ...choice, index: choiceIndex + 1 };
+        if (next.continueTo != null) {
+          const mapped = oldToNewTurnNumber.get(next.continueTo);
+          if (mapped != null) next.continueTo = mapped;
+        }
+        if (next.outcomes && next.outcomes.length > 0) {
+          next.outcomes = next.outcomes.map((outcome) => {
+            const indices = getOutcomeResumeTurnParamIndices(outcome.command);
+            if (!indices) return outcome;
+            const params = [...outcome.params];
+            for (const paramIndex of [indices.successIndex, indices.failIndex, indices.timeoutIndex]) {
+              if (paramIndex < 0) continue;
+              const raw = params[paramIndex];
+              if (!raw) continue;
+              const parsed = Number.parseInt(raw, 10);
+              if (!Number.isFinite(parsed)) continue;
+              const mapped = oldToNewTurnNumber.get(parsed);
+              if (mapped != null) params[paramIndex] = String(mapped);
+            }
+            return { ...outcome, params };
+          });
+        }
+        return next;
+      });
       normalizeTurnEntryFlags(turn);
     });
+    nextConversation.turns = sortedTurns;
     const startTurn = nextConversation.turns.find((turn) => turn.turnNumber === 1);
     if (shouldCenterTemplateStartTurn(startTurn)) {
       const defaultPosition = getDefaultFlowTurnPosition(1);
@@ -2235,19 +2269,43 @@ class StateManager {
     this.pushUndo();
     const previousConversations = [...this.state.project.conversations];
     this.state.project.conversations = this.state.project.conversations.filter(c => c.id !== id);
+    // Build old→new ID map BEFORE renumbering so other state (metadata,
+    // collab session pointer) can be remapped consistently.
+    const oldToNewConversationId = new Map<number, number>();
+    let nextSequentialId = 1;
+    for (const conv of previousConversations) {
+      if (conv.id === id) continue;
+      oldToNewConversationId.set(conv.id, nextSequentialId++);
+    }
     this.state.project.conversations.forEach((c, i) => { c.id = i + 1; });
     const remappedMetadata = new Map<number, ConversationSourceMetadata>();
-    previousConversations
-      .filter(conversation => conversation.id !== id)
-      .forEach((conversation, index) => {
-        const metadata = this.state.conversationSourceMetadata.get(conversation.id);
-        if (metadata) remappedMetadata.set(index + 1, metadata);
-      });
+    for (const [oldId, metadata] of this.state.conversationSourceMetadata) {
+      const newId = oldToNewConversationId.get(oldId);
+      if (newId != null) remappedMetadata.set(newId, metadata);
+    }
     this.state.conversationSourceMetadata = remappedMetadata;
     if (this.state.selectedConversationId === id) {
       this.state.selectedConversationId = this.state.project.conversations.length > 0
         ? this.state.project.conversations[0].id : null;
       this.clearSelection({ notify: false });
+    } else if (this.state.selectedConversationId != null) {
+      const mappedSelected = oldToNewConversationId.get(this.state.selectedConversationId);
+      if (mappedSelected != null) this.state.selectedConversationId = mappedSelected;
+    }
+    // Keep the collab session pointer in sync with the renumbered IDs.
+    // Without this, deleting a conversation made the collab tab show whatever
+    // local story now occupied the old collab ID — and the user could not
+    // get rid of the orphan collab tab without ending the session.
+    const collabConvId = this.state.collab.conversationId;
+    if (collabConvId != null) {
+      if (collabConvId === id) {
+        this.state.collab = createEmptyCollabState();
+      } else {
+        const mappedCollab = oldToNewConversationId.get(collabConvId);
+        if (mappedCollab != null && mappedCollab !== collabConvId) {
+          this.state.collab = { ...this.state.collab, conversationId: mappedCollab };
+        }
+      }
     }
     this.finishProjectMutation({ change: CONVERSATION_STRUCTURE_RENDER });
   }

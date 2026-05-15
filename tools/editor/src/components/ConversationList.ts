@@ -17,6 +17,10 @@ import { createUiText } from '../lib/ui-language';
 type ConversationListTab = 'local' | 'collabs';
 
 let activeConversationListTab: ConversationListTab = 'local';
+// Track the conversation we last auto-switched tabs for. The tab only follows
+// the selection when it CHANGES — once the user clicks a tab button, render
+// passes leave activeConversationListTab alone so the click sticks.
+let lastAutoSwitchedConversationId: number | null | undefined = undefined;
 
 export function centerConversationSelection(conversationId: number): void {
   const currentState = store.get();
@@ -58,8 +62,16 @@ export function renderConversationList(container: HTMLElement): void {
     collabIds.add(state.collab.conversationId);
   }
   const hasCollabTab = collabIds.size > 0;
-  const selectedIsCollab = state.selectedConversationId != null && collabIds.has(state.selectedConversationId);
-  activeConversationListTab = hasCollabTab && selectedIsCollab ? 'collabs' : activeConversationListTab;
+  // Auto-switch the tab to match the selected conversation, but only when the
+  // selection actually changes. Previously every render force-set the tab to
+  // 'collabs' whenever the selected story was a collab, which made the Local
+  // tab button do nothing while editing a collab story.
+  if (state.selectedConversationId !== lastAutoSwitchedConversationId) {
+    lastAutoSwitchedConversationId = state.selectedConversationId;
+    if (state.selectedConversationId != null) {
+      activeConversationListTab = collabIds.has(state.selectedConversationId) ? 'collabs' : 'local';
+    }
+  }
   if (!hasCollabTab) activeConversationListTab = 'local';
 
   if (convs.length === 0) {
