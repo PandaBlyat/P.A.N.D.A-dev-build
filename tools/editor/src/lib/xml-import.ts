@@ -720,14 +720,18 @@ export function importXml(xmlText: string): { project: Project; systemStrings: M
     }
   }
 
-  // Parse NPC templates authored via the editor (st_panda_npc_template_<id>)
-  const npcTemplates: NpcTemplate[] = [];
+  // Parse NPC templates authored via the editor (st_panda_npc_template_<id>).
+  // Dedupe by id (last occurrence wins) so XMLs that already contain
+  // duplicate template entries don't carry them into the project array.
+  const npcTemplatesById = new Map<string, NpcTemplate>();
   for (const [key, value] of strings) {
     const match = /^st_panda_npc_template_(.+)$/.exec(key);
     if (match && match[1]) {
-      npcTemplates.push(decodeNpcTemplate(match[1], value));
+      const decoded = decodeNpcTemplate(match[1], value);
+      npcTemplatesById.set(decoded.id, decoded);
     }
   }
+  const npcTemplates: NpcTemplate[] = [...npcTemplatesById.values()];
 
   const importedProject = migrateLegacyF2FEntryOpenings({
     version: '2.0.0',

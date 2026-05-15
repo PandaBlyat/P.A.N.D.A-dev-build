@@ -541,35 +541,58 @@ install_engine_guards()
 local FACTION_SQUAD = {
     stalker  = "stalker_sim_squad_advanced",
     loner    = "stalker_sim_squad_advanced",
-    freedom  = "mil_freedom_squad_advanced",
-    duty     = "bar_dolg_squad_advanced",
-    dolg     = "bar_dolg_squad_advanced",
-    bandit   = "val_bandit_squad_advanced",
-    military = "agr_army_squad_advanced",
-    army     = "agr_army_squad_advanced",
-    ecolog   = "yan_stalker_squad_advanced",
-    cska     = "cska_sim_squad_advanced",
+    freedom  = "freedom_sim_squad_advanced",
+    duty     = "dolg_sim_squad_advanced",
+    dolg     = "dolg_sim_squad_advanced",
+    bandit   = "bandit_sim_squad_advanced",
+    military = "army_sim_squad_advanced",
+    army     = "army_sim_squad_advanced",
+    ecolog   = "ecolog_sim_squad_advanced",
+    cska     = "csky_sim_squad_advanced",
+    csky     = "csky_sim_squad_advanced",
     isg      = "isg_sim_squad_advanced",
-    merc     = "cit_killers_squad_advanced",
-    killer   = "cit_killers_squad_advanced",
-    monolith = "sim_monolith_squad",
-    renegade = "val_bandit_squad_advanced",
+    merc     = "merc_sim_squad_advanced",
+    killer   = "killer_sim_squad_advanced",
+    monolith = "monolith_sim_squad_advanced",
+    renegade = "renegade_sim_squad_advanced",
+    greh     = "greh_sim_squad_advanced",
+    zombied  = "zombied_sim_squad_advanced",
+    -- Faction aliases that previously crashed because of bogus section names:
+    --   mil_freedom_squad_advanced, bar_dolg_squad_advanced,
+    --   val_bandit_squad_advanced, agr_army_squad_advanced,
+    --   yan_stalker_squad_advanced, cska_sim_squad_advanced,
+    --   cit_killers_squad_advanced, sim_monolith_squad
+    -- None of those exist in vanilla; all mapped to *_sim_squad_advanced above.
 }
 
+local SQUAD_TIER_SUFFIXES = { "_sim_squad_advanced", "_squad_advanced", "_sim_squad_novice", "_sim_squad" }
+
+local function section_exists(section)
+    return section ~= nil
+        and ini_sys ~= nil
+        and ini_sys.section_exist ~= nil
+        and ini_sys:section_exist(section)
+end
+
 local function get_squad_section(faction)
-    if not faction then return "stalker_sim_squad_advanced" end
+    local fallback = "stalker_sim_squad_advanced"
+    if not faction then return fallback end
     local fac = string.lower(tostring(faction))
-    if FACTION_SQUAD[fac] then return FACTION_SQUAD[fac] end
-    -- Try generic construction
-    local tiers = { "_sim_squad_advanced", "_squad_advanced", "_sim_squad_novice" }
-    for _, t in ipairs(tiers) do
+    local mapped = FACTION_SQUAD[fac]
+    if mapped and section_exists(mapped) then
+        return mapped
+    end
+    if mapped then
+        printf("PANDA_NPC: configured squad section '%s' for faction '%s' is missing; falling back", tostring(mapped), fac)
+    end
+    for _, t in ipairs(SQUAD_TIER_SUFFIXES) do
         local s = fac .. t
-        if ini_sys and ini_sys:section_exist(s) then
+        if section_exists(s) then
             return s
         end
     end
     printf("PANDA_NPC: no squad section for faction '%s', using stalker fallback", fac)
-    return "stalker_sim_squad_advanced"
+    return fallback
 end
 
 local function get_single_member_spawn_section(squad_section)

@@ -1787,6 +1787,13 @@ class StateManager {
         }),
       })),
     };
+    if (this.state.project.npcTemplates && this.state.project.npcTemplates.length > 0) {
+      const deduped = new Map<string, NpcTemplate>();
+      for (const template of this.state.project.npcTemplates) deduped.set(template.id, template);
+      if (deduped.size !== this.state.project.npcTemplates.length) {
+        this.state.project = { ...this.state.project, npcTemplates: [...deduped.values()] };
+      }
+    }
     this.state.systemStrings = systemStrings;
     this.state.selectedConversationId = sanitizedProject.conversations.length > 0 ? sanitizedProject.conversations[0].id : null;
     this.clearSelection({ notify: false });
