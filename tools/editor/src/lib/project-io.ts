@@ -8,6 +8,7 @@ import { FACTION_XML_KEYS, getConversationFaction } from './types';
 import type { UiLanguage } from './ui-language';
 import { migrateLegacyF2FEntryOpenings } from './f2f-entry-migration';
 import { buildValidationSummary, splitValidationMessages } from './validation-gate';
+import { collectConversationCharacters } from './character-focus';
 
 export function createBlankProject(): void {
   store.addConversation();
@@ -80,7 +81,25 @@ export function exportXml(): void {
     cloned.language = language;
     mergedProject.conversations = [cloned];
     if (state.project.npcTemplates?.length) {
-      mergedProject.npcTemplates = structuredClone(state.project.npcTemplates);
+      // Only export NPC templates that the selected story actually references,
+      // deduped by id. Avoids leaking unrelated custom NPCs from other stories
+      // into a single-story export, and avoids duplicate template entries.
+      const usedTemplateIds = new Set(
+        collectConversationCharacters(selectedConversation, state.project.npcTemplates)
+          .filter((entry) => entry.kind === 'custom')
+          .map((entry) => entry.id),
+      );
+      if (usedTemplateIds.size > 0) {
+        const uniqueTemplates = new Map<string, typeof state.project.npcTemplates[number]>();
+        for (const template of state.project.npcTemplates) {
+          if (usedTemplateIds.has(template.id)) {
+            uniqueTemplates.set(template.id, template);
+          }
+        }
+        if (uniqueTemplates.size > 0) {
+          mergedProject.npcTemplates = structuredClone([...uniqueTemplates.values()]);
+        }
+      }
     }
 
     const xml = generateXml(mergedProject, state.systemStrings, undefined, exporterConfig, language);

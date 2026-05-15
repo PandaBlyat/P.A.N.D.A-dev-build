@@ -582,12 +582,22 @@ export function generateXml(
 
   // NPC Templates (authored via the editor NPC builder)
   if (project.npcTemplates && project.npcTemplates.length > 0) {
-    lines.push('    <!-- ═══ NPC TEMPLATES ═══ -->');
-    lines.push('    <!-- Edit these via the "Spawn Custom NPC" outcome in the editor. -->');
+    // Dedupe by template id — last occurrence wins. Prevents duplicate
+    // <string id="st_panda_npc_template_X"> entries when the project array
+    // has multiple records with the same id (e.g. from importing an XML
+    // that already contained duplicates).
+    const uniqueTemplates = new Map<string, NpcTemplate>();
     for (const template of project.npcTemplates) {
-      lines.push(emitString(`st_panda_npc_template_${template.id}`, encodeNpcTemplate(template)));
+      uniqueTemplates.set(template.id, template);
     }
-    lines.push('');
+    if (uniqueTemplates.size > 0) {
+      lines.push('    <!-- ═══ NPC TEMPLATES ═══ -->');
+      lines.push('    <!-- Edit these via the "Spawn Custom NPC" outcome in the editor. -->');
+      for (const template of uniqueTemplates.values()) {
+        lines.push(emitString(`st_panda_npc_template_${template.id}`, encodeNpcTemplate(template)));
+      }
+      lines.push('');
+    }
   }
 
   // Conversations (sorted by ID to maintain sequential order)
