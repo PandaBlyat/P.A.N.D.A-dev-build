@@ -1823,11 +1823,11 @@ function renderChoiceProperties(
   const fanoutField = document.createElement('div');
   fanoutField.className = 'field';
   const fanoutLabel = document.createElement('label');
-  fanoutLabel.textContent = 'Mutual-exclusion fan-out (extra NPCs)';
+  fanoutLabel.textContent = t('properties.choice.fanout.title');
   fanoutField.appendChild(fanoutLabel);
   const fanoutHint = document.createElement('div');
   fanoutHint.className = 'field-hint';
-  fanoutHint.textContent = 'Send this continuation to additional NPCs in parallel. The player can only engage one — replying in any thread silently disables the siblings’ follow-ups.';
+  fanoutHint.textContent = t('properties.choice.fanout.help');
   fanoutField.appendChild(fanoutHint);
 
   const fanoutList = document.createElement('div');
@@ -1837,7 +1837,7 @@ function renderChoiceProperties(
     const noPrimaryHint = document.createElement('div');
     noPrimaryHint.className = 'field-hint';
     noPrimaryHint.style.color = '#d97706';
-    noPrimaryHint.textContent = 'Set a primary continuation above first — fan-out siblings only fire when the choice has a primary continuation.';
+    noPrimaryHint.textContent = t('properties.choice.fanout.noPrimary');
     fanoutList.appendChild(noPrimaryHint);
   }
   fanoutTargets.forEach((target, idx) => {
@@ -1873,13 +1873,13 @@ function renderChoiceProperties(
     const turnRow = document.createElement('div');
     const turnLbl = document.createElement('div');
     turnLbl.className = 'field-hint';
-    turnLbl.textContent = 'Branch that NPC delivers';
+    turnLbl.textContent = t('properties.choice.fanout.branch.title');
     turnRow.appendChild(turnLbl);
     const turnSelect = document.createElement('select');
     turnSelect.className = 'inspector-select';
     const placeholder = document.createElement('option');
     placeholder.value = '';
-    placeholder.textContent = '— pick a branch —';
+    placeholder.textContent = t('properties.choice.fanout.branch.placeholder');
     placeholder.selected = target.continueTo == null;
     turnSelect.appendChild(placeholder);
     for (const candidate of conv.turns) {
@@ -1904,7 +1904,7 @@ function renderChoiceProperties(
     const delayRow = document.createElement('div');
     const delayLbl = document.createElement('div');
     delayLbl.className = 'field-hint';
-    delayLbl.textContent = 'PDA delivery delay (seconds, optional)';
+    delayLbl.textContent = t('properties.choice.fanout.delay.title');
     delayRow.appendChild(delayLbl);
     const delayInput = document.createElement('input');
     delayInput.type = 'number';
@@ -1929,8 +1929,8 @@ function renderChoiceProperties(
     const removeBtn = document.createElement('button');
     removeBtn.type = 'button';
     removeBtn.className = 'btn-sm';
-    removeBtn.textContent = 'Remove';
-    removeBtn.title = 'Remove this fan-out sibling';
+    removeBtn.textContent = t('properties.choice.fanout.remove');
+    removeBtn.title = t('properties.choice.fanout.remove.tooltip');
     removeBtn.onclick = () => {
       store.removeChoiceFanoutTarget(conv.id, turn.turnNumber, choice.index, idx);
     };
@@ -1943,8 +1943,8 @@ function renderChoiceProperties(
   addFanoutBtn.type = 'button';
   addFanoutBtn.className = 'btn-sm';
   addFanoutBtn.style.marginTop = '6px';
-  addFanoutBtn.textContent = '+ Add fan-out NPC';
-  addFanoutBtn.title = 'Queue another NPC to receive this continuation in parallel';
+  addFanoutBtn.textContent = t('properties.choice.fanout.add');
+  addFanoutBtn.title = t('properties.choice.fanout.add.tooltip');
   addFanoutBtn.onclick = () => {
     store.addChoiceFanoutTarget(conv.id, turn.turnNumber, choice.index);
   };
