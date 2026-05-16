@@ -24,7 +24,7 @@ import { pathBelongsToTurn } from '../lib/collab-protocol';
 import { STORY_NPC_OPTIONS } from '../lib/generated/story-npc-catalog';
 import { renderBranchInlinePanel } from './BranchInlinePanel';
 import { parseOutcomeResumeTurnNumbers } from '../lib/outcome-branching';
-import { collectSegmentStartTurns as collectBranchSegmentStartTurns } from '../lib/branch-segments';
+import { collectSegmentStartTurns as collectBranchSegmentStartTurns, isTurnOpenerActive } from '../lib/branch-segments';
 import { turnMatchesCharacter } from '../lib/character-focus';
 import { createCharactersMenu } from './CharactersMenu';
 
@@ -2287,7 +2287,7 @@ function renderLiteTurnNode(options: RenderTurnNodeOptions): HTMLElement {
   const branchColor = getBranchColor(turn, turnIndex, factionColor);
   const label = turnLabels.getLongLabel(turn.turnNumber);
   const nodeWidth = Math.max(170, Math.min(260, getFlowNodeWidthForLabel(label, density) + 18));
-  const showOpener = segmentStartTurns.has(turn.turnNumber);
+  const showOpener = isTurnOpenerActive(turn, segmentStartTurns.has(turn.turnNumber));
 
   const node = document.createElement('div');
   node.className = 'turn-node turn-node-lite'
@@ -2497,7 +2497,7 @@ function renderTurnNode(options: RenderTurnNodeOptions): HTMLElement {
     && branchInlinePanel.conversationId === conv.id
     && branchInlinePanel.turnNumber === turn.turnNumber,
   );
-  const showOpener = segmentStartTurns.has(turn.turnNumber);
+  const showOpener = isTurnOpenerActive(turn, segmentStartTurns.has(turn.turnNumber));
 
   const node = document.createElement('div');
 

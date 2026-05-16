@@ -109,3 +109,15 @@ export function collectSegmentStartTurns(conv: Conversation): Set<number> {
 
   return segmentStarts;
 }
+
+/**
+ * Resolves the effective opener-enabled state for a turn.
+ * `openerEnabled` is the authoritative author choice; `undefined` (only seen on
+ * freshly-created in-memory turns before normalization) falls back to the legacy
+ * segment-start rule so callers always get a concrete boolean.
+ */
+export function isTurnOpenerActive(turn: Turn, isSegmentStart: boolean): boolean {
+  if (turn.openerEnabled === true) return true;
+  if (turn.openerEnabled === false) return false;
+  return isSegmentStart;
+}

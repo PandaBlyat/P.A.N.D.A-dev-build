@@ -18,7 +18,7 @@ import {
 } from '../lib/validation';
 import { requestFlowCenter } from '../lib/flow-navigation';
 import { STORY_NPC_OPTIONS } from '../lib/generated/story-npc-catalog';
-import { choiceRequiresContinuationOpener } from '../lib/branch-segments';
+import { choiceRequiresContinuationOpener, collectSegmentStartTurns, isTurnOpenerActive } from '../lib/branch-segments';
 import { isCheckOutcomeCommand, parseOutcomeResumeTurnNumbers } from '../lib/outcome-branching';
 import {
   CORE_DIALOGUE_STATS,
@@ -282,34 +282,63 @@ function renderDialoguePanel(container: HTMLElement, conv: Conversation, turn: T
     ),
   ));
   if (!choice) {
-    textPane.appendChild(createTextarea({
-      label: ui('NPC Opener Message', 'Сообщение-открытие NPC'),
-      value: turn.openingMessage ?? '',
-      placeholder: ui('NPC opening line for this branch', 'Начальная реплика NPC для этой ветки'),
-      fieldKey: getTurnFieldKey(conv.id, turn.turnNumber, 'opening-message'),
-      onCommit: (value) => store.updateTurn(conv.id, turn.turnNumber, { openingMessage: value }),
-    }));
-    textPane.appendChild(createTextInput({
-      label: ui('Opener DDS Image', 'DDS картинка-открытие'),
-      value: turn.openingImage ?? '',
-      placeholder: 'panda_file',
-      fieldKey: getTurnFieldKey(conv.id, turn.turnNumber, 'opening-image'),
-      onCommit: (value) => store.updateTurn(conv.id, turn.turnNumber, { openingImage: value.trim() || undefined }),
-    }));
-    textPane.appendChild(createTextInput({
-      label: ui('Opener Audio', 'Аудио-открытие'),
-      value: turn.openingAudio ?? '',
-      placeholder: 'message_ping',
-      description: ui('sound filename under gamedata/sounds/panda/audio', 'имя файла звука в gamedata/sounds/panda/audio'),
-      fieldKey: getTurnFieldKey(conv.id, turn.turnNumber, 'opening-audio'),
-      onCommit: (value) => store.updateTurn(conv.id, turn.turnNumber, { openingAudio: value.trim() || undefined }),
-    }));
-    wrapPreviousInlineChildren(textPane, 2, {
-      key: `branch-inline-media-${conv.id}-${turn.turnNumber}-opener`,
-      title: ui('Media Options', 'Настройки медиа'),
-      summary: formatMediaSummary(turn.openingImage, turn.openingAudio, ui),
-      defaultCollapsed: true,
-    });
+    const isSegmentStart = collectSegmentStartTurns(conv).has(turn.turnNumber);
+    const openerEnabled = isTurnOpenerActive(turn, isSegmentStart);
+    const openerToggleField = document.createElement('label');
+    openerToggleField.className = 'branch-inline-field';
+    const openerToggleLabel = document.createElement('span');
+    openerToggleLabel.textContent = ui('Send NPC Opener Message', 'Отправлять начальную реплику NPC');
+    const openerToggleInput = document.createElement('input');
+    openerToggleInput.type = 'checkbox';
+    openerToggleInput.checked = openerEnabled;
+    openerToggleInput.setAttribute('data-field-key', getTurnFieldKey(conv.id, turn.turnNumber, 'opener-enabled'));
+    openerToggleInput.onchange = () => store.updateTurn(conv.id, turn.turnNumber, { openerEnabled: openerToggleInput.checked });
+    const hintText = isSegmentStart
+      ? ui(
+        'Entry / channel-switch / NPC-handoff branches start a new conversation, so the opener is on by default. Turn off only if you want this segment to begin silently.',
+        'Ветки начала диалога / смены канала / передачи новому NPC по умолчанию отправляют начальную реплику. Выключайте, только если хотите, чтобы сегмент начинался без сообщения.',
+      )
+      : ui(
+        'Continuation branches stay silent by default. Turn on if you want this branch to send an extra NPC message on entry.',
+        'Продолжения по умолчанию идут без сообщения. Включите, если хотите, чтобы эта ветка отправляла дополнительное сообщение NPC при входе.',
+      );
+    openerToggleField.append(
+      openerToggleLabel,
+      openerToggleInput,
+      createHint(hintText),
+    );
+    textPane.appendChild(openerToggleField);
+
+    if (openerEnabled) {
+      textPane.appendChild(createTextarea({
+        label: ui('NPC Opener Message', 'Сообщение-открытие NPC'),
+        value: turn.openingMessage ?? '',
+        placeholder: ui('NPC opening line for this branch', 'Начальная реплика NPC для этой ветки'),
+        fieldKey: getTurnFieldKey(conv.id, turn.turnNumber, 'opening-message'),
+        onCommit: (value) => store.updateTurn(conv.id, turn.turnNumber, { openingMessage: value }),
+      }));
+      textPane.appendChild(createTextInput({
+        label: ui('Opener DDS Image', 'DDS картинка-открытие'),
+        value: turn.openingImage ?? '',
+        placeholder: 'panda_file',
+        fieldKey: getTurnFieldKey(conv.id, turn.turnNumber, 'opening-image'),
+        onCommit: (value) => store.updateTurn(conv.id, turn.turnNumber, { openingImage: value.trim() || undefined }),
+      }));
+      textPane.appendChild(createTextInput({
+        label: ui('Opener Audio', 'Аудио-открытие'),
+        value: turn.openingAudio ?? '',
+        placeholder: 'message_ping',
+        description: ui('sound filename under gamedata/sounds/panda/audio', 'имя файла звука в gamedata/sounds/panda/audio'),
+        fieldKey: getTurnFieldKey(conv.id, turn.turnNumber, 'opening-audio'),
+        onCommit: (value) => store.updateTurn(conv.id, turn.turnNumber, { openingAudio: value.trim() || undefined }),
+      }));
+      wrapPreviousInlineChildren(textPane, 2, {
+        key: `branch-inline-media-${conv.id}-${turn.turnNumber}-opener`,
+        title: ui('Media Options', 'Настройки медиа'),
+        summary: formatMediaSummary(turn.openingImage, turn.openingAudio, ui),
+        defaultCollapsed: true,
+      });
+    }
     textPane.appendChild(createChannelControls(conv, turn));
     if (turn.turnNumber === 1) {
       const repeatableField = document.createElement('label');

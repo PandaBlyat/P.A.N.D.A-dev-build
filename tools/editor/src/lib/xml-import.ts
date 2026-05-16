@@ -675,6 +675,9 @@ export function importXml(xmlText: string): { project: Project; systemStrings: M
     const turn1: Turn = {
       turnNumber: 1,
       openingMessage: strings.get(openKey) || '',
+      openerEnabled: (strings.has(openKey)
+        || strings.has(`${prefix}_open_image`)
+        || strings.has(`${prefix}_open_audio`)) ? true : undefined,
       speaker_npc_id: strings.get(`${prefix}_npc`)?.trim() || undefined,
       speaker_npc_faction_filters: parseFactionList(strings.get(`${prefix}_npc_factions`)),
       speaker_allow_generic_stalker: parseBoolString(strings.get(`${prefix}_npc_allow_generic`)),
@@ -698,6 +701,9 @@ export function importXml(xmlText: string): { project: Project; systemStrings: M
       const turn: Turn = {
         turnNumber: turnNum,
         openingMessage: strings.get(`${prefix}${turnInfix}_open`) || '',
+        openerEnabled: (strings.has(`${prefix}${turnInfix}_open`)
+          || strings.has(`${prefix}${turnInfix}_open_image`)
+          || strings.has(`${prefix}${turnInfix}_open_audio`)) ? true : undefined,
         speaker_npc_id: strings.get(`${prefix}${turnInfix}_npc`)?.trim() || undefined,
         speaker_npc_faction_filters: parseFactionList(strings.get(`${prefix}${turnInfix}_npc_factions`)),
         speaker_allow_generic_stalker: parseBoolString(strings.get(`${prefix}${turnInfix}_npc_allow_generic`)),

@@ -558,6 +558,8 @@ function shouldDisplayOpeningMessage(turn: Conversation['turns'][number]): boole
   if (!simState) return false;
   if (simState.mode === 'author') return true;
   if (simState.mode === 'authoring-raw') return true;
+  if (turn.openerEnabled === false) return false;
+  if (turn.openerEnabled === true) return true;
   return isEntryTurn(turn);
 }
 

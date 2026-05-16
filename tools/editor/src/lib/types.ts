@@ -146,6 +146,13 @@ export interface InvalidPrecondition {
 export interface Turn {
   turnNumber: number;
   openingMessage?: string;
+  /**
+   * Explicit toggle controlling whether this turn emits an NPC opener message at runtime.
+   * `true` → opener is always shown/exported. `false` → opener is suppressed, even on
+   * segment-start turns. `undefined` is only valid for newly-created in-memory turns and
+   * is normalized to a concrete boolean by `loadProject` / project import.
+   */
+  openerEnabled?: boolean;
   /** Story/custom NPC id that owns this branch when reached directly or by job resume. */
   speaker_npc_id?: string;
   /** Factions used when this branch should be delivered by any simulated NPC. */

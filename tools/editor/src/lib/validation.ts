@@ -94,7 +94,7 @@ const NESTED_PRECONDITION_UNSUPPORTED_COMMANDS = new Set([
 ]);
 
 type ConversationField = 'label' | 'initial-channel' | 'start-mode' | 'repeatable' | 'storyline-id' | 'timeout' | 'timeout-message' | 'preconditions';
-type TurnField = 'opening-message' | 'opening-image' | 'opening-audio' | 'speaker-npc-id' | 'channel' | 'pda-entry' | 'f2f-entry' | 'requires-npc-first' | 'first-speaker';
+type TurnField = 'opening-message' | 'opening-image' | 'opening-audio' | 'opener-enabled' | 'speaker-npc-id' | 'channel' | 'pda-entry' | 'f2f-entry' | 'requires-npc-first' | 'first-speaker';
 type ChoiceField =
   | 'text'
   | 'reply'
@@ -1224,7 +1224,7 @@ function validateOutcome(
       const refTurn = parseStrictInteger(outcome.params[idx]);
       if (refTurn == null) continue;
       const branchTurn = conv.turns.find(t => t.turnNumber === refTurn);
-      if (branchTurn && (!branchTurn.openingMessage || branchTurn.openingMessage.trim().length === 0)) {
+      if (branchTurn && branchTurn.openerEnabled !== false && (!branchTurn.openingMessage || branchTurn.openingMessage.trim().length === 0)) {
         pushMessage(messages, {
           code: 'check-blank-branch-opener',
           group: 'logic',
@@ -1936,6 +1936,7 @@ function validateConversationF2FAndChannelFlow(conv: Conversation, messages: Val
   for (const turnNumber of requiredSegmentOpeningTurns) {
     const turn = turnByNumber.get(turnNumber);
     if (!turn) continue;
+    if (turn.openerEnabled === false) continue;
     if ((turn.openingMessage ?? '').trim() !== '') continue;
 
     pushMessage(messages, {
