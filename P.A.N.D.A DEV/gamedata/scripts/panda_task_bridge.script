@@ -629,28 +629,45 @@ local function all_squads_dead(squad_ids)
     for _, squad_id in ipairs(squad_ids) do
         local squad = alife_object and alife_object(squad_id) or nil
         if squad then
-            local saw_any_member = false
-            for member in squad:squad_members() do
-                saw_any_member = true
-                local obj = level and level.object_by_id and level.object_by_id(member.id) or nil
-                if obj and obj:alive() then
+            -- sim_squad_scripted releases the alife object once npc_count()
+            -- reaches zero, but there are a few ticks of overlap where the
+            -- squad still exists with no live members. Trust npc_count() as
+            -- the authoritative wipe signal so eliminate/rescue tasks finish
+            -- the moment the last member dies, instead of waiting for the
+            -- alife release (or stalling forever when the iterator yields
+            -- nothing for a dead-but-not-yet-released squad).
+            local count_ok, count = false, nil
+            if type(squad.npc_count) == "function" then
+                count_ok, count = pcall(squad.npc_count, squad)
+            end
+            if count_ok and type(count) == "number" then
+                if count > 0 then
                     return false
                 end
-
-                if not obj then
-                    local se_member = alife_object and alife_object(member.id) or nil
-                    if se_member then
+            else
+                local saw_any_member = false
+                for member in squad:squad_members() do
+                    saw_any_member = true
+                    local obj = level and level.object_by_id and level.object_by_id(member.id) or nil
+                    if obj and obj:alive() then
                         return false
                     end
-                end
-            end
 
-            -- Squad alife object exists but member iterator yielded nothing.
-            -- This happens right after spawn while the squad is still binding members,
-            -- or for offline squads whose members haven't synced yet. Treat as alive
-            -- so the task is not falsely auto-completed.
-            if not saw_any_member then
-                return false
+                    if not obj then
+                        local se_member = alife_object and alife_object(member.id) or nil
+                        if se_member then
+                            return false
+                        end
+                    end
+                end
+
+                -- Squad alife exists but no live members and npc_count is
+                -- unavailable. Could be freshly spawned (still binding) or
+                -- a wiped squad mid-release. Treat as alive so we don't
+                -- false-complete at spawn time; the next tick resolves it.
+                if not saw_any_member then
+                    return false
+                end
             end
         end
     end
@@ -1824,6 +1841,27 @@ end
 
 function M.resolve_slot(task_id)
     return resolve_slot(task_id)
+end
+
+-- Returns true if there is an active rescue task whose survivor NPC matches
+-- the given id. Used by the survivor re-anchor TimeEvent to know when to
+-- stop firing.
+function M.has_active_rescue_for_survivor(npc_id)
+    local target = tonumber(npc_id)
+    if not target then
+        return false
+    end
+    local state = ensure_state()
+    for _, record in pairs(state.records or {}) do
+        if record
+            and record.active ~= false
+            and record.family == "rescue"
+            and tonumber(record.target_npc_id) == target
+        then
+            return true
+        end
+    end
+    return false
 end
 
 -- Attach the target squad list on an existing eliminate/rescue task.

@@ -3037,6 +3037,147 @@ class StateManager {
     this.finishProjectMutation({ change: FLOW_STRUCTURE_RENDER });
   }
 
+  /**
+   * Removes an outcome from a choice. If the outcome is a check/task/pause
+   * resume outcome and its success/fail/timeout branches are auto-created
+   * orphans (unreferenced elsewhere and still in their default empty state),
+   * those branches are deleted too. After deletion any gap in the branch
+   * numbering is closed by renumbering trailing turns, so the validator's
+   * "Branch numbers are not sequential" error doesn't fire after a check is
+   * added then removed.
+   */
+  removeOutcomeFromChoice(
+    conversationId: number,
+    turnNumber: number,
+    choiceIndex: number,
+    outcomeIndex: number,
+  ): void {
+    const conv = this.state.project.conversations.find(c => c.id === conversationId);
+    const turn = conv?.turns.find(t => t.turnNumber === turnNumber);
+    const choice = turn?.choices.find(c => c.index === choiceIndex);
+    const outcome = choice?.outcomes[outcomeIndex];
+    if (!conv || !turn || !choice || !outcome) return;
+
+    this.pushUndoForConversation(conversationId);
+
+    const candidateTurnNumbers = new Set<number>();
+    const indices = getOutcomeResumeTurnParamIndices(outcome.command);
+    if (indices) {
+      const paramSlots = [indices.successIndex, indices.failIndex, indices.timeoutIndex];
+      for (const slot of paramSlots) {
+        if (slot < 0) continue;
+        const parsed = Number.parseInt(outcome.params[slot] ?? '', 10);
+        if (Number.isFinite(parsed) && parsed > 1) {
+          candidateTurnNumbers.add(parsed);
+        }
+      }
+    }
+
+    choice.outcomes = choice.outcomes.filter((_, idx) => idx !== outcomeIndex);
+
+    const removedTurnNumbers = new Set<number>();
+    for (const candidate of candidateTurnNumbers) {
+      if (!conv.turns.some(t => t.turnNumber === candidate)) continue;
+      if (this.isTurnReferenced(conv, candidate)) continue;
+      const target = conv.turns.find(t => t.turnNumber === candidate);
+      if (!target || !this.isTurnAutoCreatedAndEmpty(target)) continue;
+      conv.turns = conv.turns.filter(t => t.turnNumber !== candidate);
+      removedTurnNumbers.add(candidate);
+      if (this.state.selectedTurnNumber === candidate) {
+        this.clearSelection({ notify: false });
+      }
+    }
+
+    if (removedTurnNumbers.size > 0) {
+      this.compactTurnNumbers(conv);
+    }
+
+    this.finishProjectMutation({ change: FLOW_STRUCTURE_RENDER });
+  }
+
+  /** Returns true if any other choice's continueTo or any other outcome's
+   * resume turn params points at `turnNumber`. Turn 1 (entry) is never a
+   * candidate for orphan-pruning. */
+  private isTurnReferenced(conv: Conversation, turnNumber: number): boolean {
+    if (turnNumber === 1) return true;
+    for (const turn of conv.turns) {
+      for (const choice of turn.choices) {
+        if (choice.continueTo === turnNumber) return true;
+        for (const outcome of choice.outcomes) {
+          const indices = getOutcomeResumeTurnParamIndices(outcome.command);
+          if (!indices) continue;
+          const slots = [indices.successIndex, indices.failIndex, indices.timeoutIndex];
+          for (const slot of slots) {
+            if (slot < 0) continue;
+            const parsed = Number.parseInt(outcome.params[slot] ?? '', 10);
+            if (Number.isFinite(parsed) && parsed === turnNumber) return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  /** A turn is treated as an "auto-created empty" orphan when it still has
+   * its appendOutcomeToChoice-supplied Success/Fail label, no opening
+   * message, no preconditions, and every choice is still its default empty
+   * shell (no text, no reply, no outcomes, no continuation). */
+  private isTurnAutoCreatedAndEmpty(turn: Turn): boolean {
+    const label = turn.customLabel?.trim();
+    if (label !== 'Success' && label !== 'Fail') return false;
+    if ((turn.openingMessage ?? '').trim() !== '') return false;
+    if (turn.preconditions && turn.preconditions.length > 0) return false;
+    for (const choice of turn.choices) {
+      if ((choice.text ?? '').trim() !== '') return false;
+      if ((choice.reply ?? '').trim() !== '') return false;
+      if (choice.outcomes && choice.outcomes.length > 0) return false;
+      if (choice.continueTo != null) return false;
+      if (choice.preconditions && choice.preconditions.length > 0) return false;
+    }
+    return true;
+  }
+
+  /** Renumbers turns so their `turnNumber` values are 1..N contiguous,
+   * preserving the existing order. Updates every choice.continueTo and every
+   * outcome resume-turn param to match. Safe to call whenever a turn has
+   * been deleted from the middle of the sequence. */
+  private compactTurnNumbers(conv: Conversation): void {
+    const sorted = [...conv.turns].sort((a, b) => a.turnNumber - b.turnNumber);
+    const mapping = new Map<number, number>();
+    sorted.forEach((turn, idx) => {
+      const next = idx + 1;
+      if (turn.turnNumber !== next) mapping.set(turn.turnNumber, next);
+    });
+    if (mapping.size === 0) return;
+
+    const remap = (value: number): number => mapping.get(value) ?? value;
+
+    for (const turn of sorted) {
+      const remapped = mapping.get(turn.turnNumber);
+      if (remapped != null) turn.turnNumber = remapped;
+      for (const choice of turn.choices) {
+        if (choice.continueTo != null) choice.continueTo = remap(choice.continueTo);
+        for (const outcome of choice.outcomes) {
+          const indices = getOutcomeResumeTurnParamIndices(outcome.command);
+          if (!indices) continue;
+          const slots = [indices.successIndex, indices.failIndex, indices.timeoutIndex];
+          for (const slot of slots) {
+            if (slot < 0) continue;
+            const parsed = Number.parseInt(outcome.params[slot] ?? '', 10);
+            if (!Number.isFinite(parsed) || parsed <= 1) continue;
+            const next = remap(parsed);
+            if (next !== parsed) outcome.params[slot] = String(next);
+          }
+        }
+      }
+    }
+
+    if (this.state.selectedTurnNumber != null) {
+      const next = mapping.get(this.state.selectedTurnNumber);
+      if (next != null) this.state.selectedTurnNumber = next;
+    }
+  }
+
   private applyChoiceContinuationChannel(
     conv: Conversation,
     turn: Turn,
