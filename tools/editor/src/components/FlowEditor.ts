@@ -858,16 +858,29 @@ export function renderFlowEditor(container: HTMLElement): void {
     lastCollabCursorPingAt = now;
     sendCollabCursorPing(viewportToWorldPoint(canvas, viewState, event.clientX, event.clientY));
   });
-  const branchModal = renderBranchInlineModalOverlay({
-    conv,
-    branchInlinePanel: state.branchInlinePanel,
-    turnLabels,
-  });
-  const modalHost = document.getElementById('app-modal-host');
-  const staleBranchModals = (modalHost ?? shell).querySelectorAll(':scope > .branch-inline-modal-overlay');
-  staleBranchModals.forEach((modal) => modal.remove());
-  if (branchModal) {
-    (modalHost ?? shell).appendChild(branchModal);
+  // The branch inline modal lives in #app-modal-host (a sibling of the flow editor
+  // root). Because focus inside the modal isn't seen as "inside flowEditor" by the
+  // deferral system in main.ts, every keystroke fires a flow re-render. Tearing the
+  // modal down and rebuilding it on each pass destroys focus, scroll position, and
+  // any in-flight closure state (e.g. an unsaved suggestion in command_builder).
+  // Reuse the existing overlay when the panel identity hasn't changed.
+  const modalHost = document.getElementById('app-modal-host') ?? shell;
+  const nextPanelKey = branchInlinePanelKey(state.branchInlinePanel, conv.id);
+  const existingOverlay = modalHost.querySelector<HTMLElement>(':scope > .branch-inline-modal-overlay');
+  const existingKey = existingOverlay?.dataset.panelKey ?? null;
+  if (nextPanelKey === null) {
+    if (existingOverlay) existingOverlay.remove();
+  } else if (existingKey !== nextPanelKey) {
+    if (existingOverlay) existingOverlay.remove();
+    const branchModal = renderBranchInlineModalOverlay({
+      conv,
+      branchInlinePanel: state.branchInlinePanel,
+      turnLabels,
+    });
+    if (branchModal) {
+      branchModal.dataset.panelKey = nextPanelKey;
+      modalHost.appendChild(branchModal);
+    }
   }
   shell.appendChild(canvas);
   shell.appendChild(controls);
@@ -1355,6 +1368,12 @@ function shouldRenderEdgePackets(
   return graphSize === 'normal';
 }
 
+function branchInlinePanelKey(panel: BranchInlinePanelState | null, currentConvId: number): string | null {
+  if (!panel) return null;
+  if (panel.conversationId !== currentConvId) return null;
+  return `${panel.conversationId}:${panel.turnNumber}:${panel.choiceIndex ?? 'opener'}:${panel.mode}:${panel.selectedOutcomeIndex ?? 'none'}`;
+}
+
 function renderBranchInlineModalOverlay(options: {
   conv: Conversation;
   branchInlinePanel: BranchInlinePanelState | null;
@@ -1411,6 +1430,11 @@ function renderBranchInlineModalOverlay(options: {
   overlay.appendChild(modal);
 
   requestAnimationFrame(() => {
+    // Only do initial focus/scroll on a fresh mount. If focus already lives in the
+    // modal (which can happen when this function runs as part of a re-render path),
+    // bail so we don't yank focus to the Close button and scroll the user back to
+    // the top of the panel — the original "tabs out after each keypress" bug.
+    if (modal.contains(document.activeElement)) return;
     const closeButton = modal.querySelector<HTMLElement>('.branch-inline-close');
     closeButton?.scrollIntoView({ block: 'nearest' });
     const focusTarget = modal.querySelector<HTMLElement>('input, textarea, select, button, [tabindex]:not([tabindex="-1"])');
