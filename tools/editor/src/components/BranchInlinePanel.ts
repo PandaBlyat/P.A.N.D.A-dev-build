@@ -1060,8 +1060,11 @@ function writeCheckParams(
 }
 
 function removeCheckOutcome(conv: Conversation, turn: Turn, choice: Choice, checkIndex: number): void {
-  const newOutcomes = choice.outcomes.filter((_, idx) => idx !== checkIndex);
-  store.updateChoice(conv.id, turn.turnNumber, choice.index, { outcomes: newOutcomes });
+  // Use removeOutcomeFromChoice so the orphan Success/Fail branches the check
+  // auto-created when it was added get cleaned up and the branch numbering
+  // stays contiguous — otherwise the validator flags a sequential-branch gap
+  // and the user is left with two empty turns they have to delete by hand.
+  store.removeOutcomeFromChoice(conv.id, turn.turnNumber, choice.index, checkIndex);
   openPanel(conv.id, turn.turnNumber, choice.index, 'skillCheck');
 }
 

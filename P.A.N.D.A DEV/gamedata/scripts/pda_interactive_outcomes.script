@@ -1703,9 +1703,18 @@ handlers["panda_task_rescue"] = function(parts, cmd_str, cmd)
         -- pose until the player clears the area.
         if survivor_squad_obj then
             call_panda_ic_helper("apply_spawned_faction_relation", survivor_squad_obj, "hostage")
+            -- Detach the survivor squad from the rescue smart's job board so
+            -- xr_logic doesn't pull them onto a walker/camper job and march
+            -- them away while the player is approaching.
+            call_panda_ic_helper("detach_rescue_survivor_squad", survivor_squad_obj)
         end
         call_panda_ic_helper("apply_rescue_survivor_animation", survivor_id)
         call_panda_ic_helper("mark_npc_as_hostage", survivor_id, smart_ref)
+        -- Persistent re-anchor: vanilla xr_logic re-asserts its own state on
+        -- every tick, so a one-shot prisoner pose drifts after a few seconds.
+        -- This event keeps the survivor pinned to the rescue smart and re-
+        -- applies the pose for the lifetime of the active rescue task.
+        call_panda_ic_helper("lock_rescue_survivor_at_smart", survivor_id, smart_ref)
 
         local destination_map_id, destination_label = get_smart_task_target(smart_ref)
         local bridge = ensure_panda_task_bridge()

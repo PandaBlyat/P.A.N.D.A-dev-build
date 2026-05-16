@@ -4561,9 +4561,134 @@ function apply_rescue_survivor_animation(npc_id)
     end)
 end
 
+-- Detach a freshly-spawned survivor squad from smart-terrain job assignment so
+-- the captives don't get pulled into a regular gulag job and wander off. The
+-- squad's scripted_target keeps it pinned at the rescue smart, but individual
+-- members still need their smart_terrain_id cleared or xr_logic will drag them
+-- onto a walker/camper job from the smart.
+function detach_rescue_survivor_squad(squad_obj)
+    if not squad_obj or squad_obj:clsid() ~= clsid.online_offline_group_s then
+        return
+    end
+
+    local squad_id = squad_obj.id
+    local old_smart_id = squad_obj.smart_id
+
+    if SIMBOARD and old_smart_id and old_smart_id ~= 65535 then
+        local smart_entry = SIMBOARD.smarts and SIMBOARD.smarts[old_smart_id]
+        local smart = smart_entry and smart_entry.smrt or nil
+        if smart and smart.unregister_squad then
+            pcall(function() smart:unregister_squad(squad_obj) end)
+        end
+        if SIMBOARD.assign_squad_to_smart then
+            pcall(function() SIMBOARD:assign_squad_to_smart(squad_obj, nil) end)
+        end
+    end
+
+    pcall(function() squad_obj.smart_id = nil end)
+    pcall(function() squad_obj.task_target_id = nil end)
+    pcall(function() squad_obj.assigned_target_id = squad_id end)
+    pcall(function() squad_obj.current_target_id = squad_id end)
+    pcall(function() squad_obj.rush_to_target = false end)
+
+    if type(squad_obj.squad_members) == "function" then
+        for member in squad_obj:squad_members() do
+            local se_member = alife_object(member.id)
+            if se_member then
+                if se_member.clear_smart_terrain then
+                    pcall(function() se_member:clear_smart_terrain() end)
+                end
+                pcall(function() se_member.m_smart_terrain_id = 65535 end)
+            end
+        end
+    end
+end
+
+-- Persistent re-anchor for rescue survivors: every few seconds, while the
+-- survivor is alive and the task is still active, teleport them back to the
+-- rescue smart if they've drifted and re-apply the prisoner state. This is
+-- needed because vanilla xr_logic re-asserts the NPC's default walker/camper
+-- behavior on each tick, overwriting our one-shot state_mgr.set_state.
+local RESCUE_REANCHOR_PERIOD_SEC = 3
+local RESCUE_REANCHOR_DRIFT_DIST = 6
+function lock_rescue_survivor_at_smart(npc_id, smart_ref)
+    if not npc_id or not smart_ref then
+        return
+    end
+
+    local key = "rescue_lock_" .. tostring(npc_id) .. "_" .. tostring(math.random(100000))
+    track_panda_ic_event("pda_ic_spawn", key)
+
+    local anchor_pos = nil
+    local function ensure_anchor()
+        if anchor_pos then return anchor_pos end
+        local smart = resolve_smart_from_reference(smart_ref)
+        anchor_pos = get_position_from_object(smart)
+        return anchor_pos
+    end
+
+    CreateTimeEvent("pda_ic_spawn", key, RESCUE_REANCHOR_PERIOD_SEC, function()
+        if is_panda_ic_shutdown_in_progress() or not db.actor then
+            return true
+        end
+
+        local se_npc = alife_object(npc_id)
+        if not se_npc then
+            return true
+        end
+
+        local bridge = panda_task_bridge
+        if bridge and bridge.has_active_rescue_for_survivor
+            and not bridge.has_active_rescue_for_survivor(npc_id)
+        then
+            return true
+        end
+
+        local obj = level.object_by_id(npc_id)
+        if not obj then
+            -- Survivor is offline (player far away). Re-schedule the same event
+            -- by returning false; it will keep firing until the actor approaches.
+            return false
+        end
+
+        if obj.alive and not obj:alive() then
+            return true
+        end
+
+        if axr_task_manager and axr_task_manager.hostages_by_id and not axr_task_manager.hostages_by_id[npc_id] then
+            local smart = resolve_smart_from_reference(smart_ref)
+            axr_task_manager.hostages_by_id[npc_id] = (smart and smart.id) or true
+        end
+
+        pcall(function() obj:invulnerable(true) end)
+        pcall(function() obj:give_info_portion("npcx_beh_ignore_combat") end)
+        pcall(function() obj:give_info_portion("npcx_beh_ignore_actor_enemies") end)
+
+        local desired_pos = ensure_anchor()
+        if desired_pos and obj.position then
+            local cur_pos = obj:position()
+            local ok_dist, dist = pcall(function() return cur_pos:distance_to(desired_pos) end)
+            if ok_dist and dist and dist > RESCUE_REANCHOR_DRIFT_DIST then
+                pcall(function() obj:set_npc_position(desired_pos) end)
+            end
+        end
+
+        if state_mgr and state_mgr.set_state then
+            local ok = pcall(state_mgr.set_state, obj, "prisoner")
+            if not ok then
+                pcall(state_mgr.set_state, obj, "sit_knee")
+            end
+        end
+
+        return false
+    end)
+end
+
 pda_interactive_conv.apply_spawned_faction_relation = apply_spawned_faction_relation
 pda_interactive_conv.mark_npc_as_hostage = mark_npc_as_hostage
 pda_interactive_conv.apply_rescue_survivor_animation = apply_rescue_survivor_animation
+pda_interactive_conv.detach_rescue_survivor_squad = detach_rescue_survivor_squad
+pda_interactive_conv.lock_rescue_survivor_at_smart = lock_rescue_survivor_at_smart
 
 -- Returns notification string key for spawned NPC squad based on relation to player.
 -- Falls back to a generic key if the specific one is missing from the string table.

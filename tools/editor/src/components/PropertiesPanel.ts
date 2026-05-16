@@ -2377,9 +2377,11 @@ function renderOutcomeList(container: HTMLElement, conv: Conversation, turn: Tur
     delBtn.style.color = 'var(--danger)';
     delBtn.onclick = (e) => {
       e.stopPropagation();
-      const updated = [...choice.outcomes];
-      updated.splice(idx, 1);
-      store.updateChoice(conv.id, turn.turnNumber, choice.index, { outcomes: updated });
+      // Route through removeOutcomeFromChoice so any auto-created Success/Fail
+      // branches owned by this outcome (skill checks, random checks, task and
+      // pause_job resume outcomes) get cleaned up and branch numbering stays
+      // contiguous.
+      store.removeOutcomeFromChoice(conv.id, turn.turnNumber, choice.index, idx);
     };
     item.appendChild(delBtn);
 
