@@ -190,6 +190,11 @@ function collectConversationNpcRefs(conv: Conversation): string[] {
       choice.preconditions?.forEach((entry) => collectNpcRefsFromPrecondition(entry, refs));
       addSpeakerNpcRef(refs, choice.story_npc_id);
       addSpeakerNpcRef(refs, choice.cont_npc_id);
+      if (Array.isArray(choice.fanout_targets)) {
+        for (const target of choice.fanout_targets) {
+          addSpeakerNpcRef(refs, target.cont_npc_id);
+        }
+      }
 
       for (const outcome of choice.outcomes) {
         if (CUSTOM_NPC_REF_OUTCOMES.has(outcome.command)) {
@@ -527,6 +532,39 @@ function generateConversation(
         }
         if (choice.cont_npc_id) {
           lines.push(emitString(`${prefix}${turnInfix}_cont_npc_${choice.index}`, choice.cont_npc_id));
+        }
+
+        // Mutual-exclusion fan-out: emit each additional NPC continuation as a
+        // sibling of the primary (continueTo + cont_npc_id). A shared group token
+        // ties them together so the runtime can cancel the losers once the
+        // player engages one of the threads.
+        const fanout = Array.isArray(choice.fanout_targets)
+          ? choice.fanout_targets.filter((target) => target && target.cont_npc_id && target.continueTo != null)
+          : [];
+        if (fanout.length > 0) {
+          const groupToken = `${prefix}${turnInfix}_g${choice.index}`;
+          lines.push(emitString(`${prefix}${turnInfix}_fanout_group_${choice.index}`, groupToken));
+          lines.push(emitString(`${prefix}${turnInfix}_fanout_count_${choice.index}`, String(fanout.length)));
+          for (let j = 0; j < fanout.length; j++) {
+            const target = fanout[j];
+            const jIdx = j + 1;
+            const targetTurn = conv.turns.find((candidate) => candidate.turnNumber === target.continueTo);
+            const targetChannel = normalizeChannel(
+              target.continueChannel ?? (targetTurn ? targetTurn.channel : undefined),
+              'pda',
+            );
+            lines.push(emitString(`${prefix}${turnInfix}_fanout_${choice.index}_${jIdx}_turn`, String(target.continueTo)));
+            lines.push(emitString(`${prefix}${turnInfix}_fanout_${choice.index}_${jIdx}_npc`, target.cont_npc_id));
+            lines.push(emitString(`${prefix}${turnInfix}_fanout_${choice.index}_${jIdx}_channel`, targetChannel));
+            if (target.pdaDelaySeconds != null && Number.isFinite(target.pdaDelaySeconds) && target.pdaDelaySeconds >= 0) {
+              lines.push(
+                emitString(
+                  `${prefix}${turnInfix}_fanout_${choice.index}_${jIdx}_delay`,
+                  String(Math.floor(target.pdaDelaySeconds)),
+                ),
+              );
+            }
+          }
         }
       }
     }

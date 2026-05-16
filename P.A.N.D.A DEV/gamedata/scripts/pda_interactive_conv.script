@@ -2293,6 +2293,7 @@ local function queue_pda_followup_internal(raw_entry)
         fallback_name = raw_entry.fallback_name,
         npc_refs = normalize_npc_refs(raw_entry.npc_refs),
         applied_outcomes = clone_plain_table(raw_entry.applied_outcomes) or {},
+        exclusion_group = raw_entry.exclusion_group,
     }
 
     printf(
@@ -2390,6 +2391,7 @@ local function activate_pending_pda_followup(entry)
         fallback_name = entry.fallback_name,
         npc_refs = normalize_npc_refs(entry.npc_refs),
         channel = "pda",
+        exclusion_group = entry.exclusion_group,
     }
 
     active_conversations[contact_id] = conv_data
@@ -5896,6 +5898,45 @@ function load_choices_for_turn(prefix, faction, conv_id, turn, npc_name, contact
                 if reply_image_raw == reply_key .. "_image" then reply_image_raw = nil end
                 local reply_audio_fields = get_audio_fields_for_string_key(reply_key .. "_audio")
                 local visible_index = count + 1
+                -- Mutual-exclusion fan-out: each additional sibling becomes a parallel
+                -- PDA continuation. A shared group token ties them so on_player_choice
+                -- can mark losing siblings inert once the player engages one of them.
+                local fanout_targets = nil
+                local fanout_group = nil
+                local fanout_count_raw = game.translate_string(p.."_fanout_count_"..i)
+                local fanout_count = tonumber(fanout_count_raw) or 0
+                if fanout_count and fanout_count > 0 then
+                    local group_raw = game.translate_string(p.."_fanout_group_"..i)
+                    if group_raw and group_raw ~= "" and group_raw ~= p.."_fanout_group_"..i then
+                        fanout_group = group_raw
+                    else
+                        fanout_group = string.format("%s_g%s", p, tostring(i))
+                    end
+                    fanout_targets = {}
+                    for j = 1, fanout_count do
+                        local t_raw   = game.translate_string(p.."_fanout_"..i.."_"..j.."_turn")
+                        local n_raw   = game.translate_string(p.."_fanout_"..i.."_"..j.."_npc")
+                        local ch_raw  = game.translate_string(p.."_fanout_"..i.."_"..j.."_channel")
+                        local dly_raw = game.translate_string(p.."_fanout_"..i.."_"..j.."_delay")
+                        local t_turn  = tonumber(t_raw)
+                        local t_npc   = n_raw and n_raw ~= "" and n_raw ~= (p.."_fanout_"..i.."_"..j.."_npc") and n_raw:match("^%s*(.-)%s*$") or nil
+                        local t_ch    = (ch_raw == "f2f") and "f2f" or "pda"
+                        local t_dly   = tonumber(dly_raw) or 0
+                        if t_turn and t_npc and t_npc ~= "" then
+                            fanout_targets[#fanout_targets + 1] = {
+                                next_turn = t_turn,
+                                next_npc_id = t_npc,
+                                next_channel = t_ch,
+                                pda_delay_seconds = t_dly,
+                            }
+                        end
+                    end
+                    if #fanout_targets == 0 then
+                        fanout_targets = nil
+                        fanout_group = nil
+                    end
+                end
+
                 choices[visible_index] = {
                     source_choice_index = i,
                     text = sub_placeholders(text, npc_name, faction, npc_se, contact_id),
@@ -5910,6 +5951,8 @@ function load_choices_for_turn(prefix, faction, conv_id, turn, npc_name, contact
                     next_npc_id = next_npc_id,
                     next_npc_faction_filters = next_npc_faction_filters,
                     next_allow_generic_stalker = next_allow_generic_stalker,
+                    fanout_targets = fanout_targets,
+                    fanout_group = fanout_group,
                 }
                 if choices[visible_index].outcome == p.."_outcome_"..i then choices[visible_index].outcome = "none" end
                 -- Append "[Charisma 5]" / "[60% Chance]" hint to the choice text so
@@ -5943,6 +5986,48 @@ function on_player_choice(idx, contact_id)
     local npc_name = c.npc_name
     local npc_icon = c.npc_icon
     local cid = c.contact_id
+
+    -- Mutual-exclusion fan-out: if this conversation belongs to an exclusion
+    -- group (the player engaged one of N parallel NPC threads), mark all sibling
+    -- threads inert so their delivered messages stay readable but no further
+    -- branches fire. Also drop any siblings still sitting in the pending queue.
+    if c.exclusion_group and c.exclusion_group ~= "" then
+        local group = c.exclusion_group
+        if type(active_conversations) == "table" then
+            for sibling_cid, sibling in pairs(active_conversations) do
+                if type(sibling) == "table"
+                    and sibling.exclusion_group == group
+                    and sibling_cid ~= cid
+                    and not sibling.exclusion_inert then
+                    sibling.exclusion_inert = true
+                    sibling.choices = nil
+                    sibling.num_choices = 0
+                    sibling.reply_pending = false
+                    -- Inline clear_pending_in_person_marker (defined later as a local).
+                    sibling.pending_in_person_continuation = false
+                    sibling.pending_in_person_turn = nil
+                    sibling.pending_in_person_target = nil
+                    sibling.pending_in_person_set_at = nil
+                    sibling.pending_in_person_token = nil
+                    sibling.pending_in_person_story_id = nil
+                    sibling.pending_in_person_canonical_id = nil
+                    clear_npc_typing_message(sibling_cid)
+                    printf("PANDA_IC: fanout group=%s winner_cid=%s sibling_cid=%s marked inert", tostring(group), tostring(cid), tostring(sibling_cid))
+                end
+            end
+        end
+        if type(pending_pda_followups) == "table" then
+            for pid, pending in pairs(pending_pda_followups) do
+                if type(pending) == "table"
+                    and pending.exclusion_group == group
+                    and tostring(pending.contact_id or "") ~= cid then
+                    pending_pda_followups[pid] = nil
+                    printf("PANDA_IC: fanout group=%s winner_cid=%s pending sibling pid=%s dropped", tostring(group), tostring(cid), tostring(pid))
+                end
+            end
+        end
+        c.exclusion_group = nil
+    end
 
     -- Add player choice to log, NO global tip
     pda_private_add_message(cid, npc_name, db.actor:character_name(), ch.text, db.actor:character_icon(), true, "sent")
@@ -6115,6 +6200,7 @@ function on_player_choice(idx, contact_id)
                                 task_id       = c.task_id,
                                 category      = c.category,
                                 applied_outcomes = clone_plain_table(c.applied_outcomes) or {},
+                                exclusion_group = ch.fanout_group,
                             })
                             dbg("PANDA_IC: multi-npc handoff pda contact_id=%s -> new_npc_id=%s story_id=%s conv_id=%s turn=%s",
                                 tostring(cid), tostring(new_npc_id), tostring(ch.next_npc_id),
@@ -6144,6 +6230,7 @@ function on_player_choice(idx, contact_id)
                                 task_id       = c.task_id,
                                 category      = c.category,
                                 applied_outcomes = clone_plain_table(c.applied_outcomes) or {},
+                                exclusion_group = ch.fanout_group,
                             })
                             handed_off = true
                         end
@@ -6181,9 +6268,63 @@ function on_player_choice(idx, contact_id)
                                 c.num_choices = num
                                 c.reply_pending = false
                                 c.started_at = time_global and time_global() or c.started_at
+                                -- Carry the fan-out group token onto the same-NPC continuation
+                                -- so this thread acts as the "primary" mutual-exclusion member.
+                                c.exclusion_group = ch.fanout_group
                                 -- Re-register in multi-conv table
                                 active_conversations[cid] = c
                                 CONV = c
+                            end
+                        end
+
+                        -- Mutual-exclusion fan-out: queue parallel PDA continuations to each
+                        -- sibling NPC. All siblings share `ch.fanout_group` with the primary;
+                        -- whichever the player picks a reply in first wins, the others go inert.
+                        if ch.fanout_group and ch.fanout_targets and #ch.fanout_targets > 0 then
+                            local primary_cid_skip = handed_off and new_npc_id and tostring(new_npc_id) or nil
+                            for _, target in ipairs(ch.fanout_targets) do
+                                local t_se, t_id
+                                if target.next_npc_id and target.next_npc_id ~= "" then
+                                    if target.next_npc_id:sub(1,4) == "npc:" then
+                                        t_se = resolve_or_spawn_custom_npc_se(target.next_npc_id:sub(5), { conv_data = c })
+                                        t_id = t_se and tonumber(t_se.id) or nil
+                                    elseif type(get_story_se_object) == "function" then
+                                        local ok_se, se = pcall(get_story_se_object, target.next_npc_id)
+                                        t_se = ok_se and se or nil
+                                        t_id = t_se and tonumber(t_se.id) or nil
+                                    end
+                                end
+                                local sibling_cid = t_id and tostring(t_id) or nil
+                                if t_id
+                                    and t_id ~= tonumber(c.npc_id)
+                                    and sibling_cid ~= primary_cid_skip then
+                                    local ok_n, t_name = pcall(function() return t_se:character_name() end)
+                                    local ok_i, t_icon = pcall(function() return t_se:character_icon() end)
+                                    local resolved_name = (ok_n and t_name and t_name ~= "") and t_name or "Unknown"
+                                    local resolved_icon = (ok_i and t_icon and t_icon ~= "") and t_icon or FALLBACK_NPC_ICON
+                                    queue_pda_followup_internal({
+                                        npc_id           = t_id,
+                                        contact_id       = sibling_cid,
+                                        npc_name         = resolved_name,
+                                        npc_icon         = resolved_icon,
+                                        faction          = c.faction,
+                                        prefix           = c.prefix,
+                                        conv_id          = c.conv_id,
+                                        turn             = target.next_turn,
+                                        delay_seconds    = tonumber(target.pda_delay_seconds) or 0,
+                                        story_id         = target.next_npc_id,
+                                        canonical_id     = target.next_npc_id:lower(),
+                                        npc_refs         = c.npc_refs,
+                                        task_id          = c.task_id,
+                                        category         = c.category,
+                                        applied_outcomes = clone_plain_table(c.applied_outcomes) or {},
+                                        exclusion_group  = ch.fanout_group,
+                                    })
+                                    printf("PANDA_IC: fanout sibling queued group=%s contact_id=%s story=%s turn=%s",
+                                        tostring(ch.fanout_group), sibling_cid, tostring(target.next_npc_id), tostring(target.next_turn))
+                                elseif target.next_npc_id and target.next_npc_id ~= "" then
+                                    printf("PANDA_IC: fanout sibling skipped story=%s (unresolved or duplicate of primary)", tostring(target.next_npc_id))
+                                end
                             end
                         end
                     elseif ch.next_turn and continuation_channel == "f2f" then
@@ -8390,6 +8531,8 @@ function save_state(m)
                 pending_in_person_token = c.pending_in_person_token,
                 pending_in_person_story_id = c.pending_in_person_story_id,
                 pending_in_person_canonical_id = c.pending_in_person_canonical_id,
+                exclusion_group = c.exclusion_group,
+                exclusion_inert = c.exclusion_inert,
             }
         end
     end
@@ -8608,27 +8751,38 @@ function load_state(m)
             local cid = saved.contact_id or (saved.npc_id and tostring(saved.npc_id)) or key
             saved.contact_id = cid
             if not is_contact_blocked(cid) then
-                local choices, num = load_choices_for_turn(
-                    saved.prefix, saved.faction, saved.conv_id, saved.turn, saved.npc_name, cid, resolve_runtime_npc_se(nil, saved.npc_id)
-                )
-                if num > 0 then
-                    saved.choices = choices
-                    saved.num_choices = num
+                if saved.exclusion_inert == true then
+                    -- Fan-out loser: thread was already delivered but follow-ups disabled.
+                    -- Preserve the entry without re-arming its choices.
+                    saved.choices = nil
+                    saved.num_choices = 0
                     saved.reply_pending = false
                     saved.channel = saved.channel or "pda"
-                    saved.pending_in_person_continuation = saved.pending_in_person_continuation == true
-                    saved.pending_in_person_turn = saved.pending_in_person_turn
-                    saved.pending_in_person_target = saved.pending_in_person_target
-                    saved.pending_in_person_set_at = saved.pending_in_person_set_at
-                    saved.pending_in_person_token = saved.pending_in_person_token
-                    saved.pending_in_person_story_id = saved.pending_in_person_story_id or saved.story_id
-                    saved.pending_in_person_canonical_id = saved.pending_in_person_canonical_id or saved.canonical_id
                     saved.npc_refs = normalize_npc_refs(saved.npc_refs)
-                    if saved.pending_in_person_continuation == true then
-                        clear_pda_choices_for_pending_handoff(saved)
-                    end
                     active_conversations[cid] = saved
-                    CONV = saved  -- last one loaded becomes CONV for compat
+                else
+                    local choices, num = load_choices_for_turn(
+                        saved.prefix, saved.faction, saved.conv_id, saved.turn, saved.npc_name, cid, resolve_runtime_npc_se(nil, saved.npc_id)
+                    )
+                    if num > 0 then
+                        saved.choices = choices
+                        saved.num_choices = num
+                        saved.reply_pending = false
+                        saved.channel = saved.channel or "pda"
+                        saved.pending_in_person_continuation = saved.pending_in_person_continuation == true
+                        saved.pending_in_person_turn = saved.pending_in_person_turn
+                        saved.pending_in_person_target = saved.pending_in_person_target
+                        saved.pending_in_person_set_at = saved.pending_in_person_set_at
+                        saved.pending_in_person_token = saved.pending_in_person_token
+                        saved.pending_in_person_story_id = saved.pending_in_person_story_id or saved.story_id
+                        saved.pending_in_person_canonical_id = saved.pending_in_person_canonical_id or saved.canonical_id
+                        saved.npc_refs = normalize_npc_refs(saved.npc_refs)
+                        if saved.pending_in_person_continuation == true then
+                            clear_pda_choices_for_pending_handoff(saved)
+                        end
+                        active_conversations[cid] = saved
+                        CONV = saved  -- last one loaded becomes CONV for compat
+                    end
                 end
             end
         end

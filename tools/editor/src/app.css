@@ -4226,6 +4226,17 @@ body.use-custom-cursor * {
   stroke-dasharray: 4 7;
 }
 
+.flow-edge-path.edge-fanout {
+  stroke-dasharray: 2 5;
+  stroke: color-mix(in srgb, #f59e0b 80%, var(--flow-edge-color, var(--accent)) 20%);
+  opacity: 0.85;
+}
+
+.flow-edge-label.edge-label-fanout {
+  fill: #f59e0b;
+  font-weight: 600;
+}
+
 .flow-edge-path.is-active {
   opacity: 1;
   stroke-width: 3.2;

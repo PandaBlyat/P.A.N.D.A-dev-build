@@ -1819,6 +1819,139 @@ function renderChoiceProperties(
   contNpcField.appendChild(contNpcEditor);
   continuationBody.appendChild(contNpcField);
 
+  // Mutual-exclusion fan-out: extra NPCs that receive this continuation in parallel.
+  const fanoutField = document.createElement('div');
+  fanoutField.className = 'field';
+  const fanoutLabel = document.createElement('label');
+  fanoutLabel.textContent = 'Mutual-exclusion fan-out (extra NPCs)';
+  fanoutField.appendChild(fanoutLabel);
+  const fanoutHint = document.createElement('div');
+  fanoutHint.className = 'field-hint';
+  fanoutHint.textContent = 'Send this continuation to additional NPCs in parallel. The player can only engage one — replying in any thread silently disables the siblings’ follow-ups.';
+  fanoutField.appendChild(fanoutHint);
+
+  const fanoutList = document.createElement('div');
+  fanoutList.style.cssText = 'display:flex; flex-direction:column; gap:8px; margin-top:6px;';
+  const fanoutTargets = Array.isArray(choice.fanout_targets) ? choice.fanout_targets : [];
+  if (choice.continueTo == null && fanoutTargets.length > 0) {
+    const noPrimaryHint = document.createElement('div');
+    noPrimaryHint.className = 'field-hint';
+    noPrimaryHint.style.color = '#d97706';
+    noPrimaryHint.textContent = 'Set a primary continuation above first — fan-out siblings only fire when the choice has a primary continuation.';
+    fanoutList.appendChild(noPrimaryHint);
+  }
+  fanoutTargets.forEach((target, idx) => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex; gap:8px; align-items:flex-start; padding:8px; border:1px solid var(--inspector-border, #2a2a2a); border-radius:4px;';
+    const fields = document.createElement('div');
+    fields.style.cssText = 'flex:1; display:flex; flex-direction:column; gap:6px;';
+
+    // NPC picker
+    const npcRow = document.createElement('div');
+    const npcLbl = document.createElement('div');
+    npcLbl.className = 'field-hint';
+    npcLbl.textContent = `Sibling ${idx + 1} — NPC who delivers their own follow-up`;
+    npcRow.appendChild(npcLbl);
+    const npcEditor = createOptionPickerPanelEditor(
+      target.cont_npc_id ?? '',
+      (value) => store.updateChoiceFanoutTarget(conv.id, turn.turnNumber, choice.index, idx, {
+        cont_npc_id: value.trim(),
+      }),
+      getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, `fanout-${idx}-npc`),
+      {
+        title: 'NPC Fan-out Catalog',
+        subtitle: 'Pick the NPC who should also reach out to the player in parallel.',
+        searchPlaceholder: 'Search by NPC id, faction, or role...',
+        emptyLabel: '— pick an NPC —',
+        options: STORY_NPC_OPTIONS,
+      },
+    );
+    npcRow.appendChild(npcEditor);
+    fields.appendChild(npcRow);
+
+    // Target-turn picker
+    const turnRow = document.createElement('div');
+    const turnLbl = document.createElement('div');
+    turnLbl.className = 'field-hint';
+    turnLbl.textContent = 'Branch that NPC delivers';
+    turnRow.appendChild(turnLbl);
+    const turnSelect = document.createElement('select');
+    turnSelect.className = 'inspector-select';
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = '— pick a branch —';
+    placeholder.selected = target.continueTo == null;
+    turnSelect.appendChild(placeholder);
+    for (const candidate of conv.turns) {
+      if (candidate.turnNumber === turn.turnNumber) continue;
+      const opt = document.createElement('option');
+      opt.value = String(candidate.turnNumber);
+      opt.textContent = turnLabels.getLongLabel(candidate.turnNumber);
+      opt.selected = target.continueTo === candidate.turnNumber;
+      turnSelect.appendChild(opt);
+    }
+    turnSelect.onchange = () => {
+      const val = turnSelect.value;
+      if (!val) return;
+      store.updateChoiceFanoutTarget(conv.id, turn.turnNumber, choice.index, idx, {
+        continueTo: parseInt(val, 10),
+      });
+    };
+    turnRow.appendChild(turnSelect);
+    fields.appendChild(turnRow);
+
+    // Delay (optional)
+    const delayRow = document.createElement('div');
+    const delayLbl = document.createElement('div');
+    delayLbl.className = 'field-hint';
+    delayLbl.textContent = 'PDA delivery delay (seconds, optional)';
+    delayRow.appendChild(delayLbl);
+    const delayInput = document.createElement('input');
+    delayInput.type = 'number';
+    delayInput.min = '0';
+    delayInput.step = '1';
+    delayInput.placeholder = '0';
+    delayInput.value = target.pdaDelaySeconds != null ? String(target.pdaDelaySeconds) : '';
+    delayInput.oninput = () => {
+      const trimmed = delayInput.value.trim();
+      if (trimmed === '') {
+        store.updateChoiceFanoutTarget(conv.id, turn.turnNumber, choice.index, idx, { pdaDelaySeconds: undefined });
+        return;
+      }
+      const parsed = Number.parseInt(trimmed, 10);
+      if (Number.isFinite(parsed) && parsed >= 0) {
+        store.updateChoiceFanoutTarget(conv.id, turn.turnNumber, choice.index, idx, { pdaDelaySeconds: parsed });
+      }
+    };
+    delayRow.appendChild(delayInput);
+    fields.appendChild(delayRow);
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'btn-sm';
+    removeBtn.textContent = 'Remove';
+    removeBtn.title = 'Remove this fan-out sibling';
+    removeBtn.onclick = () => {
+      store.removeChoiceFanoutTarget(conv.id, turn.turnNumber, choice.index, idx);
+    };
+
+    row.append(fields, removeBtn);
+    fanoutList.appendChild(row);
+  });
+
+  const addFanoutBtn = document.createElement('button');
+  addFanoutBtn.type = 'button';
+  addFanoutBtn.className = 'btn-sm';
+  addFanoutBtn.style.marginTop = '6px';
+  addFanoutBtn.textContent = '+ Add fan-out NPC';
+  addFanoutBtn.title = 'Queue another NPC to receive this continuation in parallel';
+  addFanoutBtn.onclick = () => {
+    store.addChoiceFanoutTarget(conv.id, turn.turnNumber, choice.index);
+  };
+
+  fanoutField.append(fanoutList, addFanoutBtn);
+  continuationBody.appendChild(fanoutField);
+
   const { wrapper: choiceAdvancedWrapper, body: choiceAdvancedBody } = createCollapsibleSection(
     `conv-${conv.id}-turn-${turn.turnNumber}-choice-${choice.index}-advanced-channel-controls`,
     'Advanced Channel Controls',
