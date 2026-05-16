@@ -282,34 +282,56 @@ function renderDialoguePanel(container: HTMLElement, conv: Conversation, turn: T
     ),
   ));
   if (!choice) {
-    textPane.appendChild(createTextarea({
-      label: ui('NPC Opener Message', 'Сообщение-открытие NPC'),
-      value: turn.openingMessage ?? '',
-      placeholder: ui('NPC opening line for this branch', 'Начальная реплика NPC для этой ветки'),
-      fieldKey: getTurnFieldKey(conv.id, turn.turnNumber, 'opening-message'),
-      onCommit: (value) => store.updateTurn(conv.id, turn.turnNumber, { openingMessage: value }),
-    }));
-    textPane.appendChild(createTextInput({
-      label: ui('Opener DDS Image', 'DDS картинка-открытие'),
-      value: turn.openingImage ?? '',
-      placeholder: 'panda_file',
-      fieldKey: getTurnFieldKey(conv.id, turn.turnNumber, 'opening-image'),
-      onCommit: (value) => store.updateTurn(conv.id, turn.turnNumber, { openingImage: value.trim() || undefined }),
-    }));
-    textPane.appendChild(createTextInput({
-      label: ui('Opener Audio', 'Аудио-открытие'),
-      value: turn.openingAudio ?? '',
-      placeholder: 'message_ping',
-      description: ui('sound filename under gamedata/sounds/panda/audio', 'имя файла звука в gamedata/sounds/panda/audio'),
-      fieldKey: getTurnFieldKey(conv.id, turn.turnNumber, 'opening-audio'),
-      onCommit: (value) => store.updateTurn(conv.id, turn.turnNumber, { openingAudio: value.trim() || undefined }),
-    }));
-    wrapPreviousInlineChildren(textPane, 2, {
-      key: `branch-inline-media-${conv.id}-${turn.turnNumber}-opener`,
-      title: ui('Media Options', 'Настройки медиа'),
-      summary: formatMediaSummary(turn.openingImage, turn.openingAudio, ui),
-      defaultCollapsed: true,
-    });
+    const openerEnabled = turn.openerEnabled === true;
+    const openerToggleField = document.createElement('label');
+    openerToggleField.className = 'branch-inline-field';
+    const openerToggleLabel = document.createElement('span');
+    openerToggleLabel.textContent = ui('Send NPC Opener Message', 'Отправлять начальную реплику NPC');
+    const openerToggleInput = document.createElement('input');
+    openerToggleInput.type = 'checkbox';
+    openerToggleInput.checked = openerEnabled;
+    openerToggleInput.setAttribute('data-field-key', getTurnFieldKey(conv.id, turn.turnNumber, 'opener-enabled'));
+    openerToggleInput.onchange = () => store.updateTurn(conv.id, turn.turnNumber, { openerEnabled: openerToggleInput.checked });
+    openerToggleField.append(
+      openerToggleLabel,
+      openerToggleInput,
+      createHint(ui(
+        'When off, this branch starts silently — the NPC will not send an opener. Useful for continuation branches that should not double up an extra message.',
+        'Если выключено, ветка начинается без сообщения NPC. Полезно для продолжений, чтобы не было лишнего сообщения подряд.',
+      )),
+    );
+    textPane.appendChild(openerToggleField);
+
+    if (openerEnabled) {
+      textPane.appendChild(createTextarea({
+        label: ui('NPC Opener Message', 'Сообщение-открытие NPC'),
+        value: turn.openingMessage ?? '',
+        placeholder: ui('NPC opening line for this branch', 'Начальная реплика NPC для этой ветки'),
+        fieldKey: getTurnFieldKey(conv.id, turn.turnNumber, 'opening-message'),
+        onCommit: (value) => store.updateTurn(conv.id, turn.turnNumber, { openingMessage: value }),
+      }));
+      textPane.appendChild(createTextInput({
+        label: ui('Opener DDS Image', 'DDS картинка-открытие'),
+        value: turn.openingImage ?? '',
+        placeholder: 'panda_file',
+        fieldKey: getTurnFieldKey(conv.id, turn.turnNumber, 'opening-image'),
+        onCommit: (value) => store.updateTurn(conv.id, turn.turnNumber, { openingImage: value.trim() || undefined }),
+      }));
+      textPane.appendChild(createTextInput({
+        label: ui('Opener Audio', 'Аудио-открытие'),
+        value: turn.openingAudio ?? '',
+        placeholder: 'message_ping',
+        description: ui('sound filename under gamedata/sounds/panda/audio', 'имя файла звука в gamedata/sounds/panda/audio'),
+        fieldKey: getTurnFieldKey(conv.id, turn.turnNumber, 'opening-audio'),
+        onCommit: (value) => store.updateTurn(conv.id, turn.turnNumber, { openingAudio: value.trim() || undefined }),
+      }));
+      wrapPreviousInlineChildren(textPane, 2, {
+        key: `branch-inline-media-${conv.id}-${turn.turnNumber}-opener`,
+        title: ui('Media Options', 'Настройки медиа'),
+        summary: formatMediaSummary(turn.openingImage, turn.openingAudio, ui),
+        defaultCollapsed: true,
+      });
+    }
     textPane.appendChild(createChannelControls(conv, turn));
     if (turn.turnNumber === 1) {
       const repeatableField = document.createElement('label');
@@ -1143,14 +1165,14 @@ function renderContinuationOpenerEditor(
     value: targetTurn.openingMessage ?? '',
     placeholder: ui('NPC opening line before next branch choices', 'Начальная реплика NPC перед вариантами следующей ветки'),
     fieldKey: getTurnFieldKey(conv.id, targetTurn.turnNumber, 'opening-message'),
-    onCommit: (value) => store.updateTurn(conv.id, targetTurn.turnNumber, { openingMessage: value }),
+    onCommit: (value) => store.updateTurn(conv.id, targetTurn.turnNumber, { openingMessage: value, openerEnabled: true }),
   }));
   field.appendChild(createTextInput({
     label: ui('Next Opener DDS Image', 'DDS картинка следующего открытия'),
     value: targetTurn.openingImage ?? '',
     placeholder: 'panda_file',
     fieldKey: getTurnFieldKey(conv.id, targetTurn.turnNumber, 'opening-image'),
-    onCommit: (value) => store.updateTurn(conv.id, targetTurn.turnNumber, { openingImage: value.trim() || undefined }),
+    onCommit: (value) => store.updateTurn(conv.id, targetTurn.turnNumber, { openingImage: value.trim() || undefined, openerEnabled: true }),
   }));
   field.appendChild(createTextInput({
     label: ui('Next Opener Audio', 'Аудио следующего открытия'),
@@ -1158,7 +1180,7 @@ function renderContinuationOpenerEditor(
     placeholder: 'message_ping',
     description: ui('sound filename under gamedata/sounds/panda/audio', 'имя файла звука в gamedata/sounds/panda/audio'),
     fieldKey: getTurnFieldKey(conv.id, targetTurn.turnNumber, 'opening-audio'),
-    onCommit: (value) => store.updateTurn(conv.id, targetTurn.turnNumber, { openingAudio: value.trim() || undefined }),
+    onCommit: (value) => store.updateTurn(conv.id, targetTurn.turnNumber, { openingAudio: value.trim() || undefined, openerEnabled: true }),
   }));
   const actions = document.createElement('div');
   actions.className = 'branch-inline-action-row';
@@ -1660,14 +1682,14 @@ function renderResumeOpenerField(
     value: targetTurn.openingMessage ?? '',
     placeholder: ui(`${label.toLowerCase()} branch NPC opening line`, `Начальная реплика NPC (${labelRu.toLowerCase()})`),
     fieldKey: getTurnFieldKey(conv.id, targetTurn.turnNumber, 'opening-message'),
-    onCommit: (value) => store.updateTurn(conv.id, targetTurn.turnNumber, { openingMessage: value }),
+    onCommit: (value) => store.updateTurn(conv.id, targetTurn.turnNumber, { openingMessage: value, openerEnabled: true }),
   }));
   field.appendChild(createTextInput({
     label: ui(`${label} Opener DDS Image`, `DDS картинка открытия (${labelRu})`),
     value: targetTurn.openingImage ?? '',
     placeholder: 'panda_file',
     fieldKey: getTurnFieldKey(conv.id, targetTurn.turnNumber, 'opening-image'),
-    onCommit: (value) => store.updateTurn(conv.id, targetTurn.turnNumber, { openingImage: value.trim() || undefined }),
+    onCommit: (value) => store.updateTurn(conv.id, targetTurn.turnNumber, { openingImage: value.trim() || undefined, openerEnabled: true }),
   }));
   field.appendChild(createTextInput({
     label: ui(`${label} Opener Audio`, `Аудио открытия (${labelRu})`),
@@ -1675,7 +1697,7 @@ function renderResumeOpenerField(
     placeholder: 'message_ping',
     description: ui('sound filename under gamedata/sounds/panda/audio', 'имя файла звука в gamedata/sounds/panda/audio'),
     fieldKey: getTurnFieldKey(conv.id, targetTurn.turnNumber, 'opening-audio'),
-    onCommit: (value) => store.updateTurn(conv.id, targetTurn.turnNumber, { openingAudio: value.trim() || undefined }),
+    onCommit: (value) => store.updateTurn(conv.id, targetTurn.turnNumber, { openingAudio: value.trim() || undefined, openerEnabled: true }),
   }));
   const actions = document.createElement('div');
   actions.className = 'branch-inline-action-row';

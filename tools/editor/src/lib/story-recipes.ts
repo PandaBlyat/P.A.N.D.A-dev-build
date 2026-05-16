@@ -604,6 +604,7 @@ function applyDraftContent(conversation: Conversation, draft: StoryWizardDraft):
   configureDraftTransition(conversation, actionTurn, draft);
   actionTurn.customLabel = recipeTitle(draft.recipeId);
   actionTurn.openingMessage = draftOpeningFor(draft);
+  actionTurn.openerEnabled = true;
   actionTurn.choices = [];
 
   let successTurn: Turn | undefined;
@@ -703,6 +704,7 @@ function configureDraftTransition(conversation: Conversation, actionTurn: Turn, 
   if (!firstTurn || firstTurn === actionTurn) return;
   firstTurn.customLabel = 'Hook';
   firstTurn.openingMessage = draftTransitionOpeningFor(draft);
+  firstTurn.openerEnabled = true;
   const firstChoice = ensureChoice(firstTurn, 1);
   firstChoice.text = draftTransitionChoiceTextFor(draft);
   firstChoice.reply = draftTransitionReplyFor(draft);
@@ -1260,6 +1262,7 @@ function applyRecipeContent(conversation: Conversation, recipeId: StoryRecipeId,
   configureTransitionIfNeeded(conversation, recipeId, actionTurn, details);
 
   actionTurn.openingMessage = actionOpeningFor(conversation, recipeId, faction, details);
+  actionTurn.openerEnabled = true;
   actionChoice.text = actionChoiceTextFor(recipeId, details);
   actionChoice.reply = actionReplyFor(recipeId, details);
   actionChoice.preconditions = actionPreconditionsFor(recipeId, details);
@@ -1297,6 +1300,7 @@ function configureTransitionIfNeeded(conversation: Conversation, recipeId: Story
 
   const firstChoice = ensureChoice(firstTurn, 1);
   firstTurn.openingMessage = transitionOpeningFor(recipeId, details);
+  firstTurn.openerEnabled = true;
   firstChoice.text = transitionChoiceTextFor(recipeId);
   firstChoice.reply = transitionReplyFor(recipeId);
   firstChoice.outcomes = [];
@@ -1366,6 +1370,7 @@ function appendTerminalTurn(conversation: Conversation, channel: 'pda' | 'f2f', 
   const turn = createTurn(nextTurnNumber(conversation));
   setTurnChannel(turn, channel, false);
   turn.openingMessage = openingMessage;
+  turn.openerEnabled = true;
   const choice = ensureChoice(turn, 1);
   choice.text = 'Continue.';
   choice.reply = reply;

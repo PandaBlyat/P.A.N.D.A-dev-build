@@ -17,6 +17,7 @@ import {
   type ValidationMode,
 } from './validation-client';
 import { validateConversations } from './validation';
+import { collectSegmentStartTurns } from './branch-segments';
 
 export type PropertiesTab = 'conversation' | 'selection';
 export type FlowDensity = 'compact' | 'standard' | 'detailed';
@@ -1708,6 +1709,13 @@ class StateManager {
     options: {
       turnNumberMap?: ReadonlyMap<number, number>;
       validTurnNumbers?: ReadonlySet<number>;
+      /**
+       * When true (paste-from-clipboard semantics), the cloned turn starts with the
+       * opener suppressed. The opener text/media are preserved so the author can
+       * recover them by re-enabling the toggle, but the runtime will not emit a
+       * duplicate NPC message until they opt in.
+       */
+      resetOpener?: boolean;
     } = {},
   ): Turn {
     const turn = createTurn(turnNumber);
@@ -1717,6 +1725,7 @@ class StateManager {
     turn.speaker_allow_generic_stalker = sourceTurn.speaker_allow_generic_stalker ?? false;
     turn.openingImage = sourceTurn.openingImage;
     turn.openingAudio = sourceTurn.openingAudio;
+    turn.openerEnabled = options.resetOpener ? false : (sourceTurn.openerEnabled ?? false);
     turn.preconditions = structuredClone(sourceTurn.preconditions ?? []) as Turn['preconditions'];
     turn.channel = normalizeChannelValue(sourceTurn.channel, 'pda');
     turn.requiresNpcFirst = sourceTurn.requiresNpcFirst;
@@ -1787,6 +1796,22 @@ class StateManager {
         }),
       })),
     };
+
+    // Migrate opener-enabled flag for legacy projects saved before the field existed.
+    // The old runtime always emitted PDA openers when text was present, and emitted F2F
+    // openers on segment starts or when authors had set media/text. Translate that
+    // implicit rule into an explicit boolean so new code paths can rely on the field.
+    for (const conversation of this.state.project.conversations) {
+      const segmentStarts = collectSegmentStartTurns(conversation);
+      for (const turn of conversation.turns) {
+        if (typeof turn.openerEnabled === 'boolean') continue;
+        const hasAuthorOpening = (turn.openingMessage ?? '').trim() !== ''
+          || (turn.openingImage ?? '').trim() !== ''
+          || (turn.openingAudio ?? '').trim() !== '';
+        turn.openerEnabled = hasAuthorOpening || segmentStarts.has(turn.turnNumber);
+      }
+    }
+
     if (this.state.project.npcTemplates && this.state.project.npcTemplates.length > 0) {
       const deduped = new Map<string, NpcTemplate>();
       for (const template of this.state.project.npcTemplates) deduped.set(template.id, template);
@@ -2471,6 +2496,7 @@ class StateManager {
     const pastedTurn = this.cloneTurnFromSource(clipboard.turn, nextTurnNumber, {
       turnNumberMap,
       validTurnNumbers,
+      resetOpener: true,
     });
     pastedTurn.position = this.getContextualTurnPlacement(conversation, pastedTurn, {
       anchorTurnNumber,

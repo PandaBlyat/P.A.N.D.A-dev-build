@@ -5,7 +5,7 @@ import type { Project, Conversation, Turn, Choice, PreconditionEntry, AnyPrecond
 import { FACTION_XML_KEYS, getConversationFaction } from './types';
 import type { UiLanguage } from './ui-language';
 import { getDefaultFlowTurnPosition } from './flow-layout';
-import { collectSegmentStartTurns as collectBranchSegmentStartTurns } from './branch-segments';
+import { collectSegmentStartTurns as collectBranchSegmentStartTurns, isTurnOpenerActive } from './branch-segments';
 
 const PANDA_F2F_REGISTRY_SCHEMA = 'panda_f2f_bridge_registry_v1';
 const PANDA_F2F_REGISTRY_SUFFIX = '_panda_f2f_registry';
@@ -433,13 +433,7 @@ function generateConversation(
     const turnInfix = turn.turnNumber === 1 ? '' : `_t${turn.turnNumber}`;
 
     const isEntryTurn = isEntryTurnForExport(turn);
-    const turnChannel = normalizeChannel(turn.channel, 'pda');
-    const hasAuthorOpening = (turn.openingMessage ?? '').trim() !== ''
-      || (turn.openingImage ?? '').trim() !== ''
-      || (turn.openingAudio ?? '').trim() !== '';
-    const shouldExportOpening = turnChannel !== 'f2f'
-      || segmentStartTurns.has(turn.turnNumber)
-      || hasAuthorOpening;
+    const shouldExportOpening = isTurnOpenerActive(turn, segmentStartTurns.has(turn.turnNumber));
 
     if (turn.preconditions.length > 0) {
       lines.push(emitString(`${prefix}${turnInfix}_branch_precond`, serializePreconditions(turn.preconditions)));
@@ -683,6 +677,7 @@ export function createTurn(turnNumber: number): Turn {
   return {
     turnNumber,
     openingMessage: turnNumber === 1 ? '' : undefined,
+    openerEnabled: turnNumber === 1,
     preconditions: [],
     channel: 'pda',
     requiresNpcFirst: undefined,
