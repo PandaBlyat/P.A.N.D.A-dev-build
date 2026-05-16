@@ -78,6 +78,7 @@ local get_unique_actionable_pending_handoff
 local F2F_DIRECT_INJECT_INTERVAL_MS = 30 * 1000
 local f2f_direct_injected_npcs = {}   -- [npc_id] = true
 local f2f_direct_last_inject_at = -F2F_DIRECT_INJECT_INTERVAL_MS
+local f2f_direct_cache = {}           -- forward-declared; populated in the F2F-direct section
 local inject_f2f_direct_for_story_npcs  -- forward declaration; body assigned below
 
 local runtime = {
@@ -1278,6 +1279,34 @@ local function restore_override_owners(owners, skip_live_restore)
 end
 
 local function clear_runtime_transient_state()
+    -- Scrub _G handler closures before discarding the states that own them.
+    -- Each session's register_dispatcher() installs _G[cond_name]/_G[act_name]
+    -- functions that capture state.dialog (CPhraseDialog userdata) and
+    -- state.npc_se (server entity). If we drop the state tables without
+    -- nilling those _G names first, the closures are orphaned with stale
+    -- userdata pointers — the next dialog build can resolve them by name
+    -- and crash when the engine touches the dead userdata.
+    local seen = {}
+    local function scrub(state)
+        if type(state) ~= "table" or seen[state] then
+            return
+        end
+        seen[state] = true
+        cleanup_state_handlers(state)
+    end
+    if type(runtime.state_by_id) == "table" then
+        for _, state in pairs(runtime.state_by_id) do
+            scrub(state)
+        end
+    end
+    if type(runtime.state_by_npc_id) == "table" then
+        for _, state in pairs(runtime.state_by_npc_id) do
+            scrub(state)
+        end
+    end
+    scrub(runtime.latest_state)
+    scrub(runtime.pending_state)
+
     runtime.state_by_id = {}
     runtime.state_by_npc_id = {}
     runtime.latest_state = nil
@@ -1487,6 +1516,11 @@ local function load_state_cb(m)
     restore_override_owners(saved_override_owners)
     clear_runtime_transient_state()
     runtime.override_owners = {}
+    -- Drop pending F2F-direct selections from the previous game session; the
+    -- captured npc_se/conv references belong to a world that no longer exists
+    -- and would otherwise be consumed by the next f2f_direct_init_dialog call.
+    runtime.f2f_direct_pending = {}
+    f2f_direct_cache = {}
     runtime.hub_dialog_cursor = normalize_hub_dialog_slot(m[SAVE_KEY_HUB_DIALOG_CURSOR]) or 0
     runtime.dialog_node_cursor = tonumber(m[SAVE_KEY_DIALOG_NODE_CURSOR]) or 0
     -- Reset F2F-direct injection state so the first actor_on_update triggers a fresh scan
@@ -5209,7 +5243,8 @@ local F2F_DIRECT_SCAN_CACHE_TTL_MS = 5000
 -- F2F_DIRECT_INJECT_INTERVAL_MS, f2f_direct_injected_npcs, f2f_direct_last_inject_at
 -- are forward-declared at the top of the file for scoping reasons.
 
-local f2f_direct_cache = {}
+-- f2f_direct_cache is forward-declared at the top of the file (alongside
+-- f2f_direct_injected_npcs) so load_state_cb can reset it.
 -- Structure: f2f_direct_cache[npc_id] = { candidates = {...}, expires_at = time_global() + TTL }
 
 runtime.f2f_direct_pending = runtime.f2f_direct_pending or {}
