@@ -677,7 +677,10 @@ export function createTurn(turnNumber: number): Turn {
   return {
     turnNumber,
     openingMessage: turnNumber === 1 ? '' : undefined,
-    openerEnabled: turnNumber === 1,
+    // Leave openerEnabled undefined so the segment-start fallback in
+    // isTurnOpenerActive() decides: entries and continuations that change
+    // channel/NPC keep their default opener; same-NPC same-channel
+    // continuations stay silent. Paste explicitly sets this to false.
     preconditions: [],
     channel: 'pda',
     requiresNpcFirst: undefined,

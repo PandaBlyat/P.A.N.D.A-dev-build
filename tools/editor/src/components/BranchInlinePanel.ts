@@ -18,7 +18,7 @@ import {
 } from '../lib/validation';
 import { requestFlowCenter } from '../lib/flow-navigation';
 import { STORY_NPC_OPTIONS } from '../lib/generated/story-npc-catalog';
-import { choiceRequiresContinuationOpener } from '../lib/branch-segments';
+import { choiceRequiresContinuationOpener, collectSegmentStartTurns, isTurnOpenerActive } from '../lib/branch-segments';
 import { isCheckOutcomeCommand, parseOutcomeResumeTurnNumbers } from '../lib/outcome-branching';
 import {
   CORE_DIALOGUE_STATS,
@@ -282,7 +282,8 @@ function renderDialoguePanel(container: HTMLElement, conv: Conversation, turn: T
     ),
   ));
   if (!choice) {
-    const openerEnabled = turn.openerEnabled === true;
+    const isSegmentStart = collectSegmentStartTurns(conv).has(turn.turnNumber);
+    const openerEnabled = isTurnOpenerActive(turn, isSegmentStart);
     const openerToggleField = document.createElement('label');
     openerToggleField.className = 'branch-inline-field';
     const openerToggleLabel = document.createElement('span');
@@ -292,13 +293,19 @@ function renderDialoguePanel(container: HTMLElement, conv: Conversation, turn: T
     openerToggleInput.checked = openerEnabled;
     openerToggleInput.setAttribute('data-field-key', getTurnFieldKey(conv.id, turn.turnNumber, 'opener-enabled'));
     openerToggleInput.onchange = () => store.updateTurn(conv.id, turn.turnNumber, { openerEnabled: openerToggleInput.checked });
+    const hintText = isSegmentStart
+      ? ui(
+        'Entry / channel-switch / NPC-handoff branches start a new conversation, so the opener is on by default. Turn off only if you want this segment to begin silently.',
+        'Ветки начала диалога / смены канала / передачи новому NPC по умолчанию отправляют начальную реплику. Выключайте, только если хотите, чтобы сегмент начинался без сообщения.',
+      )
+      : ui(
+        'Continuation branches stay silent by default. Turn on if you want this branch to send an extra NPC message on entry.',
+        'Продолжения по умолчанию идут без сообщения. Включите, если хотите, чтобы эта ветка отправляла дополнительное сообщение NPC при входе.',
+      );
     openerToggleField.append(
       openerToggleLabel,
       openerToggleInput,
-      createHint(ui(
-        'When off, this branch starts silently — the NPC will not send an opener. Useful for continuation branches that should not double up an extra message.',
-        'Если выключено, ветка начинается без сообщения NPC. Полезно для продолжений, чтобы не было лишнего сообщения подряд.',
-      )),
+      createHint(hintText),
     );
     textPane.appendChild(openerToggleField);
 
@@ -1165,14 +1172,14 @@ function renderContinuationOpenerEditor(
     value: targetTurn.openingMessage ?? '',
     placeholder: ui('NPC opening line before next branch choices', 'Начальная реплика NPC перед вариантами следующей ветки'),
     fieldKey: getTurnFieldKey(conv.id, targetTurn.turnNumber, 'opening-message'),
-    onCommit: (value) => store.updateTurn(conv.id, targetTurn.turnNumber, { openingMessage: value, openerEnabled: true }),
+    onCommit: (value) => store.updateTurn(conv.id, targetTurn.turnNumber, { openingMessage: value }),
   }));
   field.appendChild(createTextInput({
     label: ui('Next Opener DDS Image', 'DDS картинка следующего открытия'),
     value: targetTurn.openingImage ?? '',
     placeholder: 'panda_file',
     fieldKey: getTurnFieldKey(conv.id, targetTurn.turnNumber, 'opening-image'),
-    onCommit: (value) => store.updateTurn(conv.id, targetTurn.turnNumber, { openingImage: value.trim() || undefined, openerEnabled: true }),
+    onCommit: (value) => store.updateTurn(conv.id, targetTurn.turnNumber, { openingImage: value.trim() || undefined }),
   }));
   field.appendChild(createTextInput({
     label: ui('Next Opener Audio', 'Аудио следующего открытия'),
@@ -1180,7 +1187,7 @@ function renderContinuationOpenerEditor(
     placeholder: 'message_ping',
     description: ui('sound filename under gamedata/sounds/panda/audio', 'имя файла звука в gamedata/sounds/panda/audio'),
     fieldKey: getTurnFieldKey(conv.id, targetTurn.turnNumber, 'opening-audio'),
-    onCommit: (value) => store.updateTurn(conv.id, targetTurn.turnNumber, { openingAudio: value.trim() || undefined, openerEnabled: true }),
+    onCommit: (value) => store.updateTurn(conv.id, targetTurn.turnNumber, { openingAudio: value.trim() || undefined }),
   }));
   const actions = document.createElement('div');
   actions.className = 'branch-inline-action-row';
@@ -1682,14 +1689,14 @@ function renderResumeOpenerField(
     value: targetTurn.openingMessage ?? '',
     placeholder: ui(`${label.toLowerCase()} branch NPC opening line`, `Начальная реплика NPC (${labelRu.toLowerCase()})`),
     fieldKey: getTurnFieldKey(conv.id, targetTurn.turnNumber, 'opening-message'),
-    onCommit: (value) => store.updateTurn(conv.id, targetTurn.turnNumber, { openingMessage: value, openerEnabled: true }),
+    onCommit: (value) => store.updateTurn(conv.id, targetTurn.turnNumber, { openingMessage: value }),
   }));
   field.appendChild(createTextInput({
     label: ui(`${label} Opener DDS Image`, `DDS картинка открытия (${labelRu})`),
     value: targetTurn.openingImage ?? '',
     placeholder: 'panda_file',
     fieldKey: getTurnFieldKey(conv.id, targetTurn.turnNumber, 'opening-image'),
-    onCommit: (value) => store.updateTurn(conv.id, targetTurn.turnNumber, { openingImage: value.trim() || undefined, openerEnabled: true }),
+    onCommit: (value) => store.updateTurn(conv.id, targetTurn.turnNumber, { openingImage: value.trim() || undefined }),
   }));
   field.appendChild(createTextInput({
     label: ui(`${label} Opener Audio`, `Аудио открытия (${labelRu})`),
@@ -1697,7 +1704,7 @@ function renderResumeOpenerField(
     placeholder: 'message_ping',
     description: ui('sound filename under gamedata/sounds/panda/audio', 'имя файла звука в gamedata/sounds/panda/audio'),
     fieldKey: getTurnFieldKey(conv.id, targetTurn.turnNumber, 'opening-audio'),
-    onCommit: (value) => store.updateTurn(conv.id, targetTurn.turnNumber, { openingAudio: value.trim() || undefined, openerEnabled: true }),
+    onCommit: (value) => store.updateTurn(conv.id, targetTurn.turnNumber, { openingAudio: value.trim() || undefined }),
   }));
   const actions = document.createElement('div');
   actions.className = 'branch-inline-action-row';

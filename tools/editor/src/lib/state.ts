@@ -17,7 +17,6 @@ import {
   type ValidationMode,
 } from './validation-client';
 import { validateConversations } from './validation';
-import { collectSegmentStartTurns } from './branch-segments';
 
 export type PropertiesTab = 'conversation' | 'selection';
 export type FlowDensity = 'compact' | 'standard' | 'detailed';
@@ -1725,7 +1724,7 @@ class StateManager {
     turn.speaker_allow_generic_stalker = sourceTurn.speaker_allow_generic_stalker ?? false;
     turn.openingImage = sourceTurn.openingImage;
     turn.openingAudio = sourceTurn.openingAudio;
-    turn.openerEnabled = options.resetOpener ? false : (sourceTurn.openerEnabled ?? false);
+    turn.openerEnabled = options.resetOpener ? false : sourceTurn.openerEnabled;
     turn.preconditions = structuredClone(sourceTurn.preconditions ?? []) as Turn['preconditions'];
     turn.channel = normalizeChannelValue(sourceTurn.channel, 'pda');
     turn.requiresNpcFirst = sourceTurn.requiresNpcFirst;
@@ -1798,17 +1797,21 @@ class StateManager {
     };
 
     // Migrate opener-enabled flag for legacy projects saved before the field existed.
-    // The old runtime always emitted PDA openers when text was present, and emitted F2F
-    // openers on segment starts or when authors had set media/text. Translate that
-    // implicit rule into an explicit boolean so new code paths can rely on the field.
+    // Old PDA exports emitted an opener whenever the turn had any author content,
+    // even on non-segment-start branches. Preserve that intent by explicitly
+    // enabling the flag for turns with author content. Turns without content stay
+    // undefined so `isTurnOpenerActive` falls back to the segment-start rule —
+    // that way, wiring a continuation that requires an opener (channel switch or
+    // NPC handoff) still automatically emits one, exactly as it did before.
     for (const conversation of this.state.project.conversations) {
-      const segmentStarts = collectSegmentStartTurns(conversation);
       for (const turn of conversation.turns) {
         if (typeof turn.openerEnabled === 'boolean') continue;
         const hasAuthorOpening = (turn.openingMessage ?? '').trim() !== ''
           || (turn.openingImage ?? '').trim() !== ''
           || (turn.openingAudio ?? '').trim() !== '';
-        turn.openerEnabled = hasAuthorOpening || segmentStarts.has(turn.turnNumber);
+        if (hasAuthorOpening) {
+          turn.openerEnabled = true;
+        }
       }
     }
 
