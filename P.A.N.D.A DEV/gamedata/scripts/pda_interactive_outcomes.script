@@ -191,6 +191,27 @@ local function runtime_set(key, value)
     _panda_ic_runtime[key] = value
 end
 
+local function call_panda_ic_helper(helper_name, ...)
+    local fn = nil
+    if pda_interactive_conv and type(pda_interactive_conv[helper_name]) == "function" then
+        fn = pda_interactive_conv[helper_name]
+    elseif type(_G[helper_name]) == "function" then
+        fn = _G[helper_name]
+    end
+
+    if not fn then
+        printf("PANDA_IC: helper '%s' unavailable; skipping", tostring(helper_name))
+        return false
+    end
+
+    local ok, err = pcall(fn, ...)
+    if not ok then
+        printf("PANDA_IC: helper '%s' failed (%s)", tostring(helper_name), tostring(err))
+        return false
+    end
+    return true
+end
+
 local function apply_dialogue_stat_delta(key, delta)
     if pda_interactive_conv and type(pda_interactive_conv.change_dialogue_stat) == "function" then
         pda_interactive_conv.change_dialogue_stat(key, delta)
@@ -1681,10 +1702,10 @@ handlers["panda_task_rescue"] = function(parts, cmd_str, cmd)
         -- (neutral, invulnerable, ignores combat) so they sit in prisoner
         -- pose until the player clears the area.
         if survivor_squad_obj then
-            apply_spawned_faction_relation(survivor_squad_obj, "hostage")
+            call_panda_ic_helper("apply_spawned_faction_relation", survivor_squad_obj, "hostage")
         end
-        apply_rescue_survivor_animation(survivor_id)
-        mark_npc_as_hostage(survivor_id, smart_ref)
+        call_panda_ic_helper("apply_rescue_survivor_animation", survivor_id)
+        call_panda_ic_helper("mark_npc_as_hostage", survivor_id, smart_ref)
 
         local destination_map_id, destination_label = get_smart_task_target(smart_ref)
         local bridge = ensure_panda_task_bridge()

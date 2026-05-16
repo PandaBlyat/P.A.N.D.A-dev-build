@@ -4561,6 +4561,10 @@ function apply_rescue_survivor_animation(npc_id)
     end)
 end
 
+pda_interactive_conv.apply_spawned_faction_relation = apply_spawned_faction_relation
+pda_interactive_conv.mark_npc_as_hostage = mark_npc_as_hostage
+pda_interactive_conv.apply_rescue_survivor_animation = apply_rescue_survivor_animation
+
 -- Returns notification string key for spawned NPC squad based on relation to player.
 -- Falls back to a generic key if the specific one is missing from the string table.
 function get_faction_spawn_notification_keys(relation_mode)
