@@ -826,6 +826,31 @@ function parseTurnChoices(strings: Map<string, string>, prefix: string, turnInfi
       choice.cont_npc_id = contNpcStr.trim();
     }
 
+    // Mutual-exclusion fan-out targets (sibling NPCs that receive the same continuation in parallel).
+    const fanoutCountStr = strings.get(`${prefix}${turnInfix}_fanout_count_${i}`);
+    const fanoutCount = fanoutCountStr ? parseInt(fanoutCountStr, 10) : 0;
+    if (Number.isFinite(fanoutCount) && fanoutCount > 0) {
+      const targets = [];
+      for (let j = 1; j <= fanoutCount; j++) {
+        const turnStr = strings.get(`${prefix}${turnInfix}_fanout_${i}_${j}_turn`);
+        const npcStr = strings.get(`${prefix}${turnInfix}_fanout_${i}_${j}_npc`);
+        if (!turnStr || !npcStr) continue;
+        const target: any = {
+          cont_npc_id: npcStr.trim(),
+          continueTo: parseInt(turnStr, 10),
+        };
+        const channelStr = strings.get(`${prefix}${turnInfix}_fanout_${i}_${j}_channel`);
+        if (channelStr === 'f2f' || channelStr === 'pda') target.continueChannel = channelStr;
+        const delayStr = strings.get(`${prefix}${turnInfix}_fanout_${i}_${j}_delay`);
+        if (delayStr) {
+          const parsedDelay = parseInt(delayStr, 10);
+          if (Number.isFinite(parsedDelay) && parsedDelay >= 0) target.pdaDelaySeconds = parsedDelay;
+        }
+        if (Number.isFinite(target.continueTo) && target.cont_npc_id) targets.push(target);
+      }
+      if (targets.length > 0) choice.fanout_targets = targets;
+    }
+
     choices.push(choice);
   }
 

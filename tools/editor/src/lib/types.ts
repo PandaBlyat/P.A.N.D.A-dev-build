@@ -213,6 +213,22 @@ export interface Choice {
   allow_generic_stalker?: boolean;
   /** Story NPC ID of the NPC who should deliver the next continuation turn (multi-NPC handoff). */
   cont_npc_id?: string;
+  /** Additional mutual-exclusion fan-out targets. When this list is non-empty the
+   * choice produces a parallel PDA continuation per NPC (primary + each entry).
+   * Whichever thread the player engages with first wins; sibling threads keep their
+   * delivered messages but their follow-up choices become inert. */
+  fanout_targets?: ChoiceFanoutTarget[];
+}
+
+export interface ChoiceFanoutTarget {
+  /** Story NPC id, or "npc:<custom_template_id>" for an editor-defined custom NPC. */
+  cont_npc_id: string;
+  /** Target turn number that NPC delivers when this sibling wins. */
+  continueTo: number;
+  /** Optional override channel. Only `pda` is supported for fan-out today. */
+  continueChannel?: ConversationChannel;
+  /** Optional delivery delay in seconds. */
+  pdaDelaySeconds?: number;
 }
 
 export interface Outcome {

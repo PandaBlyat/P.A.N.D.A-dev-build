@@ -3034,6 +3034,56 @@ class StateManager {
     this.finishProjectMutation({ change: FLOW_STRUCTURE_RENDER });
   }
 
+  /** Append an empty mutual-exclusion fan-out target to a choice. */
+  addChoiceFanoutTarget(conversationId: number, turnNumber: number, choiceIndex: number): void {
+    const conv = this.state.project.conversations.find(c => c.id === conversationId);
+    const turn = conv?.turns.find(t => t.turnNumber === turnNumber);
+    const choice = turn?.choices.find(c => c.index === choiceIndex);
+    if (!choice) return;
+    this.pushUndoForConversation(conversationId);
+    if (!Array.isArray(choice.fanout_targets)) choice.fanout_targets = [];
+    choice.fanout_targets.push({ cont_npc_id: '', continueTo: choice.continueTo ?? turnNumber });
+    this.finishProjectMutation({ change: FLOW_STRUCTURE_RENDER });
+  }
+
+  updateChoiceFanoutTarget(
+    conversationId: number,
+    turnNumber: number,
+    choiceIndex: number,
+    targetIndex: number,
+    updates: Partial<{ cont_npc_id: string; continueTo: number; pdaDelaySeconds: number | undefined }>,
+  ): void {
+    const conv = this.state.project.conversations.find(c => c.id === conversationId);
+    const turn = conv?.turns.find(t => t.turnNumber === turnNumber);
+    const choice = turn?.choices.find(c => c.index === choiceIndex);
+    if (!choice || !Array.isArray(choice.fanout_targets)) return;
+    const target = choice.fanout_targets[targetIndex];
+    if (!target) return;
+    this.pushUndoForConversation(conversationId);
+    Object.assign(target, updates);
+    if (updates.pdaDelaySeconds === undefined && 'pdaDelaySeconds' in updates) {
+      delete target.pdaDelaySeconds;
+    }
+    this.finishProjectMutation({ change: FLOW_STRUCTURE_RENDER });
+  }
+
+  removeChoiceFanoutTarget(
+    conversationId: number,
+    turnNumber: number,
+    choiceIndex: number,
+    targetIndex: number,
+  ): void {
+    const conv = this.state.project.conversations.find(c => c.id === conversationId);
+    const turn = conv?.turns.find(t => t.turnNumber === turnNumber);
+    const choice = turn?.choices.find(c => c.index === choiceIndex);
+    if (!choice || !Array.isArray(choice.fanout_targets)) return;
+    if (targetIndex < 0 || targetIndex >= choice.fanout_targets.length) return;
+    this.pushUndoForConversation(conversationId);
+    choice.fanout_targets.splice(targetIndex, 1);
+    if (choice.fanout_targets.length === 0) delete choice.fanout_targets;
+    this.finishProjectMutation({ change: FLOW_STRUCTURE_RENDER });
+  }
+
   /**
    * Clears the success / fail / timeout resume-turn parameter on a specific
    * outcome of a choice (the success/fail branches drawn from skill checks,

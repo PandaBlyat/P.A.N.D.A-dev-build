@@ -111,7 +111,10 @@ type ChoiceField =
   | 'npc-faction-filters'
   | 'npc-profile-filters'
   | 'allow-generic-stalker'
-  | 'cont-npc-id';
+  | 'cont-npc-id'
+  | `fanout-${number}-npc`
+  | `fanout-${number}-turn`
+  | `fanout-${number}-delay`;
 
 interface ValidationContext {
   conversationId: number;
@@ -659,6 +662,92 @@ function validateTurn(
           message: `${turnLabels.getLongLabel(turn.turnNumber)}, Choice ${choice.index}: Continues to ${turnLabels.getLongLabel(choice.continueTo)} which does not exist.`,
         });
       }
+    }
+
+    // Mutual-exclusion fan-out validation.
+    if (Array.isArray(choice.fanout_targets) && choice.fanout_targets.length > 0) {
+      if (choice.continueTo == null) {
+        pushMessage(messages, {
+          code: 'fanout-without-primary',
+          group: 'logic',
+          scope: 'choice',
+          level: 'warning',
+          conversationId: conv.id,
+          turnNumber: turn.turnNumber,
+          choiceIndex: choice.index,
+          propertiesTab: 'selection',
+          fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, 'continue-to'),
+          fieldLabel: 'Continue To Turn',
+          message: `${turnLabels.getLongLabel(turn.turnNumber)}, Choice ${choice.index}: Fan-out siblings are set but the primary continuation is empty — only the primary path queues the parallel siblings, so this choice will look like a dead end at runtime.`,
+        });
+      }
+
+      const seenNpcIds = new Set<string>();
+      if (choice.cont_npc_id) seenNpcIds.add(choice.cont_npc_id);
+
+      choice.fanout_targets.forEach((target, targetIdx) => {
+        if (!target.cont_npc_id || target.cont_npc_id.trim() === '') {
+          pushMessage(messages, {
+            code: 'fanout-missing-npc',
+            group: 'structure',
+            scope: 'choice',
+            level: 'error',
+            conversationId: conv.id,
+            turnNumber: turn.turnNumber,
+            choiceIndex: choice.index,
+            propertiesTab: 'selection',
+            fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, `fanout-${targetIdx}-npc`),
+            fieldLabel: 'Fan-out NPC',
+            message: `${turnLabels.getLongLabel(turn.turnNumber)}, Choice ${choice.index}: Fan-out target ${targetIdx + 1} has no NPC assigned.`,
+          });
+        } else if (seenNpcIds.has(target.cont_npc_id)) {
+          pushMessage(messages, {
+            code: 'fanout-duplicate-npc',
+            group: 'logic',
+            scope: 'choice',
+            level: 'warning',
+            conversationId: conv.id,
+            turnNumber: turn.turnNumber,
+            choiceIndex: choice.index,
+            propertiesTab: 'selection',
+            fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, `fanout-${targetIdx}-npc`),
+            fieldLabel: 'Fan-out NPC',
+            message: `${turnLabels.getLongLabel(turn.turnNumber)}, Choice ${choice.index}: Fan-out target ${targetIdx + 1} reuses NPC "${target.cont_npc_id}" — the second queue will replace the first.`,
+          });
+        } else {
+          seenNpcIds.add(target.cont_npc_id);
+        }
+
+        if (target.continueTo == null) {
+          pushMessage(messages, {
+            code: 'fanout-missing-turn',
+            group: 'structure',
+            scope: 'choice',
+            level: 'error',
+            conversationId: conv.id,
+            turnNumber: turn.turnNumber,
+            choiceIndex: choice.index,
+            propertiesTab: 'selection',
+            fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, `fanout-${targetIdx}-turn`),
+            fieldLabel: 'Fan-out Branch',
+            message: `${turnLabels.getLongLabel(turn.turnNumber)}, Choice ${choice.index}: Fan-out target ${targetIdx + 1} has no target branch.`,
+          });
+        } else if (!turnNumbers.has(target.continueTo)) {
+          pushMessage(messages, {
+            code: 'fanout-bad-turn',
+            group: 'structure',
+            scope: 'choice',
+            level: 'error',
+            conversationId: conv.id,
+            turnNumber: turn.turnNumber,
+            choiceIndex: choice.index,
+            propertiesTab: 'selection',
+            fieldKey: getChoiceFieldKey(conv.id, turn.turnNumber, choice.index, `fanout-${targetIdx}-turn`),
+            fieldLabel: 'Fan-out Branch',
+            message: `${turnLabels.getLongLabel(turn.turnNumber)}, Choice ${choice.index}: Fan-out target ${targetIdx + 1} points to branch ${target.continueTo} which does not exist.`,
+          });
+        }
+      });
     }
 
     choice.outcomes.forEach((outcome, outcomeIndex) => {
@@ -1607,6 +1696,15 @@ function validateReachability(
       if (choice.continueTo != null && !reachable.has(choice.continueTo) && turnNumbers.has(choice.continueTo)) {
         reachable.add(choice.continueTo);
         queue.push(choice.continueTo);
+      }
+
+      if (Array.isArray(choice.fanout_targets)) {
+        for (const target of choice.fanout_targets) {
+          if (target.continueTo != null && !reachable.has(target.continueTo) && turnNumbers.has(target.continueTo)) {
+            reachable.add(target.continueTo);
+            queue.push(target.continueTo);
+          }
+        }
       }
 
       for (const outcome of choice.outcomes) {

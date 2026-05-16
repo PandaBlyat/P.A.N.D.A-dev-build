@@ -29,7 +29,7 @@ import { turnMatchesCharacter } from '../lib/character-focus';
 import { createCharactersMenu } from './CharactersMenu';
 
 type TurnPositionMap = Map<number, { x: number; y: number }>;
-type EdgeKind = 'continue' | 'pause-success' | 'pause-fail';
+type EdgeKind = 'continue' | 'pause-success' | 'pause-fail' | 'fanout';
 type HighlightState = 'normal' | 'active' | 'muted';
 
 type EdgeDescriptor = {
@@ -459,6 +459,7 @@ function indexEdgeElements(svg: SVGSVGElement, map: Map<string, SVGGElement>): v
     const kind = path.classList.contains('edge-continue') ? 'continue'
       : path.classList.contains('edge-pause-success') ? 'pause-success'
       : path.classList.contains('edge-pause-fail') ? 'pause-fail'
+      : path.classList.contains('edge-fanout') ? 'fanout'
       : 'continue';
     if (src && ci && tgt) {
       map.set(`${src}:${ci}:${tgt}:${kind}`, group as SVGGElement);
@@ -4889,6 +4890,20 @@ function getChoiceTargets(choice: Choice, conv: Conversation): Array<{ turnNumbe
       label: `C${choice.index}`,
       kind: 'continue',
     });
+  }
+
+  // Mutual-exclusion fan-out: render an extra edge per sibling NPC. Visually
+  // these read as "OR-branches" off the same choice handle.
+  if (Array.isArray(choice.fanout_targets)) {
+    for (const fanout of choice.fanout_targets) {
+      if (fanout.continueTo == null) continue;
+      if (!fanout.cont_npc_id || fanout.cont_npc_id.trim() === '') continue;
+      targets.push({
+        turnNumber: fanout.continueTo,
+        label: `C${choice.index}·or`,
+        kind: 'fanout',
+      });
+    }
   }
 
   for (const outcome of choice.outcomes) {
