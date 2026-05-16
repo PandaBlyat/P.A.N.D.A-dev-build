@@ -211,6 +211,9 @@ export function renderConversationList(container: HTMLElement): void {
       input.onclick = (e) => e.stopPropagation();
       input.onpointerdown = (e) => e.stopPropagation();
       input.onkeydown = (e) => {
+        // Prevent the parent <li>'s keyboard shortcuts (Space = select,
+        // Backspace/Delete = delete story) from firing while editing the name.
+        e.stopPropagation();
         if (e.key === 'Enter') {
           e.preventDefault();
           input.blur();
