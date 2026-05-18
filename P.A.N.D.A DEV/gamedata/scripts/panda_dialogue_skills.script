@@ -534,6 +534,7 @@ local function patch_item_info_update()
         end
         self.desc:AdjustHeightToText()
         local desc_delta = math.max(0, self.desc:GetHeight() - original_desc_h)
+        local tooltip_extra_h = math.min(desc_delta, 90)
 
         local bottom = self.desc
         if self.stats_dialog and self.stats_dialog:IsShown() then
@@ -545,8 +546,13 @@ local function patch_item_info_update()
             bottom = self.ammo
         end
         if self.frame and bottom then
-            local height = self:Sync_H(bottom, self.frame, 10)
-            height = math.max(height, original_frame_h + desc_delta, original_dialog_h + desc_delta)
+            local content_h = self:Sync_H(bottom, self.frame, 10)
+            local base_h = math.max(original_frame_h, original_dialog_h)
+            -- Vanilla layout already sized tooltip correctly; only extend enough for our added line.
+            local height = base_h + tooltip_extra_h
+            if content_h and content_h > 0 then
+                height = math.max(height, math.min(content_h, base_h + tooltip_extra_h))
+            end
             self.frame:SetWndSize(vector2():set(self.frame:GetWidth(), height))
             if self.dialog then
                 self.dialog:SetWndSize(vector2():set(self.dialog:GetWidth(), height))

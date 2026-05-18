@@ -1232,13 +1232,7 @@ function inferNewNpcContinuationMode(conv: Conversation, turn: Turn, choice: Cho
 }
 
 function reopenContinuationPanel(conv: Conversation, turn: Turn, choice: Choice): void {
-  store.closeBranchInlinePanel();
-  store.openBranchInlinePanel({
-    conversationId: conv.id,
-    turnNumber: turn.turnNumber,
-    choiceIndex: choice.index,
-    mode: 'continuation',
-  });
+  store.refreshBranchInlinePanel();
 }
 
 function setNpcContinuationSpeaker(conv: Conversation, turn: Turn, choice: Choice, speaker: NpcContinuationSpeaker): void {

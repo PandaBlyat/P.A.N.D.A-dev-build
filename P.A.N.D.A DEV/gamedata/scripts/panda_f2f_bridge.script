@@ -2718,32 +2718,8 @@ cleanup_noncommit_exit = function(state, exit_reason)
     end
 
     local active_npc_id = resolve_server_npc_id(state.npc_se, "cleanup_noncommit_exit")
-    local consumed_handoff = consume_pending_handoff_for_npc(
-        state.npc_se,
-        state.handoff_conv_id or state.conv_id,
-        state.handoff_turn or state.turn,
-        state.handoff_token,
-        state.handoff_set_at
-    )
-    if consumed_handoff then
-        bridge_warn(
-            "cleanup_noncommit_exit handoff_consume removed=true npc_id=%s conv_id=%s turn=%s reason=%s",
-            tostring(active_npc_id or state.npc_se and state.npc_se.id or "nil"),
-            tostring(state.conv_id or "nil"),
-            tostring(state.turn or "nil"),
-            tostring(exit_reason or "unknown")
-        )
-    else
-        bridge_warn(
-            "cleanup_noncommit_exit handoff_consume removed=false npc_id=%s conv_id=%s turn=%s reason=%s detail=consume_miss",
-            tostring(active_npc_id or state.npc_se and state.npc_se.id or "nil"),
-            tostring(state.conv_id or "nil"),
-            tostring(state.turn or "nil"),
-            tostring(exit_reason or "unknown")
-        )
-    end
     bridge_warn(
-        "handoff_cleared_on_abort npc_id=%s conv_id=%s turn=%s reason=%s",
+        "cleanup_noncommit_exit handoff_preserved npc_id=%s conv_id=%s turn=%s reason=%s",
         tostring(active_npc_id or state.npc_se and state.npc_se.id or "nil"),
         tostring(state.conv_id or "nil"),
         tostring(state.turn or "nil"),
@@ -4256,6 +4232,9 @@ local function build_dialog_tree(dialog, state)
                 tostring(branch.outcome or "none")
             )
             if ok then
+                local same_npc_f2f_resume = branch_next_turn
+                    and branch.next_channel == "f2f"
+                    and not (branch.next_npc_id and branch.next_npc_id ~= "")
                 if branch_next_turn and branch.next_channel == "pda" then
                     local handoff_source = type(active_state.handoff) == "table" and active_state.handoff or nil
                     local followup_npc_id = active_npc_id
@@ -4328,6 +4307,81 @@ local function build_dialog_tree(dialog, state)
                         tostring(active_state.pending_pda_followup.contact_id or "nil")
                     )
                 end
+                if same_npc_f2f_resume then
+                    local conv_api = get_conv_api()
+                    local handoff_source = type(active_state.handoff) == "table" and active_state.handoff or {}
+                    local set_at = time_global and time_global() or active_state.handoff_set_at
+                    local resume_token = make_bridge_handoff_token(active_npc_id, active_state.conv_id, branch_next_turn, set_at)
+                    local resume_dialog = active_state.handoff_route_dialog
+                        or active_state.route_dialog
+                        or handoff_source.route_dialog
+                        or handoff_source.dialog
+                        or HUB_DIALOG_ID
+                    local resume_owner = active_state.route_restore_owner
+                        or active_state.handoff_route_owner
+                        or handoff_source.route_owner
+                        or string.format("f2f_handoff_resume_%s_%s_%s", tostring(active_npc_id), tostring(active_state.conv_id), tostring(branch_next_turn))
+                    local resume_row = {
+                        contact_id = handoff_source.contact_id or (active_npc_id and tostring(active_npc_id) or nil),
+                        npc_id = active_npc_id,
+                        npc_name = handoff_source.npc_name,
+                        npc_icon = handoff_source.npc_icon,
+                        conv_id = active_state.conv_id,
+                        turn = branch_next_turn,
+                        faction = active_state.faction,
+                        prefix = active_state.prefix,
+                        channel = "f2f",
+                        dialog = resume_dialog,
+                        route_dialog = resume_dialog,
+                        set_at = set_at,
+                        token = resume_token,
+                        story_id = handoff_source.story_id,
+                        canonical_id = handoff_source.canonical_id,
+                        fallback_name = handoff_source.fallback_name,
+                        npc_refs = handoff_source.npc_refs,
+                        task_id = handoff_source.task_id,
+                        category = handoff_source.category,
+                        applied_outcomes = handoff_source.applied_outcomes,
+                        route_owner = resume_owner,
+                        route_status = handoff_source.route_status or "resume",
+                    }
+                    if (not resume_row.npc_name or resume_row.npc_name == "") and active_state.npc_se then
+                        local ok_name, resolved_name = pcall(function() return active_state.npc_se:character_name() end)
+                        if ok_name and resolved_name and resolved_name ~= "" then
+                            resume_row.npc_name = tostring(resolved_name)
+                        end
+                    end
+                    if (not resume_row.npc_icon or resume_row.npc_icon == "") and active_state.npc_se then
+                        local ok_icon, resolved_icon = pcall(function() return active_state.npc_se:character_icon() end)
+                        if ok_icon and resolved_icon and resolved_icon ~= "" then
+                            resume_row.npc_icon = tostring(resolved_icon)
+                        end
+                    end
+                    if conv_api and type(conv_api.register_f2f_handoff) == "function" then
+                        local ok_resume, registered = pcall(conv_api.register_f2f_handoff, resume_row.contact_id, resume_row)
+                        active_state.resume_handoff_pending = ok_resume and registered == true
+                    end
+                    active_state.handoff = resume_row
+                    active_state.handoff_present = true
+                    active_state.handoff_conv_id = active_state.conv_id
+                    active_state.handoff_turn = branch_next_turn
+                    active_state.handoff_token = resume_token
+                    active_state.handoff_set_at = set_at
+                    active_state.handoff_route_owner = resume_owner
+                    active_state.handoff_route_dialog = resume_dialog
+                    active_state.route_dialog = resume_dialog
+                    active_state.route_restore_owner = resume_owner
+                    bridge_warn(
+                        "register_dispatcher: same_npc_f2f_resume armed npc_id=%s conv_id=%s turn=%s token=%s registered=%s",
+                        tostring(active_npc_id or "nil"),
+                        tostring(active_state.conv_id or "nil"),
+                        tostring(branch_next_turn or "nil"),
+                        tostring(resume_token or "nil"),
+                        tostring(active_state.resume_handoff_pending == true)
+                    )
+                else
+                    active_state.resume_handoff_pending = false
+                end
                 if branch_next_turn and branch.next_channel == "f2f" and branch.next_npc_id and branch.next_npc_id ~= "" then
                     local handoff_branch = branch
                     if branch_next_turn ~= branch.next_turn then
@@ -4346,13 +4400,15 @@ local function build_dialog_tree(dialog, state)
                     end
                 end
                 -- Consume only after a player-selected branch is committed.
-                consume_pending_handoff_for_npc(
-                    active_state.npc_se,
-                    active_state.handoff_conv_id or active_state.conv_id,
-                    active_state.handoff_turn or active_state.turn,
-                    active_state.handoff_token,
-                    active_state.handoff_set_at
-                )
+                if active_state.resume_handoff_pending ~= true then
+                    consume_pending_handoff_for_npc(
+                        active_state.npc_se,
+                        active_state.handoff_conv_id or active_state.conv_id,
+                        active_state.handoff_turn or active_state.turn,
+                        active_state.handoff_token,
+                        active_state.handoff_set_at
+                    )
+                end
             end
             if branch.hard_route and routed then
                 local keep_hub_override = branch.keep_hub_override == true
@@ -4796,6 +4852,10 @@ function panda_f2f_bridge.on_dialog_closed(npc_or_reason, reason, ...)
         tostring(type(state) == "table" and state.branch_committed == true)
     )
 
+    local preserve_resume_handoff = type(state) == "table"
+        and state.handoff_present == true
+        and (state.branch_committed ~= true or state.resume_handoff_pending == true)
+
     if type(state) == "table" and state.branch_committed ~= true and type(cleanup_noncommit_exit) == "function" then
         bridge_warn(
             "teardown cleanup_noncommit_exit npc_id=%s reason=%s",
@@ -4846,6 +4906,15 @@ function panda_f2f_bridge.on_dialog_closed(npc_or_reason, reason, ...)
                 "teardown f2f_direct_noncommit_keep_override npc_id=%s reason=%s",
                 tostring(resolved_npc_id),
                 tostring(close_reason)
+            )
+        elseif preserve_resume_handoff then
+            bridge_warn(
+                "teardown preserve_resume_handoff npc_id=%s reason=%s conv_id=%s turn=%s token=%s",
+                tostring(resolved_npc_id),
+                tostring(close_reason),
+                tostring(consume_conv_id or "nil"),
+                tostring(consume_turn or "nil"),
+                tostring(consume_token or "nil")
             )
         else
             local restore_owner = type(state) == "table" and state.route_restore_owner or nil
@@ -4936,7 +5005,7 @@ function panda_f2f_bridge.on_dialog_closed(npc_or_reason, reason, ...)
         )
     end
 
-    if type(state) == "table" and state.branch_committed == true then
+    if type(state) == "table" and state.branch_committed == true and state.resume_handoff_pending ~= true then
         local consumed_after_close = consume_pending_handoff_for_npc(
             consume_npc_ref,
             consume_conv_id,

@@ -6950,6 +6950,23 @@ register_pending_f2f_handoff = function(contact_id, handoff_row)
     handoff_row.contact_id = contact_key
     handoff_row.npc_refs = normalize_npc_refs(handoff_row.npc_refs)
     pda_f2f_handoffs[contact_key] = handoff_row
+    if type(active_conversations) == "table" and type(active_conversations[contact_key]) == "table" then
+        local conv = active_conversations[contact_key]
+        conv.npc_id = handoff_row.npc_id or conv.npc_id
+        conv.npc_name = handoff_row.npc_name or conv.npc_name
+        conv.npc_icon = handoff_row.npc_icon or conv.npc_icon
+        conv.pending_in_person_continuation = true
+        conv.pending_in_person_turn = handoff_row.turn
+        conv.pending_in_person_target = handoff_row.route_dialog or handoff_row.dialog
+        conv.pending_in_person_set_at = handoff_row.set_at
+        conv.pending_in_person_token = handoff_row.token
+        conv.pending_in_person_story_id = handoff_row.story_id or conv.story_id
+        conv.pending_in_person_canonical_id = handoff_row.canonical_id or conv.canonical_id
+        conv.story_id = handoff_row.story_id or conv.story_id
+        conv.canonical_id = handoff_row.canonical_id or conv.canonical_id
+        conv.npc_refs = handoff_row.npc_refs or conv.npc_refs
+        clear_pda_choices_for_pending_handoff(conv)
+    end
     sync_pda_f2f_handoff_globals()
     return true
 end

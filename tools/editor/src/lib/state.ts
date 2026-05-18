@@ -2002,6 +2002,11 @@ class StateManager {
     this.notify(createFlowChange('structure', 'flowEditor', 'propertiesPanel'));
   }
 
+  refreshBranchInlinePanel(): void {
+    if (!this.state.branchInlinePanel) return;
+    this.notify(createFlowChange('structure', 'flowEditor', 'propertiesPanel'));
+  }
+
   setPropertiesTab(tab: PropertiesTab): void {
     this.state.propertiesTab = tab;
     this.notify(SELECTION_RENDER);
