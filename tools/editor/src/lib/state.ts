@@ -32,6 +32,7 @@ export interface BranchInlinePanelState {
   turnNumber: number;
   choiceIndex: number | null;
   selectedOutcomeIndex?: number | null;
+  refreshRevision?: number;
 }
 
 const CURSOR_PREFS_KEY = 'panda:cursor-prefs:v1';
@@ -1977,11 +1978,19 @@ class StateManager {
   }
 
   openBranchInlinePanel(panel: BranchInlinePanelState): void {
+    const current = this.state.branchInlinePanel;
+    const keepsSamePanel =
+      current
+      && current.mode === panel.mode
+      && current.conversationId === panel.conversationId
+      && current.turnNumber === panel.turnNumber
+      && current.choiceIndex === panel.choiceIndex
+      && (current.selectedOutcomeIndex ?? null) === (panel.selectedOutcomeIndex ?? null);
     const normalized: BranchInlinePanelState = {
       ...panel,
       selectedOutcomeIndex: panel.selectedOutcomeIndex ?? null,
+      refreshRevision: keepsSamePanel ? current.refreshRevision : 0,
     };
-    const current = this.state.branchInlinePanel;
     if (
       current
       && current.mode === normalized.mode
@@ -1989,6 +1998,7 @@ class StateManager {
       && current.turnNumber === normalized.turnNumber
       && current.choiceIndex === normalized.choiceIndex
       && (current.selectedOutcomeIndex ?? null) === (normalized.selectedOutcomeIndex ?? null)
+      && (current.refreshRevision ?? 0) === (normalized.refreshRevision ?? 0)
     ) {
       return;
     }
@@ -2004,6 +2014,10 @@ class StateManager {
 
   refreshBranchInlinePanel(): void {
     if (!this.state.branchInlinePanel) return;
+    this.state.branchInlinePanel = {
+      ...this.state.branchInlinePanel,
+      refreshRevision: (this.state.branchInlinePanel.refreshRevision ?? 0) + 1,
+    };
     this.notify(createFlowChange('structure', 'flowEditor', 'propertiesPanel'));
   }
 

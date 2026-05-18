@@ -519,7 +519,7 @@ function memoKey(convId: number, structureRevision: number, contentRevision: num
   // Content edits affect node widths (label length), so they invalidate bounds
   // and labeler caches.
   const inlineKey = branchInlinePanel
-    ? `${branchInlinePanel.turnNumber}:${branchInlinePanel.choiceIndex ?? 'opener'}:${branchInlinePanel.mode}:${branchInlinePanel.selectedOutcomeIndex ?? 'none'}`
+    ? `${branchInlinePanel.turnNumber}:${branchInlinePanel.choiceIndex ?? 'opener'}:${branchInlinePanel.mode}:${branchInlinePanel.selectedOutcomeIndex ?? 'none'}:${branchInlinePanel.refreshRevision ?? 0}`
     : 'none';
   return `${convId}:${structureRevision}:${contentRevision}:${density}:${inlineKey}`;
 }
@@ -1372,7 +1372,7 @@ function shouldRenderEdgePackets(
 function branchInlinePanelKey(panel: BranchInlinePanelState | null, currentConvId: number): string | null {
   if (!panel) return null;
   if (panel.conversationId !== currentConvId) return null;
-  return `${panel.conversationId}:${panel.turnNumber}:${panel.choiceIndex ?? 'opener'}:${panel.mode}:${panel.selectedOutcomeIndex ?? 'none'}`;
+  return `${panel.conversationId}:${panel.turnNumber}:${panel.choiceIndex ?? 'opener'}:${panel.mode}:${panel.selectedOutcomeIndex ?? 'none'}:${panel.refreshRevision ?? 0}`;
 }
 
 function renderBranchInlineModalOverlay(options: {
