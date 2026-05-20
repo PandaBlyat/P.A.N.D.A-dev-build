@@ -99,6 +99,15 @@ local runtime = {
     -- of being dereferenced (their npc_se userdata points at destroyed objects).
     session_token = 0,
     session_ready = false,
+    -- NPC IDs (string keys) whose live start_dialog still points at a panda_f2f_*
+    -- dialog because the engine persists set_start_dialog() across save/load.
+    -- Populated from m[SAVE_KEY_OVERRIDE_OWNERS] at load_state_cb time and drained
+    -- on later frames by actor_on_update_cb, when db.storage is populated and we
+    -- can resolve the live NPC object to call restore_default_start_dialog().
+    -- Required because storyline NPCs (meet_dialog == nil) are never auto-reset
+    -- by xr_meet.update(), so without an explicit restore they keep talking to
+    -- our dialog forever and the engine segfaults on the next interaction.
+    pending_live_dialog_restore = {},
 }
 
 local function make_state_id_from_values(npc_id, conv_id, turn)
@@ -1703,6 +1712,33 @@ local function load_state_cb(m)
     -- restoring rejects stale handoff records from the previous Lua session.
     runtime.session_ready = false
     runtime.session_token = (tonumber(runtime.session_token) or 0) + 1
+
+    -- Capture the NPC IDs that had a panda_f2f_* live start_dialog at save
+    -- time. We can't restore_default_start_dialog() inline here because the
+    -- engine fires load_state before db.storage is populated, so
+    -- resolve_live_npc_object() returns nil for everything. Drain this queue
+    -- from actor_on_update_cb once the world is online.
+    runtime.pending_live_dialog_restore = {}
+    if m and type(m[SAVE_KEY_OVERRIDE_OWNERS]) == "table" then
+        for npc_id_key in pairs(m[SAVE_KEY_OVERRIDE_OWNERS]) do
+            local sid = normalize_npc_id(npc_id_key)
+            if sid then
+                runtime.pending_live_dialog_restore[tostring(sid)] = true
+            end
+        end
+    end
+    -- Also include any NPCs we still believe we own from the previous Lua
+    -- session's runtime state — those got set_start_dialog'd too, and they're
+    -- about to be wiped from runtime.override_owners.
+    if type(runtime.override_owners) == "table" then
+        for npc_id_key in pairs(runtime.override_owners) do
+            local sid = normalize_npc_id(npc_id_key)
+            if sid then
+                runtime.pending_live_dialog_restore[tostring(sid)] = true
+            end
+        end
+    end
+
     -- Hard-scrub cross-session globals: when the player loads a save without
     -- restarting the game, _G.pda_f2f_handoffs / _G.active_conversations from
     -- the previous session survive and contain dead npc_se userdata. Iterating
@@ -1719,13 +1755,13 @@ local function load_state_cb(m)
     clear_runtime_transient_state()
     scrub_global_f2f_callbacks("load_state")
     runtime.override_owners = {}
-    -- Restore persisted dialog-override owners. Without this, story NPCs that
-    -- had a pending PDA handoff at save time end up with no owner record, so
-    -- our preconditions try to recover them via stale globals and crash.
-    if m and type(m[SAVE_KEY_OVERRIDE_OWNERS]) == "table" then
-        runtime.override_owners = clone_override_owners(m[SAVE_KEY_OVERRIDE_OWNERS])
-    end
     runtime.saved_override_owners = nil
+    -- Note: runtime.override_owners is intentionally not repopulated from
+    -- m[SAVE_KEY_OVERRIDE_OWNERS]. inject_f2f_direct_for_story_npcs runs on
+    -- the next actor_on_update tick (f2f_direct_last_inject_at is reset
+    -- below) and re-establishes valid ownership from a clean slate; carrying
+    -- the saved owners forward only matters for the deferred restore queue
+    -- above, which already captured them.
     -- Drop pending F2F-direct selections from the previous game session; the
     -- captured npc_se/conv references belong to a world that no longer exists
     -- and would otherwise be consumed by the next f2f_direct_init_dialog call.
@@ -1738,6 +1774,48 @@ local function load_state_cb(m)
     f2f_direct_rearm_npcs = {}
     f2f_direct_last_inject_at = -F2F_DIRECT_INJECT_INTERVAL_MS
     runtime.session_ready = true
+end
+
+-- Drains runtime.pending_live_dialog_restore: for each NPC ID we recorded
+-- as having had a panda_f2f_* start_dialog at save time, call
+-- npc_obj:restore_default_start_dialog() the moment the live NPC becomes
+-- resolvable via db.storage / level.object_by_id. The engine persists
+-- set_start_dialog across save/load, and storyline NPCs (meet_dialog == nil)
+-- are NEVER reset by vanilla xr_meet.update() (xr_meet.script:369 only enters
+-- the restore branch when meet_dialog or script_dialog is truthy). Without an
+-- explicit restore, the engine keeps trying to open our dialog after load,
+-- our precondition returns false (no handoff/no candidates), and the engine
+-- segfaults on the dead phrase tree.
+local function drain_pending_live_dialog_restore()
+    local queue = runtime.pending_live_dialog_restore
+    if type(queue) ~= "table" or next(queue) == nil then
+        return
+    end
+
+    for npc_id_key in pairs(queue) do
+        local sid = normalize_npc_id(npc_id_key)
+        if not sid then
+            queue[npc_id_key] = nil
+        else
+            local npc_obj = resolve_live_npc_object(sid)
+            if npc_obj then
+                if type(npc_obj.restore_default_start_dialog) == "function" then
+                    pcall(function() npc_obj:restore_default_start_dialog() end)
+                end
+                if xr_meet and type(xr_meet.restore_dialog) == "function" then
+                    pcall(xr_meet.restore_dialog, sid)
+                end
+                queue[npc_id_key] = nil
+                bridge_debug(
+                    "drain_pending_live_dialog_restore restored npc_id=%s",
+                    tostring(sid)
+                )
+            end
+            -- npc_obj still nil: leave entry queued, retry next frame. Story
+            -- NPCs that live on a different level will simply never resolve
+            -- here, which is fine — they aren't being talked to from here.
+        end
+    end
 end
 
 local function is_actor_dialog_active()
@@ -1783,6 +1861,13 @@ local function actor_on_update_cb()
         local ok, val = pcall(ic.is_panda_ic_shutdown_in_progress)
         if ok and val == true then return end
     end
+
+    -- Drain the deferred restore queue from load_state_cb: undo any
+    -- set_start_dialog("panda_f2f_*") that the engine persisted across the
+    -- save we just loaded. Must run before inject_f2f_direct_for_story_npcs
+    -- so the same NPC isn't re-overridden in the same frame on top of stale
+    -- engine state. Cheap when the queue is empty.
+    drain_pending_live_dialog_restore()
 
     -- Periodic proactive injection: push panda_f2f_direct_dialog into story NPCs
     -- that qualify for F2F-first conversations.  Story NPCs have custom dialog lists
@@ -2738,6 +2823,9 @@ local function get_pending_handoff_for_npc(npc_se)
     end
 
     local function fallback_recent_canonical_within_grace_window(grace_ms)
+        if runtime.session_ready ~= true then
+            return nil
+        end
         local handoffs = rawget(_G, "pda_f2f_handoffs")
         if type(handoffs) ~= "table" or #runtime_ids.canonical_candidates == 0 then
             return nil
@@ -2866,6 +2954,10 @@ local function get_pending_handoff_for_npc(npc_se)
 end
 
 local function has_actionable_handoff_marker_for_npc(npc_se)
+    if runtime.session_ready ~= true then
+        return false, "session_not_ready"
+    end
+
     local function normalize_positive_int(value)
         return normalize_npc_id(value)
     end
