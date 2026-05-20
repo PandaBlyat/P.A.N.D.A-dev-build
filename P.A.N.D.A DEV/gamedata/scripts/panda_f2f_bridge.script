@@ -2122,7 +2122,15 @@ local function evaluate_shared_precondition(precond_key, npc_se, context)
     end
 
     local ctx = context or {}
+    bridge_warn(
+        "DIAG eval_precond before check key=%s channel=%s",
+        tostring(precond_key), tostring(ctx.channel)
+    )
     local ok = api.check_preconditions(precond_key, npc_se, "f2f", ctx) == true
+    bridge_warn(
+        "DIAG eval_precond after check key=%s ok=%s",
+        tostring(precond_key), tostring(ok)
+    )
     local reason = nil
 
     -- Optional richer reason plumbing if shared API grows detailed helpers.
@@ -4105,6 +4113,11 @@ local function dm_add_dialog(state, parent_id, id, phrase_id, cond, act, use_scr
 end
 
 local function build_dialog_tree(dialog, state)
+    bridge_warn(
+        "DIAG build_dialog_tree entry conv_id=%s turn=%s f2f_direct=%s",
+        tostring(state and state.conv_id), tostring(state and state.turn),
+        tostring(state and state.f2f_direct)
+    )
     local token = tostring(time_global and time_global() or math.random(10000, 99999))
     local alloc = make_allocator(0)
     local exit_phrase = "dm_universal_actor_exit"
@@ -5964,8 +5977,16 @@ local function scan_f2f_direct_conversations(npc_se)
                 end
 
                 if precond_ok then
+                    bridge_warn(
+                        "DIAG scan precond_pass cid=%s stem=%s npc_id=%s",
+                        tostring(cid), tostring(stem), tostring(npc_id)
+                    )
                     -- Check F2F entry turn exists for this NPC
                     local f2f_turn = select_f2f_turn(stem, npc_se)
+                    bridge_warn(
+                        "DIAG scan select_f2f_turn cid=%s f2f_turn=%s",
+                        tostring(cid), tostring(f2f_turn)
+                    )
                     local selected = {
                         conv_id = cid,
                         turn = f2f_turn,
@@ -6021,6 +6042,10 @@ local function scan_f2f_direct_conversations(npc_se)
         end
     end
 
+    bridge_warn(
+        "DIAG scan complete npc_id=%s candidates=%s",
+        tostring(npc_id), tostring(#candidates)
+    )
     f2f_direct_cache_set(npc_id, candidates)
     bridge_debug(
         "f2f_direct scan complete npc_id=%s faction=%s candidates=%s",
@@ -6222,6 +6247,7 @@ end
 
 function panda_f2f_bridge.f2f_direct_precondition(...)
     ensure_callbacks_registered()
+    bridge_warn("DIAG f2f_direct_precondition entry")
     if runtime.shutdown_in_progress == true then
         return false
     end
@@ -6289,6 +6315,7 @@ end
 
 function panda_f2f_bridge.f2f_direct_init_dialog(dialog, ...)
     ensure_callbacks_registered()
+    bridge_warn("DIAG f2f_direct_init_dialog entry")
     if runtime.shutdown_in_progress == true then
         return
     end
@@ -6306,6 +6333,7 @@ function panda_f2f_bridge.f2f_direct_init_dialog(dialog, ...)
     end
 
     local npc_id = resolve_server_npc_id(npc_se, "f2f_direct_init_dialog")
+    bridge_warn("DIAG init_dialog resolved npc_id=%s", tostring(npc_id))
     local selected = runtime.f2f_direct_pending[npc_id]
     if not selected then
         -- Fallback: try re-scan
@@ -6316,6 +6344,10 @@ function panda_f2f_bridge.f2f_direct_init_dialog(dialog, ...)
             return
         end
     end
+    bridge_warn(
+        "DIAG init_dialog selected conv_id=%s turn=%s",
+        tostring(selected.conv_id), tostring(selected.turn)
+    )
 
     if reject_f2f_direct_non_entry_turn(npc_id, selected, "init_dialog") then
         return
@@ -6344,7 +6376,9 @@ function panda_f2f_bridge.f2f_direct_init_dialog(dialog, ...)
         npc_id = npc_id,
     }
 
+    bridge_warn("DIAG init_dialog before collect_branches")
     local state = collect_branches(npc_se, synthetic_context)
+    bridge_warn("DIAG init_dialog after collect_branches state=%s", tostring(state ~= nil))
     if not state then
         bridge_warn(
             "f2f_direct_init_dialog reject reason=no_state npc_id=%s conv_id=%s turn=%s",
@@ -6360,7 +6394,12 @@ function panda_f2f_bridge.f2f_direct_init_dialog(dialog, ...)
     state.teardown_in_progress = false
     state.f2f_direct = true  -- Mark as F2F-direct initiated (no PDA handoff)
 
+    bridge_warn("DIAG init_dialog before build_dialog_tree")
     local build_result = build_dialog_tree(dialog, state) or {}
+    bridge_warn(
+        "DIAG init_dialog after build_dialog_tree build_ok=%s",
+        tostring(build_result.build_ok)
+    )
     if build_result.build_ok ~= true then
         bridge_warn(
             "f2f_direct_init_dialog build_failed npc_id=%s conv_id=%s turn=%s",
