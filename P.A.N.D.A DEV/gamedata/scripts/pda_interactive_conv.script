@@ -8595,6 +8595,13 @@ end
 function load_state(m)
     panda_ic_shutdown_in_progress = false
     reset_all_dialog_npc_animation_state("load_state")
+    local bridge_for_route_cleanup = ensure_panda_f2f_bridge()
+    if bridge_for_route_cleanup and type(bridge_for_route_cleanup.scrub_saved_panda_dialog_overrides) == "function" then
+        pcall(bridge_for_route_cleanup.scrub_saved_panda_dialog_overrides, m, "pda_interactive_conv.load_state")
+    end
+    if bridge_for_route_cleanup and type(bridge_for_route_cleanup.clear_current_panda_routes) == "function" then
+        pcall(bridge_for_route_cleanup.clear_current_panda_routes, "pda_interactive_conv.load_state")
+    end
     if m.pda_ic_cooldowns then conv_last_played = m.pda_ic_cooldowns end
     if m.pda_ic_npc_cooldowns then npc_last_used = m.pda_ic_npc_cooldowns end
     if m.pda_npc_relationship_scores then npc_relationship_scores = m.pda_npc_relationship_scores end
@@ -8634,14 +8641,20 @@ function load_state(m)
             end
             i = i - 1
         end
+    else
+        pda_private_log = {}
     end
 
     if m.pda_private_blocked_contacts then
         pda_private_blocked_contacts = m.pda_private_blocked_contacts
+    else
+        pda_private_blocked_contacts = {}
     end
 
     if m.pda_player_chat_online ~= nil then
         pda_player_chat_online = m.pda_player_chat_online
+    else
+        pda_player_chat_online = true
     end
 
     if m.pda_pending_location_refs then
@@ -8717,10 +8730,47 @@ function load_state(m)
             pda_f2f_handoffs = restored_handoffs
         end
     end
-    if pda_f2f_handoffs then
-        _G.pda_f2f_handoffs = pda_f2f_handoffs
-    else
-        _G.pda_f2f_handoffs = nil
+    local function find_loaded_handoff_for_saved_conversation(saved, contact_id)
+        if type(saved) ~= "table" or saved.pending_in_person_continuation ~= true then
+            return nil
+        end
+        if type(pda_f2f_handoffs) ~= "table" then
+            return nil
+        end
+
+        local contact_key = tostring(contact_id or saved.contact_id or "")
+        local saved_token = saved.pending_in_person_token and tostring(saved.pending_in_person_token) or nil
+        local saved_npc = tonumber(saved.npc_id)
+        local saved_conv = tonumber(saved.conv_id)
+        local saved_turn = tonumber(saved.pending_in_person_turn)
+
+        local function matches(handoff)
+            if type(handoff) ~= "table" then
+                return false
+            end
+            if saved_token and tostring(handoff.token or "") == saved_token then
+                return true
+            end
+            return saved_npc
+                and saved_conv
+                and saved_turn
+                and tonumber(handoff.npc_id) == saved_npc
+                and tonumber(handoff.conv_id) == saved_conv
+                and tonumber(handoff.turn) == saved_turn
+        end
+
+        local direct = pda_f2f_handoffs[contact_key]
+        if matches(direct) then
+            return direct
+        end
+
+        for _, handoff in pairs(pda_f2f_handoffs) do
+            if matches(handoff) then
+                return handoff
+            end
+        end
+
+        return nil
     end
 
     local adapter = get_anomaly_artifact_adapter()
@@ -8762,13 +8812,24 @@ function load_state(m)
     end
 
     -- Restore active conversations and rebuild their choices
+    local validated_handoffs = {}
+    local validated_handoff_count = 0
     if m.pda_active_conversations then
         for key, saved in pairs(m.pda_active_conversations) do
             -- Migration: old saves keyed by npc_name; re-key using npc_id if available
             local cid = saved.contact_id or (saved.npc_id and tostring(saved.npc_id)) or key
             saved.contact_id = cid
             if not is_contact_blocked(cid) then
-                if saved.exclusion_inert == true then
+                local pending_handoff = find_loaded_handoff_for_saved_conversation(saved, cid)
+                if saved.pending_in_person_continuation == true and not pending_handoff then
+                    printf(
+                        "PANDA_IC: load_state dropped orphan pending_in_person contact_id=%s npc_id=%s conv_id=%s turn=%s",
+                        tostring(cid),
+                        tostring(saved.npc_id or "nil"),
+                        tostring(saved.conv_id or "nil"),
+                        tostring(saved.pending_in_person_turn or "nil")
+                    )
+                elseif saved.exclusion_inert == true then
                     -- Fan-out loser: thread was already delivered but follow-ups disabled.
                     -- Preserve the entry without re-arming its choices.
                     saved.choices = nil
@@ -8796,12 +8857,81 @@ function load_state(m)
                         saved.npc_refs = normalize_npc_refs(saved.npc_refs)
                         if saved.pending_in_person_continuation == true then
                             clear_pda_choices_for_pending_handoff(saved)
+                            if pending_handoff then
+                                local handoff_key = tostring(pending_handoff.contact_id or cid)
+                                pending_handoff.contact_id = handoff_key
+                                if validated_handoffs[handoff_key] == nil then
+                                    validated_handoff_count = validated_handoff_count + 1
+                                end
+                                validated_handoffs[handoff_key] = pending_handoff
+                            end
                         end
                         active_conversations[cid] = saved
                         CONV = saved  -- last one loaded becomes CONV for compat
                     end
                 end
             end
+        end
+    end
+
+    if type(pda_f2f_handoffs) == "table" then
+        local dropped = 0
+        for _ in pairs(pda_f2f_handoffs) do
+            dropped = dropped + 1
+        end
+        dropped = dropped - validated_handoff_count
+        if dropped > 0 then
+            printf("PANDA_IC: load_state dropped orphan f2f_handoffs=%d", dropped)
+        end
+    end
+
+    if validated_handoff_count > 0 then
+        pda_f2f_handoffs = validated_handoffs
+        _G.pda_f2f_handoffs = pda_f2f_handoffs
+    else
+        pda_f2f_handoffs = nil
+        _G.pda_f2f_handoffs = nil
+    end
+
+    if pda_f2f_handoffs then
+        local bridge = ensure_panda_f2f_bridge()
+        if bridge and type(bridge.reapply_pending_handoff_route) == "function" then
+            for contact_key, handoff in pairs(pda_f2f_handoffs) do
+                if type(handoff) == "table" then
+                    local ok_reapply, reapplied = pcall(bridge.reapply_pending_handoff_route, handoff, "load_state")
+                    if not ok_reapply or reapplied ~= true then
+                        printf(
+                            "PANDA_IC: load_state reapply f2f handoff route failed contact_id=%s npc_id=%s conv_id=%s turn=%s call_ok=%s",
+                            tostring(contact_key),
+                            tostring(handoff.npc_id or "nil"),
+                            tostring(handoff.conv_id or "nil"),
+                            tostring(handoff.turn or "nil"),
+                            tostring(ok_reapply == true)
+                        )
+                        pda_f2f_handoffs[contact_key] = nil
+                        if type(active_conversations[contact_key]) == "table" then
+                            clear_pending_in_person_marker(active_conversations[contact_key])
+                            active_conversations[contact_key] = nil
+                        end
+                    end
+                end
+            end
+        else
+            printf("PANDA_IC: load_state cannot reapply f2f handoff routes: bridge_api_missing")
+        end
+    end
+
+    if type(pda_f2f_handoffs) == "table" then
+        local has_reapplied_handoff = false
+        for _ in pairs(pda_f2f_handoffs) do
+            has_reapplied_handoff = true
+            break
+        end
+        if has_reapplied_handoff then
+            _G.pda_f2f_handoffs = pda_f2f_handoffs
+        else
+            pda_f2f_handoffs = nil
+            _G.pda_f2f_handoffs = nil
         end
     end
 

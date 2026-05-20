@@ -77,6 +77,7 @@ local get_unique_actionable_pending_handoff
 -- function body are assigned further down in the F2F-direct section.
 local F2F_DIRECT_INJECT_INTERVAL_MS = 30 * 1000
 local f2f_direct_injected_npcs = {}   -- [npc_id] = true
+local f2f_direct_rearm_npcs = {}      -- [npc_id] = true; one-shot post-abort direct route rearm
 local f2f_direct_last_inject_at = -F2F_DIRECT_INJECT_INTERVAL_MS
 local f2f_direct_cache = {}           -- forward-declared; populated in the F2F-direct section
 local inject_f2f_direct_for_story_npcs  -- forward declaration; body assigned below
@@ -1258,6 +1259,42 @@ local function restore_live_dialog_defaults(npc_id, source_tag)
     return restored_default == true or cleared_cache == true
 end
 
+local function apply_live_start_dialog(npc_id, dialog_id, source_tag)
+    local sid = normalize_npc_id(npc_id)
+    if not sid or type(dialog_id) ~= "string" or dialog_id == "" then
+        return false
+    end
+
+    local npc_obj, storage = resolve_live_npc_object(sid)
+    local meet_manager = resolve_meet_manager_from_storage(storage)
+    local set_dialog = false
+    local synced_cache = false
+
+    if type(meet_manager) == "table" then
+        meet_manager.startdialog = dialog_id
+        synced_cache = true
+    end
+
+    if npc_obj and type(npc_obj.set_start_dialog) == "function" then
+        local ok_set = pcall(function()
+            npc_obj:set_start_dialog(dialog_id)
+        end)
+        set_dialog = ok_set == true
+    end
+
+    bridge_debug(
+        "apply_live_start_dialog npc_id=%s dialog=%s source=%s obj_present=%s set_dialog=%s synced_cache=%s",
+        tostring(sid),
+        tostring(dialog_id),
+        tostring(source_tag or "unknown"),
+        tostring(npc_obj ~= nil),
+        tostring(set_dialog),
+        tostring(synced_cache)
+    )
+
+    return set_dialog == true or synced_cache == true
+end
+
 local function restore_override_owners(owners, skip_live_restore)
     if type(owners) ~= "table" then
         return false
@@ -1276,6 +1313,57 @@ local function restore_override_owners(owners, skip_live_restore)
     end
 
     return restored_any
+end
+
+local function is_panda_f2f_dialog_id(dialog_id)
+    return type(dialog_id) == "string" and string.find(dialog_id, "^panda_f2f_") ~= nil
+end
+
+local function scrub_saved_panda_dialog_overrides(m, reason)
+    if type(m) ~= "table" then
+        return 0
+    end
+
+    local override_table = m.dialog_override
+    if type(override_table) ~= "table" then
+        return 0
+    end
+
+    local removed = 0
+    for npc_id, rec in pairs(override_table) do
+        local dialog_name = nil
+        if type(rec) == "table" then
+            dialog_name = rec.dialog_name or rec.dialog or rec.dialog_id
+        elseif type(rec) == "string" then
+            dialog_name = rec
+        end
+
+        if is_panda_f2f_dialog_id(dialog_name) then
+            local sid = normalize_npc_id(npc_id)
+            override_table[npc_id] = nil
+            removed = removed + 1
+            if sid and xr_meet and type(xr_meet.restore_dialog) == "function" then
+                pcall(xr_meet.restore_dialog, sid)
+            end
+            if sid then
+                restore_live_dialog_defaults(sid, "scrub_saved_panda_dialog_overrides")
+            end
+        end
+    end
+
+    if removed > 0 then
+        bridge_warn(
+            "scrub_saved_panda_dialog_overrides reason=%s removed=%s",
+            tostring(reason or "unknown"),
+            tostring(removed)
+        )
+    end
+
+    return removed
+end
+
+function panda_f2f_bridge.scrub_saved_panda_dialog_overrides(m, reason)
+    return scrub_saved_panda_dialog_overrides(m, reason)
 end
 
 local function clear_runtime_transient_state()
@@ -1312,6 +1400,33 @@ local function clear_runtime_transient_state()
     runtime.latest_state = nil
     runtime.pending_state = nil
     runtime.active_token = nil
+end
+
+local function scrub_global_f2f_callbacks(reason)
+    local removed = 0
+    for key, value in pairs(_G) do
+        if type(key) == "string"
+            and type(value) == "function"
+            and (
+                string.find(key, "^panda_f2f_bridge_choice_precond_") ~= nil
+                or string.find(key, "^panda_f2f_bridge_choice_action_") ~= nil
+                or string.find(key, "^panda_f2f_bridge_skill_check_") ~= nil
+            )
+        then
+            _G[key] = nil
+            removed = removed + 1
+        end
+    end
+
+    if removed > 0 then
+        bridge_warn(
+            "scrub_global_f2f_callbacks reason=%s removed=%s",
+            tostring(reason or "unknown"),
+            tostring(removed)
+        )
+    end
+
+    return removed
 end
 
 local function clone_override_owners(owners)
@@ -1375,12 +1490,6 @@ local function is_pending_f2f_handoff_override(npc_id, owner_rec)
     return false
 end
 
-local function is_f2f_direct_override(owner_rec)
-    return type(owner_rec) == "table"
-        and owner_rec.owner == "f2f_direct"
-        and tostring(owner_rec.dialog or "") == "panda_f2f_direct_dialog"
-end
-
 local function split_dialog_close_overrides(owners)
     local restore = {}
     local preserve = {}
@@ -1389,7 +1498,7 @@ local function split_dialog_close_overrides(owners)
     end
 
     for npc_id, rec in pairs(owners) do
-        if is_pending_f2f_handoff_override(npc_id, rec) or is_f2f_direct_override(rec) then
+        if is_pending_f2f_handoff_override(npc_id, rec) then
             preserve[npc_id] = rec
         else
             restore[npc_id] = rec
@@ -1399,9 +1508,83 @@ local function split_dialog_close_overrides(owners)
     return restore, preserve
 end
 
+local function filter_persistent_override_owners(owners)
+    local filtered = {}
+    if type(owners) ~= "table" then
+        return filtered
+    end
+
+    for npc_id, rec in pairs(owners) do
+        if is_pending_f2f_handoff_override(npc_id, rec) then
+            filtered[npc_id] = rec
+        end
+    end
+
+    return filtered
+end
+
 local function snapshot_override_owners_for_save()
-    runtime.saved_override_owners = clone_override_owners(runtime.override_owners)
+    runtime.saved_override_owners = filter_persistent_override_owners(runtime.override_owners)
     return runtime.saved_override_owners
+end
+
+local function clear_current_panda_routes(reason)
+    local owners = clone_override_owners(runtime.override_owners)
+    if runtime.shutdown_in_progress == true and next(runtime.saved_override_owners or {}) ~= nil then
+        for npc_id, rec in pairs(runtime.saved_override_owners) do
+            owners[npc_id] = rec
+        end
+    end
+
+    local handoffs = rawget(_G, "pda_f2f_handoffs")
+    if type(handoffs) == "table" then
+        for _, handoff in pairs(handoffs) do
+            if type(handoff) == "table" and handoff.npc_id then
+                owners[tostring(handoff.npc_id)] = {
+                    owner = handoff.route_owner or "pda_handoff_stale",
+                    dialog = handoff.route_dialog or handoff.dialog or HUB_DIALOG_ID,
+                }
+            end
+        end
+    end
+
+    local conversations = rawget(_G, "active_conversations")
+    if type(conversations) == "table" then
+        for _, conv in pairs(conversations) do
+            if type(conv) == "table" and conv.pending_in_person_continuation == true and conv.npc_id then
+                owners[tostring(conv.npc_id)] = {
+                    owner = "pda_handoff_active_conversation_stale",
+                    dialog = conv.pending_in_person_target or HUB_DIALOG_ID,
+                }
+            end
+        end
+    end
+
+    local restored = restore_override_owners(owners)
+    runtime.override_owners = {}
+    runtime.saved_override_owners = nil
+    runtime.f2f_direct_pending = {}
+    f2f_direct_cache = {}
+    f2f_direct_injected_npcs = {}
+    f2f_direct_rearm_npcs = {}
+
+    local count = 0
+    for _ in pairs(owners) do
+        count = count + 1
+    end
+    bridge_warn(
+        "clear_current_panda_routes reason=%s restored=%s count=%s",
+        tostring(reason or "unknown"),
+        tostring(restored == true),
+        tostring(count)
+    )
+
+    return restored == true or count > 0
+end
+
+function panda_f2f_bridge.clear_current_panda_routes(reason)
+    ensure_callbacks_registered()
+    return clear_current_panda_routes(reason)
 end
 
 local function cleanup_all_runtime_handlers()
@@ -1504,17 +1687,17 @@ local function save_state_cb(m)
     if runtime.shutdown_in_progress == true and next(runtime.saved_override_owners or {}) ~= nil then
         owners = runtime.saved_override_owners
     end
-    m[SAVE_KEY_OVERRIDE_OWNERS] = clone_override_owners(owners)
+    m[SAVE_KEY_OVERRIDE_OWNERS] = filter_persistent_override_owners(owners)
     m[SAVE_KEY_HUB_DIALOG_CURSOR] = runtime.hub_dialog_cursor
     m[SAVE_KEY_DIALOG_NODE_CURSOR] = runtime.dialog_node_cursor
 end
 
 local function load_state_cb(m)
-    local saved_override_owners = m[SAVE_KEY_OVERRIDE_OWNERS] or {}
-    runtime.saved_override_owners = nil
     runtime.shutdown_in_progress = false
-    restore_override_owners(saved_override_owners)
+    scrub_saved_panda_dialog_overrides(m, "bridge.load_state")
+    clear_current_panda_routes("load_state:pre_restore")
     clear_runtime_transient_state()
+    scrub_global_f2f_callbacks("load_state")
     runtime.override_owners = {}
     -- Drop pending F2F-direct selections from the previous game session; the
     -- captured npc_se/conv references belong to a world that no longer exists
@@ -1525,6 +1708,7 @@ local function load_state_cb(m)
     runtime.dialog_node_cursor = tonumber(m[SAVE_KEY_DIALOG_NODE_CURSOR]) or 0
     -- Reset F2F-direct injection state so the first actor_on_update triggers a fresh scan
     f2f_direct_injected_npcs = {}
+    f2f_direct_rearm_npcs = {}
     f2f_direct_last_inject_at = -F2F_DIRECT_INJECT_INTERVAL_MS
 end
 
@@ -1576,6 +1760,19 @@ local function actor_on_update_cb()
     -- that qualify for F2F-first conversations.  Story NPCs have custom dialog lists
     -- that don't include character_dialogs.xml, so we must inject via override_dialog.
     local now_ms = time_global and time_global() or 0
+    if next(f2f_direct_rearm_npcs or {}) ~= nil and not is_actor_dialog_active() then
+        local had_rearm = false
+        for _ in pairs(f2f_direct_rearm_npcs) do
+            had_rearm = true
+            break
+        end
+        f2f_direct_rearm_npcs = {}
+        if had_rearm and type(inject_f2f_direct_for_story_npcs) == "function" then
+            f2f_direct_last_inject_at = now_ms
+            inject_f2f_direct_for_story_npcs()
+        end
+    end
+
     if now_ms - f2f_direct_last_inject_at >= F2F_DIRECT_INJECT_INTERVAL_MS then
         f2f_direct_last_inject_at = now_ms
         inject_f2f_direct_for_story_npcs()
@@ -2887,15 +3084,102 @@ function panda_f2f_bridge.hard_route_branch(npc_id, owner_tag, dialog_id)
         )
     end
 
+    local live_applied = false
     if override_applied then
+        live_applied = apply_live_start_dialog(sid, target_dialog, owner_tag or "hard_route_branch")
         runtime.override_owners[tostring(sid)] = {
             owner = owner_tag or "f2f",
             dialog = target_dialog,
             started_at = time_global and time_global() or 0,
         }
     end
+    bridge_debug(
+        "hard_route_branch live_apply npc_id=%s dialog=%s applied=%s",
+        tostring(sid),
+        tostring(target_dialog),
+        tostring(live_applied == true)
+    )
 
     return override_applied == true
+end
+
+function panda_f2f_bridge.reapply_pending_handoff_route(handoff, reason)
+    ensure_callbacks_registered()
+
+    if type(handoff) ~= "table" then
+        return false
+    end
+
+    local sid = normalize_npc_id(handoff.npc_id)
+    if not sid then
+        bridge_debug("reapply_pending_handoff_route: reject reason=bad_npc_id")
+        return false
+    end
+
+    local se = resolve_server_entity_from_id(sid, "reapply_pending_handoff_route")
+    if not se then
+        bridge_warn(
+            "reapply_pending_handoff_route rejected npc_id=%s reason=%s",
+            tostring(sid),
+            "missing_server_object"
+        )
+        return false
+    end
+    if type(se.alive) == "function" then
+        local ok_alive, alive = pcall(function() return se:alive() end)
+        if ok_alive and alive ~= true then
+            bridge_warn(
+                "reapply_pending_handoff_route rejected npc_id=%s reason=%s",
+                tostring(sid),
+                "npc_not_alive"
+            )
+            return false
+        end
+    end
+
+    if not xr_meet or type(xr_meet.override_dialog) ~= "function" then
+        bridge_debug("reapply_pending_handoff_route: reject reason=missing_xr_meet npc_id=%s", tostring(sid))
+        return false
+    end
+
+    local target_dialog = type(handoff.route_dialog) == "string" and handoff.route_dialog ~= "" and handoff.route_dialog
+        or type(handoff.dialog) == "string" and handoff.dialog ~= "" and handoff.dialog
+        or HUB_DIALOG_ID
+    local owner_tag = type(handoff.route_owner) == "string" and handoff.route_owner ~= "" and handoff.route_owner
+        or string.format("f2f_handoff_%s_%s_%s", tostring(handoff.contact_id or sid), tostring(handoff.conv_id or 0), tostring(handoff.turn or 0))
+
+    local ok_override = pcall(xr_meet.override_dialog, sid, target_dialog)
+    if not ok_override then
+        bridge_warn(
+            "reapply_pending_handoff_route failed npc_id=%s dialog=%s reason=%s",
+            tostring(sid),
+            tostring(target_dialog),
+            tostring(reason or "unknown")
+        )
+        return false
+    end
+
+    local live_applied = apply_live_start_dialog(sid, target_dialog, reason or "reapply_pending_handoff_route")
+
+    runtime.override_owners[tostring(sid)] = {
+        owner = owner_tag,
+        dialog = target_dialog,
+        started_at = time_global and time_global() or 0,
+    }
+    f2f_direct_injected_npcs[sid] = nil
+
+    bridge_warn(
+        "reapply_pending_handoff_route npc_id=%s conv_id=%s turn=%s dialog=%s owner=%s reason=%s live_applied=%s",
+        tostring(sid),
+        tostring(handoff.conv_id or "nil"),
+        tostring(handoff.turn or "nil"),
+        tostring(target_dialog),
+        tostring(owner_tag),
+        tostring(reason or "unknown"),
+        tostring(live_applied == true)
+    )
+
+    return true
 end
 
 function panda_f2f_bridge.restore_branch_route(npc_id, owner_tag)
@@ -2960,6 +3244,7 @@ function panda_f2f_bridge.reset_runtime(reason)
     end
 
     cleanup_all_runtime_handlers()
+    scrub_global_f2f_callbacks(reason_s)
 
     local owners_to_restore = runtime.override_owners
     local owners_to_preserve = {}
@@ -2992,6 +3277,7 @@ function panda_f2f_bridge.begin_shutdown_cleanup(reason)
     runtime.shutdown_in_progress = true
 
     cleanup_all_runtime_handlers()
+    scrub_global_f2f_callbacks(reason_s)
 
     local restored = restore_override_owners(runtime.override_owners, true)
     clear_runtime_transient_state()
@@ -4735,9 +5021,11 @@ local function build_dialog_tree(dialog, state)
 
     build_turn(npc_open_id, state.turn, 1, {})
 
-    local root_exit_id = alloc()
-    generated_ids.exit[#generated_ids.exit + 1] = root_exit_id
-    add_logged_exit_node(npc_open_id, root_exit_id, "actor_root_exit")
+    bridge_warn(
+        "build_dialog_tree opener_exit_removed conv_id=%s turn=%s",
+        tostring(state.conv_id or "nil"),
+        tostring(state.turn or "nil")
+    )
 
     local build_ok = (root_ok == true) and (npc_open_ok == true) and (actor_choice_count_added > 0)
     bridge_debug(
@@ -4855,6 +5143,31 @@ function panda_f2f_bridge.on_dialog_closed(npc_or_reason, reason, ...)
     local preserve_resume_handoff = type(state) == "table"
         and state.handoff_present == true
         and (state.branch_committed ~= true or state.resume_handoff_pending == true)
+    local resume_handoff_route = nil
+    if preserve_resume_handoff then
+        local handoff_source = type(state.handoff) == "table" and state.handoff or {}
+        resume_handoff_route = {
+            contact_id = handoff_source.contact_id,
+            npc_id = resolved_npc_id,
+            conv_id = consume_conv_id,
+            turn = consume_turn,
+            dialog = state.handoff_route_dialog
+                or state.route_dialog
+                or handoff_source.route_dialog
+                or handoff_source.dialog
+                or HUB_DIALOG_ID,
+            route_dialog = state.handoff_route_dialog
+                or state.route_dialog
+                or handoff_source.route_dialog
+                or handoff_source.dialog
+                or HUB_DIALOG_ID,
+            route_owner = state.route_restore_owner
+                or state.handoff_route_owner
+                or handoff_source.route_owner,
+            token = consume_token,
+            set_at = consume_set_at,
+        }
+    end
 
     if type(state) == "table" and state.branch_committed ~= true and type(cleanup_noncommit_exit) == "function" then
         bridge_warn(
@@ -4895,26 +5208,34 @@ function panda_f2f_bridge.on_dialog_closed(npc_or_reason, reason, ...)
             and state.f2f_direct == true
             and state.branch_committed ~= true
 
-        if is_f2f_direct_noncommit then
-            -- F2F-direct non-commit: keep the dialog override so Wolf doesn't revert to vanilla.
+        if preserve_resume_handoff then
+            local reapplied = false
+            if type(resume_handoff_route) == "table" then
+                reapplied = panda_f2f_bridge.reapply_pending_handoff_route(resume_handoff_route, "on_dialog_closed:" .. tostring(close_reason)) == true
+            end
+            -- Keep PDA handoff route active so talking again resumes this turn.
             -- If we remove the override here, xr_meet detects the dialog change while is_talking()
-            -- is still true and auto-opens the vanilla dialog.  Keeping the override means the
-            -- next player interaction will still show panda_f2f_direct_dialog; f2f_direct_precondition
-            -- re-populates f2f_direct_pending via a fresh scan (no cooldown since we moved
-            -- record_cooldown to branch commit).
+            -- is still true and auto-opens the vanilla dialog.  Pending story handoffs must own
+            -- the hub route instead, because f2f_direct_precondition rejects while a handoff exists.
             bridge_warn(
-                "teardown f2f_direct_noncommit_keep_override npc_id=%s reason=%s",
-                tostring(resolved_npc_id),
-                tostring(close_reason)
-            )
-        elseif preserve_resume_handoff then
-            bridge_warn(
-                "teardown preserve_resume_handoff npc_id=%s reason=%s conv_id=%s turn=%s token=%s",
+                "teardown preserve_resume_handoff npc_id=%s reason=%s conv_id=%s turn=%s token=%s reapplied=%s",
                 tostring(resolved_npc_id),
                 tostring(close_reason),
                 tostring(consume_conv_id or "nil"),
                 tostring(consume_turn or "nil"),
-                tostring(consume_token or "nil")
+                tostring(consume_token or "nil"),
+                tostring(reapplied == true)
+            )
+        elseif is_f2f_direct_noncommit then
+            runtime.f2f_direct_pending[resolved_npc_id] = nil
+            f2f_direct_cache[resolved_npc_id] = nil
+            f2f_direct_injected_npcs[resolved_npc_id] = nil
+            f2f_direct_rearm_npcs[resolved_npc_id] = true
+            f2f_direct_last_inject_at = -F2F_DIRECT_INJECT_INTERVAL_MS
+            bridge_warn(
+                "teardown f2f_direct_noncommit_restore_deferred npc_id=%s reason=%s",
+                tostring(resolved_npc_id),
+                tostring(close_reason)
             )
         else
             local restore_owner = type(state) == "table" and state.route_restore_owner or nil
@@ -5036,6 +5357,44 @@ function panda_f2f_bridge.on_dialog_closed(npc_or_reason, reason, ...)
     end
 
     panda_f2f_bridge.reset_runtime("on_dialog_closed_finalize:" .. tostring(close_reason))
+end
+
+function panda_f2f_bridge.allow_actor_break_dialog(...)
+    ensure_callbacks_registered()
+
+    local callback_context = build_callback_resolution_context(...)
+    local npc_se = get_partner_npc_se(callback_context) or get_partner_npc_se()
+    local npc_id = resolve_server_npc_id(npc_se, "allow_actor_break_dialog")
+
+    if npc_id then
+        if runtime.f2f_direct_pending[npc_id] then
+            bridge_debug("actor_break_dialog hidden reason=f2f_direct_pending npc_id=%s", tostring(npc_id))
+            return false
+        end
+
+        local owner_rec = runtime.override_owners and runtime.override_owners[tostring(npc_id)] or nil
+        local owner = type(owner_rec) == "table" and tostring(owner_rec.owner or "") or ""
+        local dialog = type(owner_rec) == "table" and tostring(owner_rec.dialog or "") or ""
+        if owner == "f2f_direct"
+            or owner:sub(1, 12) == "f2f_handoff_"
+            or owner:sub(1, 12) == "pda_handoff_"
+            or is_panda_f2f_dialog_id(dialog)
+        then
+            if npc_se and get_pending_handoff_for_npc(npc_se) then
+                bridge_debug("actor_break_dialog hidden reason=panda_handoff_route npc_id=%s", tostring(npc_id))
+                return false
+            end
+            bridge_debug(
+                "actor_break_dialog hidden reason=panda_route npc_id=%s owner=%s dialog=%s",
+                tostring(npc_id),
+                tostring(owner),
+                tostring(dialog)
+            )
+            return false
+        end
+    end
+
+    return true
 end
 
 function panda_f2f_bridge.precondition(...)
@@ -5340,6 +5699,35 @@ local function f2f_direct_cache_set(npc_id, candidates)
     }
 end
 
+local function reject_f2f_direct_non_entry_turn(npc_id, selected, source)
+    if type(selected) ~= "table" then
+        return false
+    end
+
+    local turn = tonumber(selected.turn)
+    if turn == nil or turn <= 1 then
+        return false
+    end
+
+    if npc_id then
+        runtime.f2f_direct_pending[npc_id] = nil
+        f2f_direct_cache[npc_id] = nil
+        f2f_direct_injected_npcs[npc_id] = nil
+        f2f_direct_rearm_npcs[npc_id] = nil
+        panda_f2f_bridge.restore_branch_route(npc_id, nil)
+    end
+
+    bridge_warn(
+        "f2f_direct reject reason=non_entry_turn_requires_handoff npc_id=%s conv_id=%s turn=%s source=%s",
+        tostring(npc_id or "nil"),
+        tostring(selected.conv_id or "nil"),
+        tostring(selected.turn or "nil"),
+        tostring(source or "unknown")
+    )
+
+    return true
+end
+
 local function scan_f2f_direct_conversations(npc_se)
     if not npc_se then
         return {}
@@ -5408,7 +5796,17 @@ local function scan_f2f_direct_conversations(npc_se)
                 if precond_ok then
                     -- Check F2F entry turn exists for this NPC
                     local f2f_turn = select_f2f_turn(stem, npc_se)
-                    if f2f_turn then
+                    local selected = {
+                        conv_id = cid,
+                        turn = f2f_turn,
+                        stem = stem,
+                        faction = faction,
+                        prefix = scan_prefix or nil,
+                    }
+                    if f2f_turn and reject_f2f_direct_non_entry_turn(npc_id, selected, "scan") then
+                        -- Non-entry F2F turns require a real PDA handoff so stale saves
+                        -- cannot open continuation trees through the direct dialog.
+                    elseif f2f_turn then
                         -- Check cooldown
                         local weight = 100
                         local skip = false
@@ -5571,7 +5969,16 @@ inject_f2f_direct_for_story_npcs = function()
 
                                         if not skip then
                                             local f2f_turn = select_f2f_turn(stem, npc_se)
-                                            if f2f_turn then
+                                            local selected = {
+                                                conv_id = cid,
+                                                turn = f2f_turn,
+                                                stem = stem,
+                                                faction = faction,
+                                                prefix = scan_prefix or nil,
+                                            }
+                                            if f2f_turn and reject_f2f_direct_non_entry_turn(npc_id, selected, "inject") then
+                                                -- Non-entry turns are only valid from PDA/F2F handoffs.
+                                            elseif f2f_turn then
                                                 -- Store pending context so init_dialog can consume it
                                                 runtime.f2f_direct_pending[npc_id] = {
                                                     conv_id = cid,
@@ -5585,6 +5992,7 @@ inject_f2f_direct_for_story_npcs = function()
                                                 -- Inject override
                                                 local ok_ov = pcall(xr_meet.override_dialog, npc_id, F2F_DIRECT_DIALOG_ID)
                                                 if ok_ov then
+                                                    apply_live_start_dialog(npc_id, F2F_DIRECT_DIALOG_ID, "inject_f2f_direct")
                                                     runtime.override_owners[tostring(npc_id)] = {
                                                         owner = "f2f_direct",
                                                         dialog = F2F_DIRECT_DIALOG_ID,
@@ -5728,6 +6136,10 @@ function panda_f2f_bridge.f2f_direct_init_dialog(dialog, ...)
             bridge_warn("f2f_direct_init_dialog reject reason=no_selected_conversation npc_id=%s", tostring(npc_id))
             return
         end
+    end
+
+    if reject_f2f_direct_non_entry_turn(npc_id, selected, "init_dialog") then
+        return
     end
 
     -- Clear pending so it's consumed
