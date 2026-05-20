@@ -1333,6 +1333,24 @@ local function is_panda_f2f_dialog_id(dialog_id)
     return type(dialog_id) == "string" and string.find(dialog_id, "^panda_f2f_") ~= nil
 end
 
+-- Stale phrases on persistent CPhraseDialog objects (notably the singleton
+-- panda_f2f_direct_dialog) keep their phrase_script:AddPrecondition("…")
+-- string references alive across save/load. CPhraseDialog has no remove
+-- API, so we cannot drop those phrases — but if their referenced _G
+-- callback is nil when the engine resolves it (after F6/F7 between
+-- precondition return and init_func entry), the engine segfaults in C++.
+-- Install a permanent no-op stub instead of niling. Preconditions returning
+-- false hide the stale phrase; actions ignore the return.
+local function safe_callback_stub()
+    return false
+end
+
+local function nil_safe_global_callback(key)
+    if type(key) == "string" and key ~= "" then
+        _G[key] = safe_callback_stub
+    end
+end
+
 local function scrub_saved_panda_dialog_overrides(m, reason)
     if type(m) ~= "table" then
         return 0
@@ -1417,30 +1435,35 @@ local function clear_runtime_transient_state()
 end
 
 local function scrub_global_f2f_callbacks(reason)
-    local removed = 0
+    local stubbed = 0
     for key, value in pairs(_G) do
         if type(key) == "string"
             and type(value) == "function"
+            and value ~= safe_callback_stub
             and (
                 string.find(key, "^panda_f2f_bridge_choice_precond_") ~= nil
                 or string.find(key, "^panda_f2f_bridge_choice_action_") ~= nil
                 or string.find(key, "^panda_f2f_bridge_skill_check_") ~= nil
             )
         then
-            _G[key] = nil
-            removed = removed + 1
+            -- Replace stale closure with safe stub (NOT nil): the engine may
+            -- still resolve this name from a stale phrase tree on the
+            -- singleton panda_f2f_direct_dialog (CPhraseDialog has no remove
+            -- API). Returning false hides the phrase; niling would segfault.
+            _G[key] = safe_callback_stub
+            stubbed = stubbed + 1
         end
     end
 
-    if removed > 0 then
+    if stubbed > 0 then
         bridge_warn(
-            "scrub_global_f2f_callbacks reason=%s removed=%s",
+            "scrub_global_f2f_callbacks reason=%s stubbed=%s",
             tostring(reason or "unknown"),
-            tostring(removed)
+            tostring(stubbed)
         )
     end
 
-    return removed
+    return stubbed
 end
 
 local function clone_override_owners(owners)
@@ -3058,12 +3081,8 @@ cleanup_state_handlers = function(state)
     -- references to destroyed engine objects can cause freezes during save/load/GC.
     if type(state.handlers) == "table" then
         for _, handler in ipairs(state.handlers) do
-            if handler.cond_name then
-                _G[handler.cond_name] = nil
-            end
-            if handler.act_name then
-                _G[handler.act_name] = nil
-            end
+            nil_safe_global_callback(handler.cond_name)
+            nil_safe_global_callback(handler.act_name)
         end
         state.handlers = {}
     end
