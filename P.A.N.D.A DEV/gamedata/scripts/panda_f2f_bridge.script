@@ -2408,10 +2408,28 @@ end
 
 local function select_f2f_turn(stem, npc_se)
     local registry_raw = get_registry_raw(stem)
+    bridge_warn(
+        "DIAG select_f2f_turn registry stem=%s raw_present=%s raw_len=%s has_schema=%s",
+        tostring(stem),
+        tostring(registry_raw ~= nil and registry_raw ~= ""),
+        tostring(type(registry_raw) == "string" and #registry_raw or 0),
+        tostring(type(registry_raw) == "string"
+            and registry_raw:find("\"schema\"%s*:%s*\"panda_f2f_bridge_registry_v1\"") ~= nil
+            or false)
+    )
     local entry_turns = collect_registry_f2f_turns(registry_raw)
     if #entry_turns == 0 then
+        bridge_warn(
+            "DIAG select_f2f_turn empty_entry_turns_fallback stem=%s returning=1",
+            tostring(stem)
+        )
         return 1
     end
+    bridge_warn(
+        "DIAG select_f2f_turn entry_turns stem=%s turns=%s",
+        tostring(stem),
+        table.concat(entry_turns, ",")
+    )
 
     local runtime_ids = resolve_partner_runtime_ids(npc_se)
     bridge_debug(
@@ -6291,12 +6309,14 @@ function panda_f2f_bridge.f2f_direct_precondition(...)
 
     local candidates = scan_f2f_direct_conversations(npc_se)
     if #candidates == 0 then
+        bridge_warn("DIAG f2f_direct_precondition return=false reason=no_candidates")
         return false
     end
 
     -- Weighted random selection
     local selected = f2f_direct_weighted_select(candidates)
     if not selected then
+        bridge_warn("DIAG f2f_direct_precondition return=false reason=weighted_select_nil")
         return false
     end
 
@@ -6309,6 +6329,10 @@ function panda_f2f_bridge.f2f_direct_precondition(...)
         tostring(selected.conv_id),
         tostring(selected.turn),
         tostring(selected.faction)
+    )
+    bridge_warn(
+        "DIAG f2f_direct_precondition return=true npc_id=%s conv_id=%s turn=%s",
+        tostring(npc_id), tostring(selected.conv_id), tostring(selected.turn)
     )
     return true
 end
