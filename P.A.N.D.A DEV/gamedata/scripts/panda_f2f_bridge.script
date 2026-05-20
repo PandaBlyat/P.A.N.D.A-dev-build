@@ -94,6 +94,11 @@ local runtime = {
     dialog_node_cursor = 0,
     shutdown_in_progress = false,
     callbacks_registered = false,
+    -- Bumped on every load_state/on_game_start so handoffs/conversations created
+    -- during a previous Lua session can be rejected by the fallback paths instead
+    -- of being dereferenced (their npc_se userdata points at destroyed objects).
+    session_token = 0,
+    session_ready = false,
 }
 
 local function make_state_id_from_values(npc_id, conv_id, turn)
@@ -1694,11 +1699,33 @@ end
 
 local function load_state_cb(m)
     runtime.shutdown_in_progress = false
+    -- Bump session token first so any precondition that fires before we finish
+    -- restoring rejects stale handoff records from the previous Lua session.
+    runtime.session_ready = false
+    runtime.session_token = (tonumber(runtime.session_token) or 0) + 1
+    -- Hard-scrub cross-session globals: when the player loads a save without
+    -- restarting the game, _G.pda_f2f_handoffs / _G.active_conversations from
+    -- the previous session survive and contain dead npc_se userdata. Iterating
+    -- those in our fallback paths causes a silent C++ segfault on the next
+    -- storyline-NPC dialog.
+    if type(rawget(_G, "pda_f2f_handoffs")) ~= "nil" then
+        _G.pda_f2f_handoffs = {}
+    end
+    if type(rawget(_G, "active_conversations")) ~= "nil" then
+        _G.active_conversations = {}
+    end
     scrub_saved_panda_dialog_overrides(m, "bridge.load_state")
     clear_current_panda_routes("load_state:pre_restore")
     clear_runtime_transient_state()
     scrub_global_f2f_callbacks("load_state")
     runtime.override_owners = {}
+    -- Restore persisted dialog-override owners. Without this, story NPCs that
+    -- had a pending PDA handoff at save time end up with no owner record, so
+    -- our preconditions try to recover them via stale globals and crash.
+    if m and type(m[SAVE_KEY_OVERRIDE_OWNERS]) == "table" then
+        runtime.override_owners = clone_override_owners(m[SAVE_KEY_OVERRIDE_OWNERS])
+    end
+    runtime.saved_override_owners = nil
     -- Drop pending F2F-direct selections from the previous game session; the
     -- captured npc_se/conv references belong to a world that no longer exists
     -- and would otherwise be consumed by the next f2f_direct_init_dialog call.
@@ -1710,6 +1737,7 @@ local function load_state_cb(m)
     f2f_direct_injected_npcs = {}
     f2f_direct_rearm_npcs = {}
     f2f_direct_last_inject_at = -F2F_DIRECT_INJECT_INTERVAL_MS
+    runtime.session_ready = true
 end
 
 local function is_actor_dialog_active()
@@ -2610,6 +2638,13 @@ local function get_pending_handoff_for_npc(npc_se)
     end
 
     local function fallback_from_global_handoffs()
+        -- If the bridge isn't fully restored yet, refuse to walk the global
+        -- table. _G.pda_f2f_handoffs can hold records whose npc_se userdata
+        -- belongs to a prior Lua session; dereferencing those is a silent
+        -- engine-level crash.
+        if runtime.session_ready ~= true then
+            return nil
+        end
         local handoffs = rawget(_G, "pda_f2f_handoffs")
         local handoff_count = 0
         if type(handoffs) == "table" then
@@ -2626,11 +2661,24 @@ local function get_pending_handoff_for_npc(npc_se)
             return nil
         end
 
+        local current_token = tonumber(runtime.session_token) or 0
         local candidates = {}
         for _, raw_handoff in pairs(handoffs) do
-            local normalized = evaluate_handoff_candidate(raw_handoff, "fallback:pda_f2f_handoffs")
-            if normalized then
-                candidates[#candidates + 1] = normalized
+            local accept = type(raw_handoff) == "table"
+            if accept and raw_handoff.npc_id == nil then
+                accept = false
+            end
+            -- Reject handoffs stamped with a token from a previous session.
+            -- Records created before load_state runs predate the bump.
+            if accept and raw_handoff.session_token ~= nil
+                and tonumber(raw_handoff.session_token) ~= current_token then
+                accept = false
+            end
+            if accept then
+                local ok, normalized = pcall(evaluate_handoff_candidate, raw_handoff, "fallback:pda_f2f_handoffs")
+                if ok and normalized then
+                    candidates[#candidates + 1] = normalized
+                end
             end
         end
 
@@ -2638,11 +2686,18 @@ local function get_pending_handoff_for_npc(npc_se)
     end
 
     local function fallback_from_active_conversations()
+        if runtime.session_ready ~= true then
+            return nil
+        end
+
         local conversations = nil
         if pda_interactive_conv and type(pda_interactive_conv.active_conversations) == "table" then
             conversations = pda_interactive_conv.active_conversations
-        elseif type(rawget(_G, "active_conversations")) == "table" then
-            conversations = active_conversations
+        else
+            local g = rawget(_G, "active_conversations")
+            if type(g) == "table" then
+                conversations = g
+            end
         end
 
         if type(conversations) ~= "table" then
@@ -2651,7 +2706,11 @@ local function get_pending_handoff_for_npc(npc_se)
 
         local candidates = {}
         for contact_id, conv in pairs(conversations) do
-            if type(conv) == "table" and conv.pending_in_person_continuation == true then
+            local accept = type(conv) == "table"
+                and conv.pending_in_person_continuation == true
+                and tonumber(conv.npc_id) ~= nil
+                and tonumber(conv.conv_id) ~= nil
+            if accept then
                 local pending_dialog = conv.pending_in_person_target or HUB_DIALOG_ID
                 local raw_handoff = {
                     npc_id = conv.npc_id,
@@ -2668,8 +2727,8 @@ local function get_pending_handoff_for_npc(npc_se)
                     fallback_name = conv.fallback_name,
                     route_dialog = pending_dialog,
                 }
-                local normalized = evaluate_handoff_candidate(raw_handoff, "fallback:active_conversations")
-                if normalized then
+                local ok, normalized = pcall(evaluate_handoff_candidate, raw_handoff, "fallback:active_conversations")
+                if ok and normalized then
                     candidates[#candidates + 1] = normalized
                 end
             end
@@ -5361,6 +5420,19 @@ end
 
 function panda_f2f_bridge.allow_actor_break_dialog(...)
     ensure_callbacks_registered()
+    -- Bail before any state lookup when the bridge isn't ready or is tearing
+    -- down. Storyline NPCs (Sidorovich, Petrenko, faction starts) run this
+    -- precondition on every dialog open; touching uninitialized state here
+    -- silently crashes the engine.
+    if runtime.shutdown_in_progress == true then
+        return true
+    end
+    if runtime.session_ready ~= true or type(runtime.override_owners) ~= "table" then
+        return true
+    end
+    if not db or not db.actor then
+        return true
+    end
 
     local callback_context = build_callback_resolution_context(...)
     local npc_se = get_partner_npc_se(callback_context) or get_partner_npc_se()
@@ -5400,6 +5472,12 @@ end
 function panda_f2f_bridge.precondition(...)
     ensure_callbacks_registered()
     if runtime.shutdown_in_progress == true then
+        return false
+    end
+    if runtime.session_ready ~= true or type(runtime.override_owners) ~= "table" then
+        return false
+    end
+    if not db or not db.actor then
         return false
     end
     bridge_warn("callback fired entry=hub_precondition name=%s", "panda_f2f_bridge.precondition")
@@ -6053,6 +6131,15 @@ end
 function panda_f2f_bridge.f2f_direct_precondition(...)
     ensure_callbacks_registered()
     if runtime.shutdown_in_progress == true then
+        return false
+    end
+    -- Refuse to participate until load_state has fully restored bridge state.
+    -- Returning false hides our F2F-direct dialog for storyline NPCs for ~1
+    -- frame after load instead of dereferencing dead userdata.
+    if runtime.session_ready ~= true or type(runtime.override_owners) ~= "table" then
+        return false
+    end
+    if not db or not db.actor then
         return false
     end
 
